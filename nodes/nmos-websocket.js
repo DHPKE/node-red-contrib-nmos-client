@@ -38,7 +38,7 @@ module.exports = function(RED) {
                     headers: node.registry.getAuthHeaders(),
                     timeout: 30000,
                     validateStatus: function (status) {
-                        return status >= 200 && status < 500;
+                        return status >= 200 && status < 300;
                     }
                 });
                 
@@ -82,7 +82,7 @@ module.exports = function(RED) {
                     headers: node.registry.getAuthHeaders(),
                     timeout: 10000,
                     validateStatus: function (status) {
-                        return status >= 200 && status < 500;
+                        return (status >= 200 && status < 300) || status === 404;
                     }
                 });
                 
@@ -152,7 +152,7 @@ module.exports = function(RED) {
                     }
                 });
                 
-                ws.on('close', async function(code, reason) {
+                ws.on('close', function(code, reason) {
                     if (!isClosing) {
                         node.status({fill: "yellow", shape: "ring", text: "disconnected"});
                         node.log(`WebSocket closed: ${code} - ${reason}`);
@@ -163,7 +163,9 @@ module.exports = function(RED) {
                         ws = null;
                         
                         if (oldSubId) {
-                            await deleteSubscription(oldSubId);
+                            deleteSubscription(oldSubId).catch(err => {
+                                node.error(`Error deleting subscription on close: ${err.message}`);
+                            });
                         }
                         
                         if (!reconnectTimer) {
@@ -198,7 +200,7 @@ module.exports = function(RED) {
         
         connect();
         
-        node.on('close', async function(done) {
+        node.on('close', function(done) {
             isClosing = true;
             
             if (reconnectTimer) {
@@ -213,12 +215,22 @@ module.exports = function(RED) {
             
             // Delete the subscription to clean up resources
             if (subscriptionId) {
-                await deleteSubscription(subscriptionId);
+                const subId = subscriptionId;
                 subscriptionId = null;
+                deleteSubscription(subId)
+                    .then(() => {
+                        node.status({});
+                        done();
+                    })
+                    .catch(err => {
+                        node.error(`Error deleting subscription on close: ${err.message}`);
+                        node.status({});
+                        done();
+                    });
+            } else {
+                node.status({});
+                done();
             }
-            
-            node.status({});
-            done();
         });
     }
     
