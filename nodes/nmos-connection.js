@@ -73,7 +73,7 @@ module.exports = function(RED) {
                 // - http://device/x-nmos/connection/
                 baseHref = baseHref.replace(/\/(single|bulk).*$/, '');
                 
-                // Remove any version from the path
+                // Remove any version from the path (handles multi-digit versions like v1.10 or v10.0)
                 baseHref = baseHref.replace(/\/v\d+\.\d+\/?$/, '');
                 
                 // Ensure it ends with /connection
@@ -82,6 +82,8 @@ module.exports = function(RED) {
                     const connectionIndex = parts.indexOf('connection');
                     if (connectionIndex !== -1) {
                         baseHref = parts.slice(0, connectionIndex + 1).join('/');
+                    } else {
+                        throw new Error("Invalid connection API href: missing 'connection' in path");
                     }
                 }
                 
