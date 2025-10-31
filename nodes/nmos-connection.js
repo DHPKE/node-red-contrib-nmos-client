@@ -60,15 +60,33 @@ module.exports = function(RED) {
                 node.log(`Device supports IS-05 ${apiVersion}`);
                 
                 let baseHref = control.href;
+                
+                // Remove trailing slash
                 if (baseHref.endsWith('/')) {
                     baseHref = baseHref.slice(0, -1);
                 }
                 
-                // Check if base href already includes version
-                if (!baseHref.includes('/v1.')) {
-                    // Append version to base href
-                    baseHref = baseHref.replace('/connection', `/connection/${apiVersion}`);
+                // Extract the base URL (everything before /single or /bulk)
+                // This handles hrefs like:
+                // - http://device/x-nmos/connection/v1.0/
+                // - http://device/x-nmos/connection/v1.1/
+                // - http://device/x-nmos/connection/
+                baseHref = baseHref.replace(/\/(single|bulk).*$/, '');
+                
+                // Remove any version from the path
+                baseHref = baseHref.replace(/\/v\d+\.\d+\/?$/, '');
+                
+                // Ensure it ends with /connection
+                if (!baseHref.endsWith('/connection')) {
+                    const parts = baseHref.split('/');
+                    const connectionIndex = parts.indexOf('connection');
+                    if (connectionIndex !== -1) {
+                        baseHref = parts.slice(0, connectionIndex + 1).join('/');
+                    }
                 }
+                
+                // Add the correct version from the control type
+                baseHref = `${baseHref}/${apiVersion}`;
                 
                 return {
                     url: `${baseHref}/single/receivers/${receiverId}`,
