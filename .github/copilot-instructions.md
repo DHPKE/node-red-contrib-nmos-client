@@ -2,6 +2,8 @@
 
 This repository provides a complete NMOS (Networked Media Open Specifications) implementation for Node-RED, supporting IS-04, IS-05, IS-07, and IS-12 protocols.
 
+**Note**: IS-08 is listed in package.json keywords but is not currently implemented in this codebase.
+
 ## Project Overview
 
 This is a Node-RED contribution package that provides nodes for NMOS protocol communication in broadcast and media environments. It enables users to:
