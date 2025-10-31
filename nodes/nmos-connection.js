@@ -8,11 +8,93 @@ module.exports = function(RED) {
         this.registry = RED.nodes.getNode(config.registry);
         this.operation = config.operation || 'activate';
         
+        // Cache for resolved names (cleared on deploy)
+        this.nameCache = {
+            receivers: {},
+            senders: {}
+        };
+        
         if (!this.registry) {
             node.error("No NMOS registry configured");
             node.status({fill: "red", shape: "ring", text: "no config"});
             return;
         }
+        
+        const resolveReceiverByName = async (name) => {
+            // Check cache first
+            if (node.nameCache.receivers[name]) {
+                node.log(`Using cached receiver ID for "${name}"`);
+                return node.nameCache.receivers[name];
+            }
+            
+            try {
+                const url = `${node.registry.getQueryApiUrl()}/receivers/`;
+                const response = await axios.get(url, {
+                    headers: node.registry.getAuthHeaders(),
+                    timeout: 10000
+                });
+                
+                const matches = response.data.filter(receiver => receiver.label === name);
+                
+                if (matches.length === 0) {
+                    throw new Error(`Receiver '${name}' not found in registry`);
+                }
+                
+                if (matches.length > 1) {
+                    const matchList = matches.map(r => `  - ${r.label} (ID: ${r.id})`).join('\n');
+                    throw new Error(`Multiple receivers found with name '${name}':\n${matchList}`);
+                }
+                
+                const receiverId = matches[0].id;
+                node.nameCache.receivers[name] = { id: receiverId, label: name };
+                node.log(`Resolved receiver "${name}" to ID ${receiverId}`);
+                return { id: receiverId, label: name };
+                
+            } catch (error) {
+                if (error.message.includes('not found') || error.message.includes('Multiple receivers')) {
+                    throw error;
+                }
+                throw new Error(`Failed to resolve receiver name '${name}': ${error.message}`);
+            }
+        };
+        
+        const resolveSenderByName = async (name) => {
+            // Check cache first
+            if (node.nameCache.senders[name]) {
+                node.log(`Using cached sender ID for "${name}"`);
+                return node.nameCache.senders[name];
+            }
+            
+            try {
+                const url = `${node.registry.getQueryApiUrl()}/senders/`;
+                const response = await axios.get(url, {
+                    headers: node.registry.getAuthHeaders(),
+                    timeout: 10000
+                });
+                
+                const matches = response.data.filter(sender => sender.label === name);
+                
+                if (matches.length === 0) {
+                    throw new Error(`Sender '${name}' not found in registry`);
+                }
+                
+                if (matches.length > 1) {
+                    const matchList = matches.map(s => `  - ${s.label} (ID: ${s.id})`).join('\n');
+                    throw new Error(`Multiple senders found with name '${name}':\n${matchList}`);
+                }
+                
+                const senderId = matches[0].id;
+                node.nameCache.senders[name] = { id: senderId, label: name };
+                node.log(`Resolved sender "${name}" to ID ${senderId}`);
+                return { id: senderId, label: name };
+                
+            } catch (error) {
+                if (error.message.includes('not found') || error.message.includes('Multiple senders')) {
+                    throw error;
+                }
+                throw new Error(`Failed to resolve sender name '${name}': ${error.message}`);
+            }
+        };
         
         const getConnectionAPI = async (receiverId) => {
             try {
@@ -153,11 +235,14 @@ module.exports = function(RED) {
         
         node.on('input', async function(msg) {
             try {
-                let receiverId, senderId, operation, options = {};
+                let receiverId, senderId, receiverName, senderName, operation, options = {};
                 
-                if (msg.receiverId) {
+                // Parse input from msg properties or payload
+                if (msg.receiverId || msg.receiverName) {
                     receiverId = msg.receiverId;
                     senderId = msg.senderId;
+                    receiverName = msg.receiverName;
+                    senderName = msg.senderName;
                     operation = msg.operation || node.operation;
                     options = {
                         master_enable: msg.master_enable,
@@ -171,6 +256,8 @@ module.exports = function(RED) {
                 else if (msg.payload && typeof msg.payload === 'object') {
                     receiverId = msg.payload.receiverId || msg.payload.receiver_id;
                     senderId = msg.payload.senderId || msg.payload.sender_id;
+                    receiverName = msg.payload.receiverName || msg.payload.receiver_name;
+                    senderName = msg.payload.senderName || msg.payload.sender_name;
                     operation = msg.payload.operation || node.operation;
                     options = {
                         master_enable: msg.payload.master_enable,
@@ -182,14 +269,47 @@ module.exports = function(RED) {
                     };
                 }
                 else {
-                    throw new Error("Invalid input: receiverId is required");
+                    throw new Error("Invalid input: receiverId or receiverName is required");
                 }
                 
-                if (!receiverId) {
-                    throw new Error("receiverId is required");
+                // Validate that we have receiver info
+                if (!receiverId && !receiverName) {
+                    throw new Error("receiverId or receiverName is required");
                 }
                 
-                node.status({fill: "blue", shape: "dot", text: `${operation}...`});
+                // Resolve names to IDs
+                let receiverLabel = receiverName;
+                let senderLabel = senderName;
+                
+                if (receiverName && !receiverId) {
+                    node.status({fill: "blue", shape: "dot", text: `resolving receiver...`});
+                    const resolved = await resolveReceiverByName(receiverName);
+                    receiverId = resolved.id;
+                    receiverLabel = resolved.label;
+                }
+                
+                if (senderName && !senderId) {
+                    node.status({fill: "blue", shape: "dot", text: `resolving sender...`});
+                    const resolved = await resolveSenderByName(senderName);
+                    senderId = resolved.id;
+                    senderLabel = resolved.label;
+                }
+                
+                // Build status text with names if available
+                let statusText = operation;
+                if (operation === 'activate' || operation === 'connect') {
+                    if (receiverLabel && senderLabel) {
+                        statusText = `${senderLabel} → ${receiverLabel}`;
+                    } else if (receiverLabel) {
+                        statusText = `connecting ${receiverLabel}`;
+                    }
+                } else if (operation === 'disconnect') {
+                    if (receiverLabel) {
+                        statusText = `disconnecting ${receiverLabel}`;
+                    }
+                }
+                
+                node.status({fill: "blue", shape: "dot", text: `${statusText}...`});
                 
                 // Get connection API and version
                 const connectionInfo = await getConnectionAPI(receiverId);
@@ -217,16 +337,32 @@ module.exports = function(RED) {
                     operation: operation,
                     receiverId: receiverId,
                     senderId: senderId,
+                    receiverName: receiverLabel,
+                    senderName: senderLabel,
                     apiVersion: connectionInfo.version,
                     staged: response.data,
                     connectionAPI: connectionInfo.url
                 };
                 msg.statusCode = response.status;
                 
+                // Build success status text
+                let successText = `${operation} ✓`;
+                if (operation === 'activate' || operation === 'connect') {
+                    if (receiverLabel && senderLabel) {
+                        successText = `${senderLabel} → ${receiverLabel} ✓`;
+                    } else if (receiverLabel) {
+                        successText = `connected ${receiverLabel} ✓`;
+                    }
+                } else if (operation === 'disconnect') {
+                    if (receiverLabel) {
+                        successText = `disconnected ${receiverLabel} ✓`;
+                    }
+                }
+                
                 node.status({
                     fill: "green", 
                     shape: "dot", 
-                    text: `${operation} OK`
+                    text: successText
                 });
                 
                 node.send(msg);

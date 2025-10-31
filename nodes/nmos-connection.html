@@ -41,23 +41,56 @@
 
 <script type="text/html" data-help-name="nmos-connection">
     <p>Simple IS-05 connection management for NMOS senders and receivers.</p>
+    <p>Supports both name-based and ID-based routing for easy configuration.</p>
     
     <h3>Input Examples</h3>
     
-    <p><strong>Connect & Activate:</strong></p>
+    <p><strong>Connect by Name (NEW):</strong></p>
+    <pre>msg.receiverName = "Studio A Camera 1";
+msg.senderName = "Gallery Output 1";
+return msg;</pre>
+    
+    <p><strong>Connect by ID:</strong></p>
     <pre>msg.receiverId = "receiver-uuid";
 msg.senderId = "sender-uuid";
 return msg;</pre>
     
-    <p><strong>Disconnect:</strong></p>
-    <pre>msg.receiverId = "receiver-uuid";
+    <p><strong>Mixed Name and ID:</strong></p>
+    <pre>msg.receiverName = "Studio A Camera 1";
+msg.senderId = "sender-uuid";
+return msg;</pre>
+    
+    <p><strong>Using Payload:</strong></p>
+    <pre>msg.payload = {
+    receiverName: "Studio Camera 1",
+    senderName: "Video Router Output 2",
+    operation: "activate"
+};
+return msg;</pre>
+    
+    <p><strong>Disconnect by Name:</strong></p>
+    <pre>msg.receiverName = "Studio A Camera 1";
 msg.operation = "disconnect";
 return msg;</pre>
+    
+    <h3>Name Resolution</h3>
+    <p>When using names, the node queries the NMOS registry to find matching resources by their <code>label</code> field.</p>
+    <ul>
+        <li>Exact label match is required</li>
+        <li>If multiple resources have the same name, an error is returned with a list of matches</li>
+        <li>Resolved names are cached for better performance</li>
+    </ul>
     
     <h3>Outputs</h3>
     <dl class="message-properties">
         <dt>payload.success <span class="property-type">boolean</span></dt>
         <dd>true if operation succeeded</dd>
+        
+        <dt>payload.receiverName <span class="property-type">string</span></dt>
+        <dd>Name of the receiver (if available)</dd>
+        
+        <dt>payload.senderName <span class="property-type">string</span></dt>
+        <dd>Name of the sender (if available)</dd>
         
         <dt>payload.staged <span class="property-type">object</span></dt>
         <dd>Staged parameters from IS-05 API</dd>
