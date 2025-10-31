@@ -71,7 +71,7 @@ module.exports = function(RED) {
                 // - http://device/x-nmos/connection/v1.0/
                 // - http://device/x-nmos/connection/v1.1/
                 // - http://device/x-nmos/connection/
-                baseHref = baseHref.replace(/\/(single|bulk).*$/, '');
+                baseHref = baseHref.replace(/\/(single|bulk)(?:\/.*)?$/, '');
                 
                 // Remove any version from the path (handles multi-digit versions like v1.10 or v10.0)
                 baseHref = baseHref.replace(/\/v\d+\.\d+\/?$/, '');
