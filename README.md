@@ -36,7 +36,7 @@ Complete NMOS implementation for Node-RED with IS-04, IS-05, and IS-12 support.
 
 **Requirements:**
 - NMOS registry (IS-04)
-- MQTT broker for IS-12 (e.g., Mosquitto)
+- MQTT broker for IS-07 (e.g., Mosquitto)
 
 ## Nodes
 
