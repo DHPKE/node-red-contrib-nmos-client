@@ -30,7 +30,8 @@ module.exports = function(RED) {
             // Check cache first
             if (node.nameCache.receivers[name]) {
                 node.log(`Using cached receiver ID for "${name}"`);
-                return node.nameCache.receivers[name];
+                const cachedId = node.nameCache.receivers[name];
+                return { id: cachedId, label: name };
             }
             
             try {
@@ -55,7 +56,7 @@ module.exports = function(RED) {
                 }
                 
                 const receiverId = matches[0].id;
-                node.nameCache.receivers[name] = { id: receiverId, label: name };
+                node.nameCache.receivers[name] = receiverId;
                 node.log(`Resolved receiver "${name}" to ID ${receiverId}`);
                 return { id: receiverId, label: name };
                 
@@ -71,7 +72,8 @@ module.exports = function(RED) {
             // Check cache first
             if (node.nameCache.senders[name]) {
                 node.log(`Using cached sender ID for "${name}"`);
-                return node.nameCache.senders[name];
+                const cachedId = node.nameCache.senders[name];
+                return { id: cachedId, label: name };
             }
             
             try {
@@ -96,7 +98,7 @@ module.exports = function(RED) {
                 }
                 
                 const senderId = matches[0].id;
-                node.nameCache.senders[name] = { id: senderId, label: name };
+                node.nameCache.senders[name] = senderId;
                 node.log(`Resolved sender "${name}" to ID ${senderId}`);
                 return { id: senderId, label: name };
                 
@@ -289,18 +291,18 @@ module.exports = function(RED) {
                     throw new Error("receiverId or receiverName is required");
                 }
                 
-                // Resolve names to IDs
+                // Resolve names to IDs (ID takes precedence if both provided)
                 let receiverLabel = receiverName;
                 let senderLabel = senderName;
                 
-                if (receiverName && !receiverId) {
+                if (!receiverId && receiverName) {
                     node.status({fill: "blue", shape: "dot", text: `resolving receiver...`});
                     const resolved = await resolveReceiverByName(receiverName);
                     receiverId = resolved.id;
                     receiverLabel = resolved.label;
                 }
                 
-                if (senderName && !senderId) {
+                if (!senderId && senderName) {
                     node.status({fill: "blue", shape: "dot", text: `resolving sender...`});
                     const resolved = await resolveSenderByName(senderName);
                     senderId = resolved.id;
