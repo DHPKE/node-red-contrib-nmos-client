@@ -20,6 +20,12 @@ module.exports = function(RED) {
             return;
         }
         
+        // Clear cache on node close/redeploy
+        node.on('close', function() {
+            node.nameCache.receivers = {};
+            node.nameCache.senders = {};
+        });
+        
         const resolveReceiverByName = async (name) => {
             // Check cache first
             if (node.nameCache.receivers[name]) {
@@ -28,12 +34,15 @@ module.exports = function(RED) {
             }
             
             try {
-                const url = `${node.registry.getQueryApiUrl()}/receivers/`;
+                // Use basic query parameter for label filtering (more compatible than RQL)
+                const encodedName = encodeURIComponent(name);
+                const url = `${node.registry.getQueryApiUrl()}/receivers/?label=${encodedName}`;
                 const response = await axios.get(url, {
                     headers: node.registry.getAuthHeaders(),
                     timeout: 10000
                 });
                 
+                // Still filter client-side for exact match since registry may do partial matching
                 const matches = response.data.filter(receiver => receiver.label === name);
                 
                 if (matches.length === 0) {
@@ -66,12 +75,15 @@ module.exports = function(RED) {
             }
             
             try {
-                const url = `${node.registry.getQueryApiUrl()}/senders/`;
+                // Use basic query parameter for label filtering (more compatible than RQL)
+                const encodedName = encodeURIComponent(name);
+                const url = `${node.registry.getQueryApiUrl()}/senders/?label=${encodedName}`;
                 const response = await axios.get(url, {
                     headers: node.registry.getAuthHeaders(),
                     timeout: 10000
                 });
                 
+                // Still filter client-side for exact match since registry may do partial matching
                 const matches = response.data.filter(sender => sender.label === name);
                 
                 if (matches.length === 0) {
