@@ -1,0 +1,61 @@
+<script type="text/javascript">
+    RED.nodes.registerType('nmos-get-one', {
+        category: 'NMOS',
+        color: '#3FADB5',
+        defaults: {
+            name: {value: ""},
+            registry: {value: "", type: "nmos-config", required: true},
+            resourceType: {value: "devices"}
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "font-awesome/fa-file-o",
+        label: function() {
+            return this.name || `Get ${this.resourceType}`;
+        },
+        labelStyle: function() {
+            return this.name ? "node_label_italic" : "";
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="nmos-get-one">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-registry"><i class="fa fa-server"></i> Registry</label>
+        <input type="text" id="node-input-registry">
+    </div>
+    <div class="form-row">
+        <label for="node-input-resourceType"><i class="fa fa-list"></i> Resource</label>
+        <select id="node-input-resourceType">
+            <option value="nodes">Node</option>
+            <option value="devices">Device</option>
+            <option value="sources">Source</option>
+            <option value="flows">Flow</option>
+            <option value="senders">Sender</option>
+            <option value="receivers">Receiver</option>
+        </select>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="nmos-get-one">
+    <p>Get a single NMOS resource by ID, including full IS-05 connection data for senders/receivers.</p>
+    
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>resourceId <span class="property-type">string</span></dt>
+        <dd>UUID of the resource (can be in msg.resourceId or msg.payload)</dd>
+        
+        <dt class="optional">resourceType <span class="property-type">string</span></dt>
+        <dd>Override configured resource type</dd>
+    </dl>
+    
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>Complete resource data. For senders/receivers, includes IS-05 data: $active, $staged, $constraints, $connectionAPI</dd>
+    </dl>
+</script>

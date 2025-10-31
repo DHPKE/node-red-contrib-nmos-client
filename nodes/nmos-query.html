@@ -1,0 +1,70 @@
+<script type="text/javascript">
+    RED.nodes.registerType('nmos-query', {
+        category: 'NMOS',
+        color: '#3FADB5',
+        defaults: {
+            name: {value: ""},
+            registry: {value: "", type: "nmos-config", required: true},
+            resourceType: {value: "devices"}
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "font-awesome/fa-search",
+        label: function() {
+            return this.name || `Query ${this.resourceType}`;
+        },
+        labelStyle: function() {
+            return this.name ? "node_label_italic" : "";
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="nmos-query">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-registry"><i class="fa fa-server"></i> Registry</label>
+        <input type="text" id="node-input-registry">
+    </div>
+    <div class="form-row">
+        <label for="node-input-resourceType"><i class="fa fa-list"></i> Resource</label>
+        <select id="node-input-resourceType">
+            <option value="nodes">Nodes</option>
+            <option value="devices">Devices</option>
+            <option value="sources">Sources</option>
+            <option value="flows">Flows</option>
+            <option value="senders">Senders</option>
+            <option value="receivers">Receivers</option>
+        </select>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="nmos-query">
+    <p>Query NMOS registry for resources using IS-04 Query API.</p>
+    
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt class="optional">resourceType <span class="property-type">string</span></dt>
+        <dd>Override configured resource type</dd>
+        
+        <dt class="optional">filter <span class="property-type">object</span></dt>
+        <dd>Filter parameters, e.g., <code>{label: "Camera 1"}</code></dd>
+        
+        <dt class="optional">paginationURL <span class="property-type">string</span></dt>
+        <dd>URL for next/prev page</dd>
+    </dl>
+    
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload.data <span class="property-type">array</span></dt>
+        <dd>Array of NMOS resources</dd>
+        
+        <dt>payload.pagination <span class="property-type">object</span></dt>
+        <dd>Pagination links: {next, prev, first, last}</dd>
+        
+        <dt>payload.total <span class="property-type">number</span></dt>
+        <dd>Number of items in current page</dd>
+    </dl>
+</script>

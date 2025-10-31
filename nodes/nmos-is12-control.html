@@ -1,0 +1,148 @@
+<script type="text/javascript">
+    RED.nodes.registerType('nmos-is12-control', {
+        category: 'NMOS',
+        color: '#A6BBCF',
+        defaults: {
+            name: {value: ""},
+            registry: {value: "", type: "nmos-config", required: true},
+            mqttBroker: {value: "mqtt://localhost:1883", required: true},
+            deviceLabel: {value: "Node-RED IS-12 Device", required: true},
+            deviceDescription: {value: "IS-12 Control Device"},
+            controlType: {value: "generic"},
+            deviceId: {value: ""},
+            nodeId: {value: ""}
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "font-awesome/fa-sliders",
+        label: function() {
+            return this.name || this.deviceLabel || "IS-12 Control";
+        },
+        labelStyle: function() {
+            return this.name ? "node_label_italic" : "";
+        },
+        oneditprepare: function() {
+            if (!this.deviceId) {
+                this.deviceId = generateUUID();
+                $("#node-input-deviceId").val(this.deviceId);
+            }
+            if (!this.nodeId) {
+                this.nodeId = generateUUID();
+                $("#node-input-nodeId").val(this.nodeId);
+            }
+            
+            function generateUUID() {
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                });
+            }
+            
+            $("#node-input-regenerate-ids").click(function() {
+                $("#node-input-deviceId").val(generateUUID());
+                $("#node-input-nodeId").val(generateUUID());
+            });
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="nmos-is12-control">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-registry"><i class="fa fa-server"></i> Registry</label>
+        <input type="text" id="node-input-registry">
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-mqttBroker"><i class="fa fa-exchange"></i> MQTT Broker</label>
+        <input type="text" id="node-input-mqttBroker" placeholder="mqtt://localhost:1883">
+        <p style="margin: 5px 0; font-size: 0.9em; color: #999;">MQTT broker URL for IS-12 control transport</p>
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-deviceLabel"><i class="fa fa-tag"></i> Device Label</label>
+        <input type="text" id="node-input-deviceLabel" placeholder="Node-RED IS-12 Device">
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-deviceDescription"><i class="fa fa-info"></i> Description</label>
+        <input type="text" id="node-input-deviceDescription" placeholder="IS-12 Control Device">
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-controlType"><i class="fa fa-cogs"></i> Control Type</label>
+        <select id="node-input-controlType">
+            <option value="generic">Generic</option>
+            <option value="mixer">Audio Mixer</option>
+            <option value="processor">Audio Processor</option>
+            <option value="router">Router</option>
+        </select>
+    </div>
+    
+    <hr/>
+    
+    <div class="form-row">
+        <label for="node-input-nodeId"><i class="fa fa-fingerprint"></i> Node ID</label>
+        <input type="text" id="node-input-nodeId" placeholder="UUID" style="width: 60%;">
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-deviceId"><i class="fa fa-fingerprint"></i> Device ID</label>
+        <input type="text" id="node-input-deviceId" placeholder="UUID" style="width: 60%;">
+    </div>
+    
+    <div class="form-row">
+        <label>&nbsp;</label>
+        <button type="button" id="node-input-regenerate-ids" class="red-ui-button">
+            <i class="fa fa-refresh"></i> Regenerate IDs
+        </button>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="nmos-is12-control">
+    <p>NMOS IS-12 Control Protocol implementation using MQTT transport.</p>
+    
+    <h3>Features</h3>
+    <ul>
+        <li>Registers as IS-12 controllable device with NMOS registry</li>
+        <li>Uses MQTT as transport layer (IS-12 specification)</li>
+        <li>Implements NC (NMOS Control) protocol</li>
+        <li>Provides control model with workers (gain, mute, level)</li>
+        <li>Sends property change notifications</li>
+    </ul>
+    
+    <h3>Control Model</h3>
+    <ul>
+        <li><strong>gain</strong> - Audio gain control (-60 to +12 dB)</li>
+        <li><strong>mute</strong> - Mute switch (true/false)</li>
+        <li><strong>level</strong> - Level meter (read-only, dBFS)</li>
+    </ul>
+    
+    <h3>Inputs</h3>
+    
+    <p><strong>Get state:</strong></p>
+    <pre>msg.payload = { action: "get_state" };</pre>
+    
+    <p><strong>Set property:</strong></p>
+    <pre>msg.payload = {
+    action: "set_property",
+    role: "gain",
+    value: -6.0
+};</pre>
+    
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload.event <span class="property-type">string</span></dt>
+        <dd>"property_changed" when a property is modified</dd>
+        
+        <dt>payload.role <span class="property-type">string</span></dt>
+        <dd>Property role (gain, mute, level)</dd>
+        
+        <dt>payload.value <span class="property-type">any</span></dt>
+        <dd>New property value</dd>
+    </dl>
+</script>

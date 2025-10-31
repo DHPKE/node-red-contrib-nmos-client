@@ -1,0 +1,211 @@
+<script type="text/javascript">
+RED.nodes.registerType('nmos-is07-events',{
+    category: 'NMOS',
+    color: '#9FC5E8',
+    defaults: {
+        name: {value:""},
+        registry: {value:"", type:"nmos-config", required:true},
+        mqttBroker: {value:"mqtt://localhost:1883", required:true},
+        deviceLabel: {value:"Node-RED IS-07 Events"},
+        deviceDescription: {value:"IS-07 Events source"},
+        sourceLabel: {value:"Event Source"},
+        flowLabel: {value:"Event Flow"},
+        eventType: {value:"boolean"},
+        mqttQos: {value:0},
+        mqttCleanSession: {value:true},
+        nodeId: {value:""},
+        deviceId: {value:""},
+        sourceId: {value:""},
+        flowId: {value:""}
+    },
+    inputs:1,
+    outputs:1,
+    icon: "font-awesome/fa-bolt",
+    label: function() {
+        return this.name || this.deviceLabel || "IS-07 Events";
+    },
+    oneditprepare: function() {
+        if (!this.nodeId) this.nodeId = generateUUID();
+        if (!this.deviceId) this.deviceId = generateUUID();
+        if (!this.sourceId) this.sourceId = generateUUID();
+        if (!this.flowId) this.flowId = generateUUID();
+        
+        $("#node-input-nodeId").val(this.nodeId);
+        $("#node-input-deviceId").val(this.deviceId);
+        $("#node-input-sourceId").val(this.sourceId);
+        $("#node-input-flowId").val(this.flowId);
+        
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+        
+        $("#node-input-regenerate-ids").click(function() {
+            $("#node-input-nodeId").val(generateUUID());
+            $("#node-input-deviceId").val(generateUUID());
+            $("#node-input-sourceId").val(generateUUID());
+            $("#node-input-flowId").val(generateUUID());
+        });
+    }
+});
+</script>
+
+<script type="text/html" data-template-name="nmos-is07-events">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-registry"><i class="fa fa-server"></i> Registry</label>
+        <input type="text" id="node-input-registry">
+    </div>
+    <div class="form-row">
+        <label for="node-input-mqttBroker"><i class="fa fa-exchange"></i> MQTT Broker</label>
+        <input type="text" id="node-input-mqttBroker" placeholder="mqtt://localhost:1883">
+    </div>
+    
+    <hr/>
+    <h4>Device Configuration</h4>
+    
+    <div class="form-row">
+        <label for="node-input-deviceLabel"><i class="fa fa-tag"></i> Device Label</label>
+        <input type="text" id="node-input-deviceLabel">
+    </div>
+    <div class="form-row">
+        <label for="node-input-deviceDescription"><i class="fa fa-info"></i> Description</label>
+        <input type="text" id="node-input-deviceDescription">
+    </div>
+    <div class="form-row">
+        <label for="node-input-sourceLabel"><i class="fa fa-tag"></i> Source Label</label>
+        <input type="text" id="node-input-sourceLabel">
+    </div>
+    <div class="form-row">
+        <label for="node-input-flowLabel"><i class="fa fa-tag"></i> Flow Label</label>
+        <input type="text" id="node-input-flowLabel">
+    </div>
+    
+    <hr/>
+    <h4>Event Configuration</h4>
+    
+    <div class="form-row">
+        <label for="node-input-eventType"><i class="fa fa-tag"></i> Event Type</label>
+        <select id="node-input-eventType">
+            <option value="boolean">Boolean</option>
+            <option value="string">String</option>
+            <option value="number">Number</option>
+            <option value="enum">Enum</option>
+            <option value="object">Object</option>
+        </select>
+    </div>
+    
+    <hr/>
+    <h4>MQTT Settings</h4>
+    
+    <div class="form-row">
+        <label for="node-input-mqttQos"><i class="fa fa-certificate"></i> QoS Level</label>
+        <select id="node-input-mqttQos">
+            <option value="0">0 - At most once</option>
+            <option value="1">1 - At least once</option>
+            <option value="2">2 - Exactly once</option>
+        </select>
+    </div>
+    <div class="form-row">
+        <label>&nbsp;</label>
+        <input type="checkbox" id="node-input-mqttCleanSession" style="display: inline-block; width: auto; vertical-align: top;">
+        <label for="node-input-mqttCleanSession" style="width: 70%;">Clean Session</label>
+    </div>
+    
+    <hr/>
+    <h4>Resource IDs</h4>
+    
+    <div class="form-row">
+        <label for="node-input-nodeId"><i class="fa fa-fingerprint"></i> Node ID</label>
+        <input type="text" id="node-input-nodeId">
+    </div>
+    <div class="form-row">
+        <label for="node-input-deviceId"><i class="fa fa-fingerprint"></i> Device ID</label>
+        <input type="text" id="node-input-deviceId">
+    </div>
+    <div class="form-row">
+        <label for="node-input-sourceId"><i class="fa fa-fingerprint"></i> Source ID</label>
+        <input type="text" id="node-input-sourceId">
+    </div>
+    <div class="form-row">
+        <label for="node-input-flowId"><i class="fa fa-fingerprint"></i> Flow ID</label>
+        <input type="text" id="node-input-flowId">
+    </div>
+    <div class="form-row">
+        <label>&nbsp;</label>
+        <button type="button" id="node-input-regenerate-ids" class="red-ui-button">
+            <i class="fa fa-refresh"></i> Regenerate All IDs
+        </button>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="nmos-is07-events">
+    <p>NMOS IS-07 Event & Tally transport using MQTT (full spec compliance).</p>
+    
+    <h3>Features</h3>
+    <ul>
+        <li>Publishes to: <code>x-nmos/events/1.0/{source_id}/{event_type}</code></li>
+        <li>State messages (rebootstrap) with retained flag</li>
+        <li>Event messages (deltas) with pre/post values</li>
+        <li>IS-04 registration (node, device, source, flow)</li>
+        <li>Grain message format with TAI timestamps</li>
+        <li>Property state tracking</li>
+    </ul>
+    
+    <h3>Input Actions</h3>
+    
+    <p><strong>Get State:</strong></p>
+    <pre>msg.payload = { action: "get_state" };</pre>
+    
+    <p><strong>Send State (Rebootstrap):</strong></p>
+    <pre>msg.payload = { action: "send_state" };</pre>
+    
+    <p><strong>Send Event (Delta):</strong></p>
+    <pre>msg.payload = {
+    action: "send_event",
+    path: "tally/red",
+    pre: false,
+    post: true
+};</pre>
+    
+    <p><strong>Set Property (Update & Publish):</strong></p>
+    <pre>msg.payload = {
+    action: "set_property",
+    path: "tally/red",
+    value: true
+};</pre>
+    
+    <h3>Outputs</h3>
+    <p>Outputs IS-07 grain messages received from other sources:</p>
+    <pre>{
+    "grain_type": "event",
+    "source_id": "uuid",
+    "flow_id": "uuid",
+    "origin_timestamp": "TAI",
+    "grain": {
+        "type": "urn:x-nmos:format:data.event",
+        "topic": "topic/path",
+        "data": [
+            {
+                "path": "property/path",
+                "pre": previous_value,
+                "post": new_value
+            }
+        ]
+    }
+}</pre>
+    
+    <h3>MQTT Topics</h3>
+    <ul>
+        <li><strong>Publish:</strong> <code>x-nmos/events/1.0/{source_id}/{event_type}</code></li>
+        <li><strong>Subscribe:</strong> <code>x-nmos/events/1.0/+/+</code> (all events)</li>
+    </ul>
+    
+    <h3>Reference</h3>
+    <p>NMOS IS-07: <a href="https://specs.amwa.tv/is-07/" target="_blank">specs.amwa.tv/is-07/</a></p>
+</script>

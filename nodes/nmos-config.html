@@ -1,0 +1,87 @@
+<script type="text/javascript">
+    RED.nodes.registerType('nmos-config', {
+        category: 'config',
+        defaults: {
+            name: {value: ""},
+            registryUrl: {value: "http://localhost:8870", required: true},
+            queryApiVersion: {value: "v1.3", required: true},
+            connectionApiVersion: {value: "v1.1", required: true},
+            useRql: {value: true},
+            pagingLimit: {value: 10, validate: RED.validators.number()}
+        },
+        credentials: {
+            username: {type: "text"},
+            password: {type: "password"},
+            token: {type: "password"}
+        },
+        label: function() {
+            return this.name || this.registryUrl || "NMOS Registry";
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="nmos-config">
+    <div class="form-row">
+        <label for="node-config-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-config-input-name" placeholder="My NMOS Registry">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-registryUrl"><i class="fa fa-server"></i> Registry URL</label>
+        <input type="text" id="node-config-input-registryUrl" placeholder="http://localhost:8870">
+        <p style="margin: 5px 0; font-size: 0.9em; color: #999;">Example: http://192.168.1.100:8870</p>
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-queryApiVersion"><i class="fa fa-code"></i> Query API</label>
+        <select id="node-config-input-queryApiVersion">
+            <option value="v1.0">v1.0</option>
+            <option value="v1.1">v1.1</option>
+            <option value="v1.2">v1.2</option>
+            <option value="v1.3">v1.3</option>
+        </select>
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-connectionApiVersion"><i class="fa fa-code"></i> Connection API</label>
+        <select id="node-config-input-connectionApiVersion">
+            <option value="v1.0">v1.0</option>
+            <option value="v1.1">v1.1</option>
+        </select>
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-useRql">&nbsp;</label>
+        <input type="checkbox" id="node-config-input-useRql" style="display: inline-block; width: auto; vertical-align: top;">
+        <label for="node-config-input-useRql" style="width: 70%;">Use RQL (Resource Query Language)</label>
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-pagingLimit"><i class="fa fa-list"></i> Paging Limit</label>
+        <input type="number" id="node-config-input-pagingLimit" placeholder="10" min="1" max="1000">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-username"><i class="fa fa-user"></i> Username</label>
+        <input type="text" id="node-config-input-username">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-password"><i class="fa fa-lock"></i> Password</label>
+        <input type="password" id="node-config-input-password">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-token"><i class="fa fa-key"></i> Bearer Token</label>
+        <input type="password" id="node-config-input-token">
+    </div>
+</script>
+
+<script type="text/html" data-help-name="nmos-config">
+    <p>Configuration node for NMOS Registry connection.</p>
+    <h3>Settings</h3>
+    <dl class="message-properties">
+        <dt>Registry URL</dt>
+        <dd>Base URL of the NMOS registry (without /x-nmos/query)</dd>
+        <dt>Query API</dt>
+        <dd>IS-04 Query API version (v1.0 - v1.3)</dd>
+        <dt>Connection API</dt>
+        <dd>IS-05 Connection API version (v1.0 - v1.1)</dd>
+        <dt>Use RQL</dt>
+        <dd>Enable Resource Query Language for advanced filtering</dd>
+        <dt>Authentication</dt>
+        <dd>Optional: Username/Password (Basic Auth) or Bearer Token</dd>
+    </dl>
+</script>

@@ -1,0 +1,61 @@
+<script type="text/javascript">
+    RED.nodes.registerType('nmos-websocket', {
+        category: 'NMOS',
+        color: '#3FADB5',
+        defaults: {
+            name: {value: ""},
+            registry: {value: "", type: "nmos-config", required: true},
+            resourceType: {value: "devices"}
+        },
+        inputs: 0,
+        outputs: 1,
+        icon: "font-awesome/fa-rss",
+        label: function() {
+            return this.name || `WS ${this.resourceType}`;
+        },
+        labelStyle: function() {
+            return this.name ? "node_label_italic" : "";
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="nmos-websocket">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-registry"><i class="fa fa-server"></i> Registry</label>
+        <input type="text" id="node-input-registry">
+    </div>
+    <div class="form-row">
+        <label for="node-input-resourceType"><i class="fa fa-list"></i> Resource</label>
+        <select id="node-input-resourceType">
+            <option value="nodes">Nodes</option>
+            <option value="devices">Devices</option>
+            <option value="sources">Sources</option>
+            <option value="flows">Flows</option>
+            <option value="senders">Senders</option>
+            <option value="receivers">Receivers</option>
+        </select>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="nmos-websocket">
+    <p>Subscribe to real-time NMOS resource updates via WebSocket (IS-04 Query API).</p>
+    
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>Grain message containing resource updates</dd>
+        
+        <dt>topic <span class="property-type">string</span></dt>
+        <dd>Resource type being monitored</dd>
+        
+        <dt>subscriptionId <span class="property-type">string</span></dt>
+        <dd>WebSocket subscription ID</dd>
+    </dl>
+    
+    <h3>Details</h3>
+    <p>Automatically reconnects on connection loss (5 second delay).</p>
+</script>

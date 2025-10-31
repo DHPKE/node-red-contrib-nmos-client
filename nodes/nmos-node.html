@@ -1,0 +1,141 @@
+<script type="text/javascript">
+    RED.nodes.registerType('nmos-node', {
+        category: 'NMOS',
+        color: '#3FADB5',
+        defaults: {
+            name: {value: ""},
+            registry: {value: "", type: "nmos-config", required: true},
+            nodeLabel: {value: "Node-RED NMOS Node", required: true},
+            nodeDescription: {value: "NMOS Node implemented in Node-RED"},
+            httpPort: {value: 1880, required: true, validate: RED.validators.number()},
+            nodeId: {value: ""},
+            deviceId: {value: ""},
+            receiverId: {value: ""}
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "font-awesome/fa-cube",
+        label: function() {
+            return this.name || this.nodeLabel || "NMOS Node";
+        },
+        labelStyle: function() {
+            return this.name ? "node_label_italic" : "";
+        },
+        oneditprepare: function() {
+            if (!this.nodeId) {
+                this.nodeId = generateUUID();
+                $("#node-input-nodeId").val(this.nodeId);
+            }
+            if (!this.deviceId) {
+                this.deviceId = generateUUID();
+                $("#node-input-deviceId").val(this.deviceId);
+            }
+            if (!this.receiverId) {
+                this.receiverId = generateUUID();
+                $("#node-input-receiverId").val(this.receiverId);
+            }
+            
+            function generateUUID() {
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                });
+            }
+            
+            $("#node-input-regenerate-ids").click(function() {
+                $("#node-input-nodeId").val(generateUUID());
+                $("#node-input-deviceId").val(generateUUID());
+                $("#node-input-receiverId").val(generateUUID());
+            });
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="nmos-node">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-registry"><i class="fa fa-server"></i> Registry</label>
+        <input type="text" id="node-input-registry">
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-nodeLabel"><i class="fa fa-tag"></i> Node Label</label>
+        <input type="text" id="node-input-nodeLabel" placeholder="Node-RED NMOS Node">
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-nodeDescription"><i class="fa fa-info"></i> Description</label>
+        <input type="text" id="node-input-nodeDescription" placeholder="NMOS Node description">
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-httpPort"><i class="fa fa-plug"></i> HTTP Port</label>
+        <input type="number" id="node-input-httpPort" placeholder="1880" min="1" max="65535">
+        <p style="margin: 5px 0; font-size: 0.9em; color: #999;">Port where Node-RED is running (for IS-05 API)</p>
+    </div>
+    
+    <hr/>
+    
+    <div class="form-row">
+        <label for="node-input-nodeId"><i class="fa fa-fingerprint"></i> Node ID</label>
+        <input type="text" id="node-input-nodeId" placeholder="UUID" style="width: 60%;">
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-deviceId"><i class="fa fa-fingerprint"></i> Device ID</label>
+        <input type="text" id="node-input-deviceId" placeholder="UUID" style="width: 60%;">
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-receiverId"><i class="fa fa-fingerprint"></i> Receiver ID</label>
+        <input type="text" id="node-input-receiverId" placeholder="UUID" style="width: 60%;">
+    </div>
+    
+    <div class="form-row">
+        <label>&nbsp;</label>
+        <button type="button" id="node-input-regenerate-ids" class="red-ui-button">
+            <i class="fa fa-refresh"></i> Regenerate All IDs
+        </button>
+        <p style="margin: 5px 0; font-size: 0.9em; color: #999;">Generate new UUIDs for all resources</p>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="nmos-node">
+    <p>A fully functional NMOS Node that registers itself with an NMOS registry and exposes an IS-05 Connection API for routing.</p>
+    
+    <h3>Features</h3>
+    <ul>
+        <li>Automatically registers Node, Device, and Receiver with NMOS registry (IS-04)</li>
+        <li>Exposes IS-05 Connection API for routing</li>
+        <li>Sends heartbeats to keep registration alive</li>
+        <li>Outputs connection events when routes are established</li>
+        <li>Can be discovered and routed by NMOS controllers</li>
+    </ul>
+    
+    <h3>Outputs</h3>
+    <p>The node outputs messages when connections are activated:</p>
+    <dl class="message-properties">
+        <dt>payload.event <span class="property-type">string</span></dt>
+        <dd>"connection_activated" or "disconnected"</dd>
+        
+        <dt>payload.sender_id <span class="property-type">string</span></dt>
+        <dd>UUID of the connected sender</dd>
+        
+        <dt>payload.sdp <span class="property-type">string</span></dt>
+        <dd>SDP file content</dd>
+    </dl>
+    
+    <h3>Inputs</h3>
+    <p><strong>Get state:</strong></p>
+    <pre>msg.payload = { action: "get_state" };</pre>
+    
+    <p><strong>Disconnect:</strong></p>
+    <pre>msg.payload = { action: "disconnect" };</pre>
+    
+    <p><strong>Re-register:</strong></p>
+    <pre>msg.payload = { action: "re-register" };</pre>
+</script>
