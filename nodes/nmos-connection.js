@@ -14,6 +14,52 @@ module.exports = function(RED) {
             return;
         }
         
+        // Resolve resource name to UUID if needed
+        const resolveResourceId = async (identifier, resourceType) => {
+            if (!identifier) {
+                return null;
+            }
+            
+            // Check if identifier is already a UUID (format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+            const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            if (uuidPattern.test(identifier)) {
+                return identifier; // Already a UUID
+            }
+            
+            // Identifier is a name/label, need to query for it
+            try {
+                node.status({fill: "blue", shape: "dot", text: `resolving ${resourceType}...`});
+                
+                const encodeRQLNameChars = (str) => {
+                    return encodeURIComponent(str.toString()).replace(/[!'()]/g, c => {
+                        return '%' + c.charCodeAt(0).toString(16);
+                    });
+                };
+                
+                const encodedName = encodeRQLNameChars(identifier);
+                const queryUrl = `${node.registry.getQueryApiUrl()}/${resourceType}/?query.rql=eq(label,string:${encodedName})`;
+                
+                const response = await axios.get(queryUrl, {
+                    headers: node.registry.getAuthHeaders(),
+                    timeout: 10000
+                });
+                
+                if (response.data && response.data.length > 0) {
+                    if (response.data.length > 1) {
+                        node.warn(`Multiple ${resourceType} found with label "${identifier}", using first match`);
+                    }
+                    return response.data[0].id;
+                } else {
+                    throw new Error(`No ${resourceType} found with label "${identifier}"`);
+                }
+            } catch (error) {
+                if (error.response) {
+                    throw new Error(`Failed to resolve ${resourceType} "${identifier}": HTTP ${error.response.status}`);
+                }
+                throw new Error(`Failed to resolve ${resourceType} "${identifier}": ${error.message}`);
+            }
+        };
+        
         const getConnectionAPI = async (receiverId) => {
             try {
                 const receiverUrl = `${node.registry.getQueryApiUrl()}/receivers/${receiverId}`;
@@ -209,16 +255,20 @@ module.exports = function(RED) {
                     throw new Error("receiverId is required");
                 }
                 
+                // Resolve receiver and sender IDs (can be names or UUIDs)
+                const resolvedReceiverId = await resolveResourceId(receiverId, 'receivers');
+                const resolvedSenderId = senderId ? await resolveResourceId(senderId, 'senders') : null;
+                
                 node.status({fill: "blue", shape: "dot", text: `${operation}...`});
                 
                 // Get connection API and version
-                const connectionInfo = await getConnectionAPI(receiverId);
+                const connectionInfo = await getConnectionAPI(resolvedReceiverId);
                 const stagedUrl = `${connectionInfo.url}/staged`;
                 
                 node.log(`Using IS-05 ${connectionInfo.version} API`);
                 node.log(`PATCH URL: ${stagedUrl}`);
                 
-                const patchPayload = buildPatchPayload(operation, senderId, options, connectionInfo.version);
+                const patchPayload = buildPatchPayload(operation, resolvedSenderId, options, connectionInfo.version);
                 
                 node.status({fill: "blue", shape: "dot", text: "sending..."});
                 
@@ -235,8 +285,10 @@ module.exports = function(RED) {
                 msg.payload = {
                     success: true,
                     operation: operation,
-                    receiverId: receiverId,
-                    senderId: senderId,
+                    receiverId: resolvedReceiverId,
+                    senderId: resolvedSenderId,
+                    receiverName: receiverId !== resolvedReceiverId ? receiverId : undefined,
+                    senderName: senderId && senderId !== resolvedSenderId ? senderId : undefined,
                     apiVersion: connectionInfo.version,
                     staged: response.data,
                     connectionAPI: connectionInfo.url
