@@ -94,58 +94,33 @@ module.exports = function(RED) {
         const node = this;
         
         this.registry = RED.nodes.getNode(config.registry);
-        this.group = config.group;
-        this.width = config.width || 12;
-        this.height = config.height || 8;
-        
-        // Get Dashboard 2 plugin
-        const ui = RED.plugins.get('node-red-dashboard-2');
         
         if (!this.registry) {
             node.error("No NMOS registry configured");
             node.status({fill: "red", shape: "ring", text: "no config"});
             return;
         }
+
+        // Get the group node (required for FlowFuse Dashboard)
+        const group = RED.nodes.getNode(config.group);
         
-        if (!ui) {
-            node.error("Dashboard 2 plugin not found");
-            node.status({fill: "red", shape: "ring", text: "no dashboard"});
-            return;
-        }
-        
-        if (!this.group) {
+        if (!group) {
             node.error("No Dashboard group configured");
             node.status({fill: "red", shape: "ring", text: "no group"});
             return;
         }
-        
-        // Get the group node
-        const group = RED.nodes.getNode(this.group);
-        if (!group) {
-            node.error("Dashboard group not found");
-            node.status({fill: "red", shape: "ring", text: "group error"});
-            return;
-        }
-        
-        // Widget configuration
-        const widgetConfig = {
-            type: 'nmos-matrix-ui',
-            props: {
-                props: {
-                    registry: config.registry
-                }
-            }
-        };
-        
-        // Helper function to process messages
-        const processMessage = async function(msg, fromUI = false) {
-            try {
-                // Handle routing actions from the UI
+
+        // Define event handlers for FlowFuse Dashboard
+        const evts = {
+            onAction: true, // Enable action events from UI
+            onInput: function (msg, send) {
+                // Handle messages coming INTO the node
                 if (msg.payload && msg.payload.action === 'route') {
                     const { receiverId, senderId, operation } = msg.payload;
                     
                     if (!receiverId) {
-                        throw new Error("receiverId is required for routing");
+                        node.error("receiverId is required for routing");
+                        return;
                     }
                     
                     node.status({fill: "blue", shape: "dot", text: "routing..."});
@@ -157,73 +132,34 @@ module.exports = function(RED) {
                         operation: operation || (senderId ? 'activate' : 'disconnect')
                     };
                     
-                    node.send(routingMsg);
+                    send(routingMsg);
                     
-                    // Set status based on operation
                     setTimeout(() => {
                         node.status({fill: "green", shape: "dot", text: "ready"});
                     }, 2000);
                     
                 } else if (msg.payload && msg.payload.action === 'refresh') {
-                    // Handle refresh action
                     node.status({fill: "blue", shape: "ring", text: "refreshing..."});
-                    
-                    // If from UI, no need to notify UI again
-                    // If from flow, UI will be notified via onInput handler
-                    
                     setTimeout(() => {
                         node.status({fill: "green", shape: "dot", text: "ready"});
                     }, 1000);
-                    
-                } else {
-                    // Pass through other messages
-                    node.send(msg);
                 }
                 
-            } catch (error) {
-                node.status({fill: "red", shape: "ring", text: "error"});
-                node.error(error.message, msg);
-                
-                // Send error message
-                msg.payload = {
-                    success: false,
-                    error: error.message
-                };
-                node.send(msg);
-            }
-        };
-        
-        // Event handlers for Dashboard 2
-        const evts = {
-            onInput: function(msg) {
-                // Handle incoming messages from Node-RED flows to forward to the UI
-                if (ui) {
-                    ui.emit('msg-input:' + node.id, msg);
+                // Pass through if configured
+                if (config.passthru) {
+                    send(msg);
                 }
             },
-            onAction: function(msg) {
-                // Handle actions from the UI widget directly
-                processMessage(msg, true);
+            beforeSend: function (msg) {
+                // Process messages before sending to frontend
+                return msg;
             }
         };
-        
-        // Register widget with Dashboard 2
-        ui.register(group, node, widgetConfig, evts);
+
+        // Register with FlowFuse Dashboard group
+        group.register(node, config, evts);
         
         node.status({fill: "green", shape: "dot", text: "ready"});
-        
-        node.on('input', async function(msg) {
-            // Process messages from Node-RED flows
-            await processMessage(msg, false);
-        });
-        
-        node.on('close', function() {
-            // Deregister widget from Dashboard 2
-            if (ui) {
-                ui.deregister(node);
-            }
-            node.status({});
-        });
     }
     
     RED.nodes.registerType("nmos-matrix-ui", NMOSMatrixUINode);

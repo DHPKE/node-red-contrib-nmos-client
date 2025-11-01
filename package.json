@@ -38,6 +38,14 @@
       "nmos-matrix-ui": "ui/index.js"
     }
   },
+  "node-red-dashboard-2": {
+    "widgets": {
+      "nmos-matrix": {
+        "output": "ui/components/NmosMatrix.vue",
+        "component": "NmosMatrix"
+      }
+    }
+  },
   "author": "DHPKE",
   "license": "Apache-2.0",
   "dependencies": {
