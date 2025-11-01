@@ -5,7 +5,9 @@
         defaults: {
             name: {value: ""},
             registry: {value: "", type: "nmos-config", required: true},
-            operation: {value: "activate"}
+            operation: {value: "activate"},
+            receiverId: {value: ""},  // Store selected receiver UUID
+            senderId: {value: ""}      // Store selected sender UUID
         },
         inputs: 1,
         outputs: 1,
@@ -15,6 +17,94 @@
         },
         labelStyle: function() {
             return this.name ? "node_label_italic" : "";
+        },
+        oneditprepare: function() {
+            const node = this;
+            
+            // Function to load senders from registry
+            const loadSenders = function() {
+                const registryId = $('#node-input-registry').val();
+                if (!registryId) return;
+                
+                const $senderSelect = $('#node-input-senderId');
+                $senderSelect.empty();
+                $senderSelect.append($('<option></option>').attr('value', '').text('Loading...'));
+                
+                $.getJSON(`nmos-connection/senders?registry=${registryId}`)
+                    .done(function(data) {
+                        const $select = $('#node-input-senderId');
+                        $select.empty();
+                        $select.append($('<option></option>').attr('value', '').text('Use msg.senderId'));
+                        data.forEach(sender => {
+                            const label = `${sender.label} (${sender.id.substring(0, 8)}...)`;
+                            const $option = $('<option></option>')
+                                .attr('value', sender.id)
+                                .text(label);
+                            if (sender.id === node.senderId) {
+                                $option.attr('selected', 'selected');
+                            }
+                            $select.append($option);
+                        });
+                    })
+                    .fail(function() {
+                        const $select = $('#node-input-senderId');
+                        $select.empty();
+                        $select.append($('<option></option>').attr('value', '').text('Error loading senders'));
+                    });
+            };
+            
+            // Function to load receivers from registry
+            const loadReceivers = function() {
+                const registryId = $('#node-input-registry').val();
+                if (!registryId) return;
+                
+                const $receiverSelect = $('#node-input-receiverId');
+                $receiverSelect.empty();
+                $receiverSelect.append($('<option></option>').attr('value', '').text('Loading...'));
+                
+                $.getJSON(`nmos-connection/receivers?registry=${registryId}`)
+                    .done(function(data) {
+                        const $select = $('#node-input-receiverId');
+                        $select.empty();
+                        $select.append($('<option></option>').attr('value', '').text('Use msg.receiverId'));
+                        data.forEach(receiver => {
+                            const label = `${receiver.label} (${receiver.id.substring(0, 8)}...)`;
+                            const $option = $('<option></option>')
+                                .attr('value', receiver.id)
+                                .text(label);
+                            if (receiver.id === node.receiverId) {
+                                $option.attr('selected', 'selected');
+                            }
+                            $select.append($option);
+                        });
+                    })
+                    .fail(function() {
+                        const $select = $('#node-input-receiverId');
+                        $select.empty();
+                        $select.append($('<option></option>').attr('value', '').text('Error loading receivers'));
+                    });
+            };
+            
+            // Load on registry change
+            $('#node-input-registry').change(function() {
+                loadSenders();
+                loadReceivers();
+            });
+            
+            // Refresh buttons
+            $('#refresh-senders').click(function() {
+                loadSenders();
+            });
+            
+            $('#refresh-receivers').click(function() {
+                loadReceivers();
+            });
+            
+            // Initial load
+            if (node.registry) {
+                loadSenders();
+                loadReceivers();
+            }
         }
     });
 </script>
@@ -37,16 +127,51 @@
             <option value="scheduled">Scheduled Activation</option>
         </select>
     </div>
+    
+    <!-- Receiver dropdown -->
+    <div class="form-row">
+        <label for="node-input-receiverId"><i class="fa fa-sign-in"></i> Receiver</label>
+        <select id="node-input-receiverId" style="width: calc(100% - 40px);">
+            <option value="">Use msg.receiverId</option>
+        </select>
+        <button type="button" id="refresh-receivers" class="red-ui-button" style="width: 35px; margin-left: 5px;">
+            <i class="fa fa-refresh"></i>
+        </button>
+    </div>
+    
+    <!-- Sender dropdown -->
+    <div class="form-row">
+        <label for="node-input-senderId"><i class="fa fa-sign-out"></i> Sender</label>
+        <select id="node-input-senderId" style="width: calc(100% - 40px);">
+            <option value="">Use msg.senderId</option>
+        </select>
+        <button type="button" id="refresh-senders" class="red-ui-button" style="width: 35px; margin-left: 5px;">
+            <i class="fa fa-refresh"></i>
+        </button>
+    </div>
 </script>
 
 <script type="text/html" data-help-name="nmos-connection">
     <p>Simple IS-05 connection management for NMOS senders and receivers.</p>
     
+    <h3>Configuration</h3>
+    <p>You can configure senders and receivers in two ways:</p>
+    <ul>
+        <li><strong>Dropdown Selection:</strong> Select sender/receiver from dropdown menu populated from the NMOS registry</li>
+        <li><strong>Dynamic Input:</strong> Leave dropdown as "Use msg property" and provide IDs in the message</li>
+    </ul>
+    <p>Message properties take precedence over configured dropdown selections.</p>
+    
     <h3>Input Examples</h3>
     
-    <p><strong>Connect & Activate:</strong></p>
+    <p><strong>Connect & Activate (using message properties):</strong></p>
     <pre>msg.receiverId = "receiver-uuid";
 msg.senderId = "sender-uuid";
+return msg;</pre>
+    
+    <p><strong>Connect & Activate (using configured dropdowns):</strong></p>
+    <pre>// Sender and receiver selected in node configuration
+// Just trigger the node with any message
 return msg;</pre>
     
     <p><strong>Disconnect:</strong></p>

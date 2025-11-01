@@ -1,12 +1,72 @@
 const axios = require('axios');
 
 module.exports = function(RED) {
+    // API endpoint to get senders list
+    RED.httpAdmin.get('/nmos-connection/senders', async function(req, res) {
+        try {
+            const registryId = req.query.registry;
+            const registry = RED.nodes.getNode(registryId);
+            
+            if (!registry) {
+                return res.status(400).json({error: 'Registry not found'});
+            }
+            
+            const url = `${registry.getQueryApiUrl()}/senders`;
+            
+            const response = await axios.get(url, {
+                headers: registry.getAuthHeaders(),
+                timeout: 10000,
+                params: { 'paging.limit': 100 }
+            });
+            
+            const senders = response.data.map(s => ({
+                id: s.id,
+                label: s.label || s.id
+            }));
+            
+            res.json(senders);
+        } catch (error) {
+            res.status(500).json({error: error.message});
+        }
+    });
+    
+    // API endpoint to get receivers list
+    RED.httpAdmin.get('/nmos-connection/receivers', async function(req, res) {
+        try {
+            const registryId = req.query.registry;
+            const registry = RED.nodes.getNode(registryId);
+            
+            if (!registry) {
+                return res.status(400).json({error: 'Registry not found'});
+            }
+            
+            const url = `${registry.getQueryApiUrl()}/receivers`;
+            
+            const response = await axios.get(url, {
+                headers: registry.getAuthHeaders(),
+                timeout: 10000,
+                params: { 'paging.limit': 100 }
+            });
+            
+            const receivers = response.data.map(r => ({
+                id: r.id,
+                label: r.label || r.id
+            }));
+            
+            res.json(receivers);
+        } catch (error) {
+            res.status(500).json({error: error.message});
+        }
+    });
+    
     function NMOSConnectionNode(config) {
         RED.nodes.createNode(this, config);
         const node = this;
         
         this.registry = RED.nodes.getNode(config.registry);
         this.operation = config.operation || 'activate';
+        this.configuredReceiverId = config.receiverId;  // Store configured receiver
+        this.configuredSenderId = config.senderId;      // Store configured sender
         
         if (!this.registry) {
             node.error("No NMOS registry configured");
@@ -182,7 +242,12 @@ module.exports = function(RED) {
                     };
                 }
                 else {
-                    throw new Error("Invalid input: receiverId is required");
+                    // Use configured IDs if no message IDs provided
+                    // Only use configured IDs if they are truthy (not empty strings)
+                    receiverId = node.configuredReceiverId || undefined;
+                    senderId = node.configuredSenderId || undefined;
+                    operation = node.operation;
+                    options = {};
                 }
                 
                 if (!receiverId) {
