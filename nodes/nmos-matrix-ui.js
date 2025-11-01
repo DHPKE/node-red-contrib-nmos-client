@@ -115,7 +115,10 @@ module.exports = function(RED) {
             onAction: true, // Enable action events from UI
             onInput: function (msg, send) {
                 // Handle messages coming INTO the node
-                if (!send) return;
+                if (!send) {
+                    node.warn("onInput called without send function");
+                    return;
+                }
                 
                 if (msg.payload && msg.payload.action === 'route') {
                     const { receiverId, senderId, operation } = msg.payload;
