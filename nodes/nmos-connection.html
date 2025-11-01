@@ -134,11 +134,24 @@
 <script type="text/html" data-help-name="nmos-connection">
     <p>Simple IS-05 connection management for NMOS senders and receivers.</p>
     
+    <h3>Configuration</h3>
+    <p>You can configure senders and receivers in two ways:</p>
+    <ul>
+        <li><strong>Dropdown Selection:</strong> Select sender/receiver from dropdown menu populated from the NMOS registry</li>
+        <li><strong>Dynamic Input:</strong> Leave dropdown as "Use msg property" and provide IDs in the message</li>
+    </ul>
+    <p>Message properties take precedence over configured dropdown selections.</p>
+    
     <h3>Input Examples</h3>
     
-    <p><strong>Connect & Activate:</strong></p>
+    <p><strong>Connect & Activate (using message properties):</strong></p>
     <pre>msg.receiverId = "receiver-uuid";
 msg.senderId = "sender-uuid";
+return msg;</pre>
+    
+    <p><strong>Connect & Activate (using configured dropdowns):</strong></p>
+    <pre>// Sender and receiver selected in node configuration
+// Just trigger the node with any message
 return msg;</pre>
     
     <p><strong>Disconnect:</strong></p>
