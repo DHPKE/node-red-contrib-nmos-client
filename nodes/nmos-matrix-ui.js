@@ -94,12 +94,6 @@ module.exports = function(RED) {
         const node = this;
         
         this.registry = RED.nodes.getNode(config.registry);
-        this.group = config.group;
-        this.width = config.width || 12;
-        this.height = config.height || 8;
-        
-        // Get Dashboard 2 plugin
-        const ui = RED.plugins.get('node-red-dashboard-2');
         
         if (!this.registry) {
             node.error("No NMOS registry configured");
@@ -107,38 +101,16 @@ module.exports = function(RED) {
             return;
         }
         
-        if (!ui) {
-            node.error("Dashboard 2 plugin not found");
-            node.status({fill: "red", shape: "ring", text: "no dashboard"});
-            return;
-        }
-        
-        if (!this.group) {
+        // Get the group node
+        const group = RED.nodes.getNode(config.group);
+        if (!group) {
             node.error("No Dashboard group configured");
             node.status({fill: "red", shape: "ring", text: "no group"});
             return;
         }
         
-        // Get the group node
-        const group = RED.nodes.getNode(this.group);
-        if (!group) {
-            node.error("Dashboard group not found");
-            node.status({fill: "red", shape: "ring", text: "group error"});
-            return;
-        }
-        
-        // Widget configuration
-        const widgetConfig = {
-            type: 'nmos-matrix-ui',
-            props: {
-                props: {
-                    registry: config.registry
-                }
-            }
-        };
-        
         // Helper function to process messages
-        const processMessage = async function(msg, fromUI = false) {
+        const processMessage = async function(msg, send) {
             try {
                 // Handle routing actions from the UI
                 if (msg.payload && msg.payload.action === 'route') {
@@ -157,7 +129,7 @@ module.exports = function(RED) {
                         operation: operation || (senderId ? 'activate' : 'disconnect')
                     };
                     
-                    node.send(routingMsg);
+                    send(routingMsg);
                     
                     // Set status based on operation
                     setTimeout(() => {
@@ -168,16 +140,13 @@ module.exports = function(RED) {
                     // Handle refresh action
                     node.status({fill: "blue", shape: "ring", text: "refreshing..."});
                     
-                    // If from UI, no need to notify UI again
-                    // If from flow, UI will be notified via onInput handler
-                    
                     setTimeout(() => {
                         node.status({fill: "green", shape: "dot", text: "ready"});
                     }, 1000);
                     
                 } else {
                     // Pass through other messages
-                    node.send(msg);
+                    send(msg);
                 }
                 
             } catch (error) {
@@ -189,39 +158,43 @@ module.exports = function(RED) {
                     success: false,
                     error: error.message
                 };
-                node.send(msg);
+                send(msg);
             }
         };
         
-        // Event handlers for Dashboard 2
+        // Event handlers for FlowFuse Dashboard
         const evts = {
-            onInput: function(msg) {
-                // Handle incoming messages from Node-RED flows to forward to the UI
-                if (ui) {
-                    ui.emit('msg-input:' + node.id, msg);
+            onAction: true,
+            onInput: function(msg, send) {
+                // Handle incoming messages from Node-RED flows
+                if (config.passthru) {
+                    send(msg);
                 }
             },
-            onAction: function(msg) {
-                // Handle actions from the UI widget directly
-                processMessage(msg, true);
+            beforeSend: function(msg) {
+                // Process messages from the UI before sending
+                const send = (outMsg) => {
+                    node.send(outMsg);
+                };
+                processMessage(msg, send);
+                return msg;
             }
         };
         
-        // Register widget with Dashboard 2
-        ui.register(group, node, widgetConfig, evts);
+        // Register with group (NOT ui)
+        group.register(node, config, evts);
         
         node.status({fill: "green", shape: "dot", text: "ready"});
         
         node.on('input', async function(msg) {
             // Process messages from Node-RED flows
-            await processMessage(msg, false);
+            const send = (outMsg) => {
+                node.send(outMsg);
+            };
+            await processMessage(msg, send);
         });
         
         node.on('close', function() {
-            // Deregister widget from Dashboard 2
-            if (ui) {
-                ui.deregister(node);
-            }
             node.status({});
         });
     }
