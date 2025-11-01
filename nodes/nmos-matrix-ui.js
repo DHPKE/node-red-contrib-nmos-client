@@ -138,11 +138,13 @@ module.exports = function(RED) {
         // Event handlers for Dashboard 2
         const evts = {
             onInput: function(msg, send) {
-                // Handle incoming messages from Node-RED flows
-                node.emit('input', msg);
+                // Handle incoming messages from Node-RED flows to forward to the UI
+                if (ui) {
+                    ui.emit('msg-input:' + node.id, msg);
+                }
             },
             onAction: function(msg) {
-                // Handle actions from the UI widget
+                // Handle actions from the UI widget and process them
                 node.emit('input', msg);
             }
         };
@@ -179,23 +181,15 @@ module.exports = function(RED) {
                     }, 2000);
                     
                 } else if (msg.payload && msg.payload.action === 'refresh') {
-                    // Handle refresh action - notify UI to reload
+                    // Handle refresh action - UI will be notified via onInput handler
                     node.status({fill: "blue", shape: "ring", text: "refreshing..."});
-                    
-                    // Emit refresh message to UI if Dashboard 2 is available
-                    if (ui) {
-                        ui.emit('msg-input:' + node.id, msg);
-                    }
                     
                     setTimeout(() => {
                         node.status({fill: "green", shape: "dot", text: "ready"});
                     }, 1000);
                     
                 } else {
-                    // Pass through other messages and emit to UI
-                    if (ui) {
-                        ui.emit('msg-input:' + node.id, msg);
-                    }
+                    // Pass through other messages - UI will receive via onInput handler
                     node.send(msg);
                 }
                 
