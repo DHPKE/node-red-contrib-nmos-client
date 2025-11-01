@@ -131,30 +131,14 @@ module.exports = function(RED) {
         const widgetConfig = {
             type: 'nmos-matrix-ui',
             props: {
-                registry: config.registry
-            }
-        };
-        
-        // Event handlers for Dashboard 2
-        const evts = {
-            onInput: function(msg, send) {
-                // Handle incoming messages from Node-RED flows to forward to the UI
-                if (ui) {
-                    ui.emit('msg-input:' + node.id, msg);
+                props: {
+                    registry: config.registry
                 }
-            },
-            onAction: function(msg) {
-                // Handle actions from the UI widget and process them
-                node.emit('input', msg);
             }
         };
         
-        // Register widget with Dashboard 2
-        ui.register(group, node, widgetConfig, evts);
-        
-        node.status({fill: "green", shape: "dot", text: "ready"});
-        
-        node.on('input', async function(msg) {
+        // Helper function to process messages
+        const processMessage = async function(msg, fromUI = false) {
             try {
                 // Handle routing actions from the UI
                 if (msg.payload && msg.payload.action === 'route') {
@@ -181,15 +165,18 @@ module.exports = function(RED) {
                     }, 2000);
                     
                 } else if (msg.payload && msg.payload.action === 'refresh') {
-                    // Handle refresh action - UI will be notified via onInput handler
+                    // Handle refresh action
                     node.status({fill: "blue", shape: "ring", text: "refreshing..."});
+                    
+                    // If from UI, no need to notify UI again
+                    // If from flow, UI will be notified via onInput handler
                     
                     setTimeout(() => {
                         node.status({fill: "green", shape: "dot", text: "ready"});
                     }, 1000);
                     
                 } else {
-                    // Pass through other messages - UI will receive via onInput handler
+                    // Pass through other messages
                     node.send(msg);
                 }
                 
@@ -204,6 +191,30 @@ module.exports = function(RED) {
                 };
                 node.send(msg);
             }
+        };
+        
+        // Event handlers for Dashboard 2
+        const evts = {
+            onInput: function(msg, send) {
+                // Handle incoming messages from Node-RED flows to forward to the UI
+                if (ui) {
+                    ui.emit('msg-input:' + node.id, msg);
+                }
+            },
+            onAction: function(msg) {
+                // Handle actions from the UI widget directly
+                processMessage(msg, true);
+            }
+        };
+        
+        // Register widget with Dashboard 2
+        ui.register(group, node, widgetConfig, evts);
+        
+        node.status({fill: "green", shape: "dot", text: "ready"});
+        
+        node.on('input', async function(msg) {
+            // Process messages from Node-RED flows
+            await processMessage(msg, false);
         });
         
         node.on('close', function() {

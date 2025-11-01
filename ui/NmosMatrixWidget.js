@@ -2,6 +2,9 @@ module.exports = {
     type: 'nmos-matrix-ui',
     component: 'NmosMatrix',
     props: {
-        registry: { type: String, default: '' }
+        props: { 
+            type: Object, 
+            default: () => ({ registry: '' }) 
+        }
     }
 };
