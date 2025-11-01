@@ -120,7 +120,7 @@ Connect to `nmos-connection` node for automatic routing:
 ```
 
 **Requirements:**
-- `@flowfuse/node-red-dashboard` v1.0.0 or higher
+- `@flowfuse/node-red-dashboard` v1.2.9 or higher
 
 ### Device Nodes
 
