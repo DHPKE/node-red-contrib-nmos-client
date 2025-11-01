@@ -33,11 +33,6 @@
       "nmos-is12-control": "nodes/nmos-is12-control.js",
       "nmos-is07-events": "nodes/nmos-is07-events.js",
       "nmos-matrix-ui": "nodes/nmos-matrix-ui.js"
-    },
-    "ui": {
-      "widgets": {
-        "nmos-matrix": "ui/components/NmosMatrix.vue"
-      }
     }
   },
   "author": "DHPKE",

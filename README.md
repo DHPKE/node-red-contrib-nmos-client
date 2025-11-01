@@ -246,11 +246,12 @@ Visual NMOS sender-receiver routing matrix for Node-RED Dashboard 2.
 - Configured NMOS registry (`nmos-config` node)
 
 **Implementation Notes:**
-- The node provides HTTP endpoints for fetching resources and connections
-- The Vue component (`ui/components/NmosMatrix.vue`) implements the matrix UI
-- For Dashboard 2 integration, the widget is registered automatically when Dashboard 2 is installed
-- Backend node handles routing message generation and passes to `nmos-connection` node
+- The node provides HTTP endpoints (`/nmos-matrix-ui/resources`, `/nmos-matrix-ui/connections`) for fetching data
+- A Vue component (`ui/components/NmosMatrix.vue`) is provided as the reference implementation
+- The backend node handles routing message generation and passes to `nmos-connection` node
 - Connection state is queried from IS-04 registry receiver subscriptions
+- For Dashboard 2 integration, use the node with Dashboard 2's ui-template or custom widget framework
+- The node outputs messages compatible with the existing `nmos-connection` node for IS-05 routing
 
 ### Device Nodes
 
