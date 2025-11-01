@@ -1,1 +1,49 @@
-{\n  "name": "node-red-contrib-nmos-client",\n  "version": "2.2.0",\n  "description": "Complete NMOS implementation for Node-RED with IS-04, IS-05, IS-07, and IS-12 support",\n  "keywords": [\n    "node-red",\n    "nmos",\n    "is-04",\n    "is-05",\n    "is-07",\n    "is-08",\n    "is-12",\n    "amwa",\n    "broadcast",\n    "media",\n    "control",\n    "mqtt",\n    "ncp",\n    "events",\n    "tally"\n  ],\n  "node-red": {\n    "nodes": {\n      "nmos-config": "nodes/nmos-config.js",\n      "nmos-query": "nodes/nmos-query.js",\n      "nmos-get-one": "nodes/nmos-get-one.js",\n      "nmos-connection": "nodes/nmos-connection.js",\n      "nmos-websocket": "nodes/nmos-websocket.js",\n      "nmos-node": "nodes/nmos-node.js",\n      "nmos-is12-control": "nodes/nmos-is12-control.js",\n      "nmos-is07-events": "nodes/nmos-is07-events.js"\n    }\n  },\n  "author": "DHPKE",\n  "license": "Apache-2.0",\n  "dependencies": {\n    "axios": "^1.6.2",\n    "ws": "^8.14.2",\n    "uuid": "^9.0.1",\n    "mqtt": "^5.3.4"\n  },\n  "engines": {\n    "node": ">=14.0.0"\n  },\n  "repository": {\n    "type": "git",\n    "url": "https://github.com/DHPKE/node-red-contrib-nmos-client.git"\n  }\n}
+{
+  "name": "node-red-contrib-nmos-client",
+  "version": "2.2.0",
+  "description": "Complete NMOS implementation for Node-RED with IS-04, IS-05, IS-07, and IS-12 support",
+  "keywords": [
+    "node-red",
+    "nmos",
+    "is-04",
+    "is-05",
+    "is-07",
+    "is-08",
+    "is-12",
+    "amwa",
+    "broadcast",
+    "media",
+    "control",
+    "mqtt",
+    "ncp",
+    "events",
+    "tally"
+  ],
+  "node-red": {
+    "nodes": {
+      "nmos-config": "nodes/nmos-config.js",
+      "nmos-query": "nodes/nmos-query.js",
+      "nmos-get-one": "nodes/nmos-get-one.js",
+      "nmos-connection": "nodes/nmos-connection.js",
+      "nmos-websocket": "nodes/nmos-websocket.js",
+      "nmos-node": "nodes/nmos-node.js",
+      "nmos-is12-control": "nodes/nmos-is12-control.js",
+      "nmos-is07-events": "nodes/nmos-is07-events.js"
+    }
+  },
+  "author": "DHPKE",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "axios": "^1.6.2",
+    "ws": "^8.14.2",
+    "uuid": "^9.0.1",
+    "mqtt": "^5.3.4"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DHPKE/node-red-contrib-nmos-client.git"
+  }
+}
