@@ -30,13 +30,19 @@
                 
                 $.getJSON(`nmos-connection/senders?registry=${registryId}`)
                     .done(function(data) {
-                        let options = '<option value="">Use msg.senderId</option>';
+                        const $select = $('#node-input-senderId');
+                        $select.empty();
+                        $select.append($('<option></option>').attr('value', '').text('Use msg.senderId'));
                         data.forEach(sender => {
                             const label = `${sender.label} (${sender.id.substring(0, 8)}...)`;
-                            const selected = sender.id === node.senderId ? 'selected' : '';
-                            options += `<option value="${sender.id}" ${selected}>${label}</option>`;
+                            const $option = $('<option></option>')
+                                .attr('value', sender.id)
+                                .text(label);
+                            if (sender.id === node.senderId) {
+                                $option.attr('selected', 'selected');
+                            }
+                            $select.append($option);
                         });
-                        $('#node-input-senderId').html(options);
                     })
                     .fail(function() {
                         $('#node-input-senderId').html('<option value="">Error loading senders</option>');
@@ -52,13 +58,19 @@
                 
                 $.getJSON(`nmos-connection/receivers?registry=${registryId}`)
                     .done(function(data) {
-                        let options = '<option value="">Use msg.receiverId</option>';
+                        const $select = $('#node-input-receiverId');
+                        $select.empty();
+                        $select.append($('<option></option>').attr('value', '').text('Use msg.receiverId'));
                         data.forEach(receiver => {
                             const label = `${receiver.label} (${receiver.id.substring(0, 8)}...)`;
-                            const selected = receiver.id === node.receiverId ? 'selected' : '';
-                            options += `<option value="${receiver.id}" ${selected}>${label}</option>`;
+                            const $option = $('<option></option>')
+                                .attr('value', receiver.id)
+                                .text(label);
+                            if (receiver.id === node.receiverId) {
+                                $option.attr('selected', 'selected');
+                            }
+                            $select.append($option);
                         });
-                        $('#node-input-receiverId').html(options);
                     })
                     .fail(function() {
                         $('#node-input-receiverId').html('<option value="">Error loading receivers</option>');

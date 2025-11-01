@@ -243,8 +243,9 @@ module.exports = function(RED) {
                 }
                 else {
                     // Use configured IDs if no message IDs provided
-                    receiverId = node.configuredReceiverId;
-                    senderId = node.configuredSenderId;
+                    // Only use configured IDs if they are truthy (not empty strings)
+                    receiverId = node.configuredReceiverId || undefined;
+                    senderId = node.configuredSenderId || undefined;
                     operation = node.operation;
                     options = {};
                 }
