@@ -33,10 +33,15 @@
       "nmos-is12-control": "nodes/nmos-is12-control.js",
       "nmos-is07-events": "nodes/nmos-is07-events.js",
       "nmos-matrix-ui": "nodes/nmos-matrix-ui.js"
+    },
+    "plugins": {
+      "nmos-matrix-ui": "ui/index.js"
     }
   },
-  "plugins": {
-    "nmos-matrix-ui": "ui/index.js"
+  "node-red-dashboard-2": {
+    "widgets": {
+      "nmos-matrix": "./ui/index.js"
+    }
   },
   "author": "DHPKE",
   "license": "Apache-2.0",
