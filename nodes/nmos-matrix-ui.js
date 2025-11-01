@@ -115,6 +115,8 @@ module.exports = function(RED) {
             onAction: true, // Enable action events from UI
             onInput: function (msg, send) {
                 // Handle messages coming INTO the node
+                if (!send) return;
+                
                 if (msg.payload && msg.payload.action === 'route') {
                     const { receiverId, senderId, operation } = msg.payload;
                     
@@ -160,6 +162,10 @@ module.exports = function(RED) {
         group.register(node, config, evts);
         
         node.status({fill: "green", shape: "dot", text: "ready"});
+        
+        node.on('close', function() {
+            node.status({});
+        });
     }
     
     RED.nodes.registerType("nmos-matrix-ui", NMOSMatrixUINode);
