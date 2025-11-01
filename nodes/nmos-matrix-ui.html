@@ -1,0 +1,503 @@
+<script type="text/javascript">
+    RED.nodes.registerType('nmos-matrix-ui', {
+        category: 'NMOS',
+        color: '#3FADB5',
+        defaults: {
+            name: {value: ""},
+            registry: {value: "", type: "nmos-config", required: true},
+            group: {value: "", type: "ui-group"},
+            width: {value: 12},
+            height: {value: 8}
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "font-awesome/fa-table",
+        label: function() {
+            return this.name || "NMOS Matrix";
+        },
+        labelStyle: function() {
+            return this.name ? "node_label_italic" : "";
+        },
+        paletteLabel: "matrix ui"
+    });
+</script>
+
+<script type="text/html" data-template-name="nmos-matrix-ui">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-registry"><i class="fa fa-server"></i> Registry</label>
+        <input type="text" id="node-input-registry">
+    </div>
+    <div class="form-row">
+        <label for="node-input-group"><i class="fa fa-th"></i> Group</label>
+        <input type="text" id="node-input-group">
+    </div>
+    <div class="form-row">
+        <label for="node-input-width"><i class="fa fa-arrows-h"></i> Width</label>
+        <input type="number" id="node-input-width" min="1" max="24" placeholder="12">
+    </div>
+    <div class="form-row">
+        <label for="node-input-height"><i class="fa fa-arrows-v"></i> Height</label>
+        <input type="number" id="node-input-height" min="1" max="24" placeholder="8">
+    </div>
+</script>
+
+<script type="text/html" data-help-name="nmos-matrix-ui">
+    <p>Visual NMOS sender-receiver routing matrix for Node-RED Dashboard 2.</p>
+    
+    <h3>Configuration</h3>
+    <dl class="message-properties">
+        <dt>Name <span class="property-type">string</span></dt>
+        <dd>Optional name for the node</dd>
+        
+        <dt>Registry <span class="property-type">nmos-config</span></dt>
+        <dd>NMOS registry configuration (required)</dd>
+        
+        <dt>Group <span class="property-type">ui-group</span></dt>
+        <dd>Dashboard 2 UI group to display the matrix</dd>
+        
+        <dt>Width <span class="property-type">number</span></dt>
+        <dd>Widget width in Dashboard grid units (1-24, default: 12)</dd>
+        
+        <dt>Height <span class="property-type">number</span></dt>
+        <dd>Widget height in Dashboard grid units (1-24, default: 8)</dd>
+    </dl>
+    
+    <h3>Features</h3>
+    <ul>
+        <li><strong>Interactive Matrix Grid:</strong> Visualize all senders (columns) and receivers (rows)</li>
+        <li><strong>Click to Connect:</strong> Click any crosspoint to toggle connection</li>
+        <li><strong>Active Connections:</strong> Currently active connections highlighted in teal (#3FADB5)</li>
+        <li><strong>Search/Filter:</strong> Real-time filtering for senders and receivers</li>
+        <li><strong>Refresh:</strong> Reload resources and connections from registry</li>
+        <li><strong>Sticky Headers:</strong> Scrollable matrix with fixed headers for easy navigation</li>
+        <li><strong>Status Bar:</strong> Shows sender/receiver counts and loading state</li>
+    </ul>
+    
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>payload.action <span class="property-type">string</span></dt>
+        <dd>Action to perform:
+            <ul>
+                <li><code>"route"</code> - Trigger routing operation</li>
+                <li><code>"refresh"</code> - Reload resources from registry</li>
+            </ul>
+        </dd>
+        
+        <dt class="optional">payload.receiverId <span class="property-type">string</span></dt>
+        <dd>Receiver UUID (required for route action)</dd>
+        
+        <dt class="optional">payload.senderId <span class="property-type">string</span></dt>
+        <dd>Sender UUID (null to disconnect)</dd>
+        
+        <dt class="optional">payload.operation <span class="property-type">string</span></dt>
+        <dd>Operation type: <code>"activate"</code> or <code>"disconnect"</code></dd>
+    </dl>
+    
+    <h3>Outputs</h3>
+    <p>Outputs routing messages compatible with the <code>nmos-connection</code> node:</p>
+    <dl class="message-properties">
+        <dt>receiverId <span class="property-type">string</span></dt>
+        <dd>Receiver UUID</dd>
+        
+        <dt>senderId <span class="property-type">string</span></dt>
+        <dd>Sender UUID (null for disconnect)</dd>
+        
+        <dt>operation <span class="property-type">string</span></dt>
+        <dd>Operation type: <code>"activate"</code> or <code>"disconnect"</code></dd>
+    </dl>
+    
+    <h3>Usage Example</h3>
+    <p>Connect the matrix UI to an <code>nmos-connection</code> node to enable routing:</p>
+    <pre>[nmos-matrix-ui] → [nmos-connection] → [debug]</pre>
+    
+    <h3>Matrix Interaction</h3>
+    <ul>
+        <li><strong>Connect:</strong> Click an empty crosspoint to connect the sender to the receiver</li>
+        <li><strong>Disconnect:</strong> Click an active crosspoint (teal) to disconnect</li>
+        <li><strong>Search:</strong> Use the search boxes to filter senders and receivers by label</li>
+        <li><strong>Scroll:</strong> The matrix supports scrolling for large numbers of senders/receivers</li>
+        <li><strong>Refresh:</strong> Click the refresh button to reload resources and update connection status</li>
+    </ul>
+    
+    <h3>Requirements</h3>
+    <ul>
+        <li>Node-RED Dashboard 2 (<code>@flowfuse/node-red-dashboard</code>)</li>
+        <li>Configured NMOS registry (<code>nmos-config</code> node)</li>
+        <li>Optional: <code>nmos-connection</code> node for automatic routing</li>
+    </ul>
+    
+    <h3>Notes</h3>
+    <ul>
+        <li>The matrix retrieves senders and receivers from the NMOS registry via IS-04 Query API</li>
+        <li>Active connections are determined by querying receiver subscription information</li>
+        <li>Routing operations are output as messages - connect to <code>nmos-connection</code> for IS-05 routing</li>
+        <li>The matrix supports up to 500 senders and 500 receivers for performance</li>
+        <li>Connection state updates may take a few seconds to reflect after routing operations</li>
+    </ul>
+</script>
+
+<script type="text/html" data-template-name="nmos-matrix-ui" data-template-type="ui">
+    <template>
+        <div class="nmos-matrix-container">
+            <!-- Header Controls -->
+            <div class="matrix-header">
+                <div class="matrix-controls">
+                    <input 
+                        v-model="senderSearch" 
+                        type="text" 
+                        placeholder="Search senders..."
+                        class="matrix-search"
+                    />
+                    <input 
+                        v-model="receiverSearch" 
+                        type="text" 
+                        placeholder="Search receivers..."
+                        class="matrix-search"
+                    />
+                    <button @click="refreshMatrix" class="matrix-refresh-btn" :disabled="loading">
+                        <i class="fa fa-refresh" :class="{'fa-spin': loading}"></i> Refresh
+                    </button>
+                </div>
+                <div class="matrix-status">
+                    <span>Senders: {{ filteredSenders.length }}</span>
+                    <span>Receivers: {{ filteredReceivers.length }}</span>
+                    <span v-if="loading" class="loading-indicator">Loading...</span>
+                </div>
+            </div>
+            
+            <!-- Matrix Grid -->
+            <div class="matrix-wrapper">
+                <div class="matrix-grid-container">
+                    <!-- Top-left corner cell -->
+                    <div class="matrix-corner"></div>
+                    
+                    <!-- Sender headers (columns) -->
+                    <div class="matrix-sender-headers">
+                        <div 
+                            v-for="sender in filteredSenders" 
+                            :key="sender.id"
+                            class="matrix-sender-header"
+                            :title="sender.label"
+                        >
+                            <span class="sender-label-vertical">{{ sender.label }}</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Receiver labels and crosspoints -->
+                    <div class="matrix-rows">
+                        <div 
+                            v-for="receiver in filteredReceivers" 
+                            :key="receiver.id"
+                            class="matrix-row"
+                        >
+                            <div class="matrix-receiver-label" :title="receiver.label">
+                                {{ receiver.label }}
+                            </div>
+                            <div class="matrix-crosspoints">
+                                <div 
+                                    v-for="sender in filteredSenders"
+                                    :key="`${receiver.id}-${sender.id}`"
+                                    class="matrix-crosspoint"
+                                    :class="{ 'active': isConnected(receiver.id, sender.id) }"
+                                    @click="toggleConnection(receiver.id, sender.id)"
+                                    :title="`${sender.label} → ${receiver.label}`"
+                                ></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+    
+    <script>
+        export default {
+            data() {
+                return {
+                    senders: [],
+                    receivers: [],
+                    connections: [],
+                    senderSearch: '',
+                    receiverSearch: '',
+                    loading: false
+                }
+            },
+            computed: {
+                filteredSenders() {
+                    if (!this.senderSearch) return this.senders;
+                    const search = this.senderSearch.toLowerCase();
+                    return this.senders.filter(s => 
+                        s.label.toLowerCase().includes(search) ||
+                        s.id.toLowerCase().includes(search)
+                    );
+                },
+                filteredReceivers() {
+                    if (!this.receiverSearch) return this.receivers;
+                    const search = this.receiverSearch.toLowerCase();
+                    return this.receivers.filter(r => 
+                        r.label.toLowerCase().includes(search) ||
+                        r.id.toLowerCase().includes(search)
+                    );
+                }
+            },
+            mounted() {
+                this.loadResources();
+                
+                // Listen for incoming messages
+                this.$socket.on(`msg-input:${this.id}`, this.handleMessage);
+            },
+            beforeUnmount() {
+                this.$socket.off(`msg-input:${this.id}`, this.handleMessage);
+            },
+            methods: {
+                async loadResources() {
+                    this.loading = true;
+                    try {
+                        const registryId = this.props.registry;
+                        
+                        // Fetch resources
+                        const resourcesResp = await fetch(`/nmos-matrix-ui/resources?registry=${registryId}`);
+                        const resourcesData = await resourcesResp.json();
+                        
+                        this.senders = resourcesData.senders || [];
+                        this.receivers = resourcesData.receivers || [];
+                        
+                        // Fetch connections
+                        const connectionsResp = await fetch(`/nmos-matrix-ui/connections?registry=${registryId}`);
+                        const connectionsData = await connectionsResp.json();
+                        
+                        this.connections = connectionsData.connections || [];
+                        
+                    } catch (error) {
+                        console.error('Error loading matrix resources:', error);
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                async refreshMatrix() {
+                    await this.loadResources();
+                },
+                isConnected(receiverId, senderId) {
+                    return this.connections.some(c => 
+                        c.receiverId === receiverId && c.senderId === senderId
+                    );
+                },
+                toggleConnection(receiverId, senderId) {
+                    const isActive = this.isConnected(receiverId, senderId);
+                    
+                    // Optimistic update
+                    if (isActive) {
+                        // Disconnect
+                        this.connections = this.connections.filter(c => 
+                            !(c.receiverId === receiverId && c.senderId === senderId)
+                        );
+                    } else {
+                        // Connect (remove any existing connection for this receiver first)
+                        this.connections = this.connections.filter(c => c.receiverId !== receiverId);
+                        this.connections.push({ receiverId, senderId });
+                    }
+                    
+                    // Send routing action
+                    const action = {
+                        action: 'route',
+                        receiverId: receiverId,
+                        senderId: isActive ? null : senderId,
+                        operation: isActive ? 'disconnect' : 'activate'
+                    };
+                    
+                    this.send({ payload: action });
+                    
+                    // Refresh after a delay to get accurate state
+                    setTimeout(() => {
+                        this.loadResources();
+                    }, 2000);
+                },
+                handleMessage(msg) {
+                    // Handle incoming messages if needed
+                    if (msg.payload && msg.payload.action === 'refresh') {
+                        this.loadResources();
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style scoped>
+        .nmos-matrix-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            font-family: Arial, sans-serif;
+        }
+        
+        .matrix-header {
+            padding: 10px;
+            background: #252525;
+            border-bottom: 1px solid #3FADB5;
+        }
+        
+        .matrix-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .matrix-search {
+            flex: 1;
+            padding: 8px;
+            background: #333;
+            border: 1px solid #555;
+            border-radius: 4px;
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+        
+        .matrix-search:focus {
+            outline: none;
+            border-color: #3FADB5;
+        }
+        
+        .matrix-refresh-btn {
+            padding: 8px 16px;
+            background: #3FADB5;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .matrix-refresh-btn:hover:not(:disabled) {
+            background: #2d8a91;
+        }
+        
+        .matrix-refresh-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .matrix-status {
+            display: flex;
+            gap: 20px;
+            font-size: 12px;
+            color: #999;
+        }
+        
+        .loading-indicator {
+            color: #3FADB5;
+            font-weight: bold;
+        }
+        
+        .matrix-wrapper {
+            flex: 1;
+            overflow: auto;
+            background: #1a1a1a;
+        }
+        
+        .matrix-grid-container {
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            grid-template-rows: 80px 1fr;
+        }
+        
+        .matrix-corner {
+            background: #252525;
+            border-right: 1px solid #444;
+            border-bottom: 1px solid #444;
+            position: sticky;
+            top: 0;
+            left: 0;
+            z-index: 3;
+        }
+        
+        .matrix-sender-headers {
+            display: flex;
+            background: #252525;
+            border-bottom: 1px solid #444;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+        
+        .matrix-sender-header {
+            width: 40px;
+            min-width: 40px;
+            height: 80px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding: 5px 0;
+            border-right: 1px solid #333;
+        }
+        
+        .sender-label-vertical {
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+            font-size: 11px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-height: 70px;
+        }
+        
+        .matrix-rows {
+            grid-column: 1 / -1;
+            display: contents;
+        }
+        
+        .matrix-row {
+            display: contents;
+        }
+        
+        .matrix-receiver-label {
+            background: #252525;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            font-size: 12px;
+            border-right: 1px solid #444;
+            border-bottom: 1px solid #333;
+            position: sticky;
+            left: 0;
+            z-index: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .matrix-crosspoints {
+            display: flex;
+            border-bottom: 1px solid #333;
+        }
+        
+        .matrix-crosspoint {
+            width: 40px;
+            min-width: 40px;
+            height: 40px;
+            background: #2a2a2a;
+            border-right: 1px solid #333;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .matrix-crosspoint:hover {
+            background: #3a3a3a;
+        }
+        
+        .matrix-crosspoint.active {
+            background: #3FADB5;
+        }
+        
+        .matrix-crosspoint.active:hover {
+            background: #2d8a91;
+        }
+    </style>
+</script>

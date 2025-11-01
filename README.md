@@ -197,6 +197,54 @@ msg.filter = { format: "urn:x-nmos:format:video" };
 return msg;
 ```
 
+#### nmos-matrix-ui
+Visual NMOS sender-receiver routing matrix for Node-RED Dashboard 2.
+
+**Configuration:**
+- Registry - NMOS registry configuration (required)
+- Group - Dashboard 2 UI group (required)
+- Width - Dashboard widget width (1-24, default: 12)
+- Height - Dashboard widget height (1-24, default: 8)
+
+**Features:**
+- Interactive crosspoint matrix grid layout
+- Sticky headers for easy navigation with large matrices
+- Click crosspoints to toggle connections
+- Active connections highlighted in teal (#3FADB5)
+- Real-time search/filter for senders and receivers
+- Refresh button to reload resources from registry
+- Status bar showing counts and loading state
+- Supports up to 500 senders and receivers
+
+**Inputs:**
+- `msg.payload.action = "route"` - Trigger routing operation
+  - `msg.payload.receiverId` - Receiver UUID
+  - `msg.payload.senderId` - Sender UUID (null to disconnect)
+  - `msg.payload.operation` - "activate" or "disconnect"
+- `msg.payload.action = "refresh"` - Reload resources
+
+**Outputs:**
+- Routing messages in `nmos-connection` format:
+  - `msg.receiverId` - Receiver UUID
+  - `msg.senderId` - Sender UUID (null for disconnect)
+  - `msg.operation` - "activate" or "disconnect"
+
+**Usage Example:**
+```
+[nmos-matrix-ui] → [nmos-connection] → [debug]
+```
+
+**Matrix Interaction:**
+1. Click an empty crosspoint to connect sender to receiver
+2. Click an active crosspoint (teal) to disconnect
+3. Use search boxes to filter by sender/receiver labels
+4. Click refresh to update resource list and connection states
+5. Scroll the matrix for large numbers of senders/receivers
+
+**Requirements:**
+- Node-RED Dashboard 2 (`@flowfuse/node-red-dashboard`)
+- Configured NMOS registry (`nmos-config` node)
+
 ### Device Nodes
 
 #### nmos-node
@@ -361,6 +409,16 @@ Required for event and control nodes:
 - [EMQX](https://www.emqx.io/)
 - [HiveMQ](https://www.hivemq.com/)
 
+### Node-RED Dashboard 2 (for nmos-matrix-ui)
+Required for the matrix UI node:
+- [@flowfuse/node-red-dashboard](https://flows.nodered.org/node/@flowfuse/node-red-dashboard) v1.0.0 or higher
+
+Install via Node-RED palette manager or:
+```bash
+cd ~/.node-red
+npm install @flowfuse/node-red-dashboard
+```
+
 ## Quick Start Examples
 
 ### 1. Query and Display Senders
@@ -419,6 +477,17 @@ msg.payload = {
 };
 return msg;
 ```
+
+### 6. Visual Matrix Routing (Dashboard 2)
+```
+[nmos-matrix-ui] → [nmos-connection] → [Debug]
+```
+1. Configure `nmos-matrix-ui` with your registry and Dashboard 2 group
+2. Open Dashboard 2 in your browser
+3. View the interactive matrix with all senders and receivers
+4. Click crosspoints to connect/disconnect
+5. The matrix will send routing commands to `nmos-connection` for execution
+6. Use search boxes to filter large matrices
 
 ## MQTT Topic Structure
 
@@ -502,6 +571,16 @@ DHPKE - 2025
 - [Node-RED](https://nodered.org/)
 
 ## Changelog
+
+### v2.3.0 (2025-11-01)
+- ✨ NEW: `nmos-matrix-ui` node for Node-RED Dashboard 2
+- 🎛️ Interactive crosspoint matrix for visual sender-receiver routing
+- 🎨 Dashboard 2 Vue component with real-time updates
+- 🔍 Search and filter functionality for large matrices
+- 🎯 Click-to-connect crosspoint interaction
+- 📊 Support for up to 500 senders and receivers
+- 🔄 Refresh button to reload resources and connections
+- 📱 Responsive grid layout with sticky headers
 
 ### v2.2.0 (2025-11-01)
 - 📝 Comprehensive README documentation update
