@@ -164,7 +164,7 @@ module.exports = function(RED) {
         
         // Event handlers for FlowFuse Dashboard
         const evts = {
-            // onAction: true enables widget action messages to be received by the node
+            // onAction: true enables the widget to send action messages back to this node
             onAction: true,
             onInput: function(msg, send) {
                 // Handle incoming messages from Node-RED flows
@@ -174,10 +174,10 @@ module.exports = function(RED) {
             },
             beforeSend: function(msg) {
                 // Process messages from the UI widget before sending to the flow
-                const send = (outMsg) => {
+                const sendToFlow = (outMsg) => {
                     node.send(outMsg);
                 };
-                processMessage(msg, send);
+                processMessage(msg, sendToFlow);
                 // Return null to prevent automatic forwarding since processMessage handles sending
                 return null;
             }
@@ -190,10 +190,10 @@ module.exports = function(RED) {
         
         node.on('input', async function(msg) {
             // Process messages from Node-RED flows
-            const send = (outMsg) => {
+            const sendToFlow = (outMsg) => {
                 node.send(outMsg);
             };
-            await processMessage(msg, send);
+            await processMessage(msg, sendToFlow);
         });
         
         node.on('close', function() {
