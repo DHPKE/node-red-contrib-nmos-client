@@ -130,34 +130,42 @@ module.exports = function(RED) {
         node.status({fill: "green", shape: "dot", text: "ready"});
         
         node.on('input', function(msg) {
-            // Handle routing actions
-            if (msg.payload && msg.payload.action === 'route') {
-                const { receiverId, senderId, operation } = msg.payload;
-                
-                if (!receiverId) {
-                    node.error("receiverId is required for routing");
-                    return;
+            try {
+                // Handle routing actions
+                if (msg.payload && msg.payload.action === 'route') {
+                    const { receiverId, senderId, operation } = msg.payload;
+                    
+                    if (!receiverId) {
+                        node.error("receiverId is required for routing");
+                        return;
+                    }
+                    
+                    node.status({fill: "blue", shape: "dot", text: "routing..."});
+                    
+                    const routingMsg = {
+                        receiverId: receiverId,
+                        senderId: senderId || null,
+                        operation: operation || (senderId ? 'activate' : 'disconnect')
+                    };
+                    
+                    node.send(routingMsg);
+                    
+                    setTimeout(() => {
+                        node.status({fill: "green", shape: "dot", text: "ready"});
+                    }, 2000);
+                    
+                } else if (msg.payload && msg.payload.action === 'refresh') {
+                    node.status({fill: "blue", shape: "ring", text: "refreshing..."});
+                    setTimeout(() => {
+                        node.status({fill: "green", shape: "dot", text: "ready"});
+                    }, 1000);
+                } else {
+                    // Pass through other messages
+                    node.send(msg);
                 }
-                
-                node.status({fill: "blue", shape: "dot", text: "routing..."});
-                
-                const routingMsg = {
-                    receiverId: receiverId,
-                    senderId: senderId || null,
-                    operation: operation || (senderId ? 'activate' : 'disconnect')
-                };
-                
-                node.send(routingMsg);
-                
-                setTimeout(() => {
-                    node.status({fill: "green", shape: "dot", text: "ready"});
-                }, 2000);
-                
-            } else if (msg.payload && msg.payload.action === 'refresh') {
-                node.status({fill: "blue", shape: "ring", text: "refreshing..."});
-                setTimeout(() => {
-                    node.status({fill: "green", shape: "dot", text: "ready"});
-                }, 1000);
+            } catch (error) {
+                node.status({fill: "red", shape: "ring", text: "error"});
+                node.error(error.message, msg);
             }
         });
         
