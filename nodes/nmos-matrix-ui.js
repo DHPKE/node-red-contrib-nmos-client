@@ -195,7 +195,7 @@ module.exports = function(RED) {
         
         // Event handlers for Dashboard 2
         const evts = {
-            onInput: function(msg, send) {
+            onInput: function(msg) {
                 // Handle incoming messages from Node-RED flows to forward to the UI
                 if (ui) {
                     ui.emit('msg-input:' + node.id, msg);
