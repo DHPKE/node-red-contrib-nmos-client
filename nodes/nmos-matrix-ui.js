@@ -98,11 +98,57 @@ module.exports = function(RED) {
         this.width = config.width || 12;
         this.height = config.height || 8;
         
+        // Get Dashboard 2 plugin
+        const ui = RED.plugins.get('node-red-dashboard-2');
+        
         if (!this.registry) {
             node.error("No NMOS registry configured");
             node.status({fill: "red", shape: "ring", text: "no config"});
             return;
         }
+        
+        if (!ui) {
+            node.error("Dashboard 2 plugin not found");
+            node.status({fill: "red", shape: "ring", text: "no dashboard"});
+            return;
+        }
+        
+        if (!this.group) {
+            node.error("No Dashboard group configured");
+            node.status({fill: "red", shape: "ring", text: "no group"});
+            return;
+        }
+        
+        // Get the group node
+        const group = RED.nodes.getNode(this.group);
+        if (!group) {
+            node.error("Dashboard group not found");
+            node.status({fill: "red", shape: "ring", text: "group error"});
+            return;
+        }
+        
+        // Widget configuration
+        const widgetConfig = {
+            type: 'nmos-matrix-ui',
+            props: {
+                registry: config.registry
+            }
+        };
+        
+        // Event handlers for Dashboard 2
+        const evts = {
+            onInput: function(msg, send) {
+                // Handle incoming messages from Node-RED flows
+                node.emit('input', msg);
+            },
+            onAction: function(msg) {
+                // Handle actions from the UI widget
+                node.emit('input', msg);
+            }
+        };
+        
+        // Register widget with Dashboard 2
+        ui.register(group, node, widgetConfig, evts);
         
         node.status({fill: "green", shape: "dot", text: "ready"});
         
@@ -133,15 +179,23 @@ module.exports = function(RED) {
                     }, 2000);
                     
                 } else if (msg.payload && msg.payload.action === 'refresh') {
-                    // Handle refresh action - just pass through for now
+                    // Handle refresh action - notify UI to reload
                     node.status({fill: "blue", shape: "ring", text: "refreshing..."});
+                    
+                    // Emit refresh message to UI if Dashboard 2 is available
+                    if (ui) {
+                        ui.emit('msg-input:' + node.id, msg);
+                    }
                     
                     setTimeout(() => {
                         node.status({fill: "green", shape: "dot", text: "ready"});
                     }, 1000);
                     
                 } else {
-                    // Pass through other messages
+                    // Pass through other messages and emit to UI
+                    if (ui) {
+                        ui.emit('msg-input:' + node.id, msg);
+                    }
                     node.send(msg);
                 }
                 
@@ -159,6 +213,10 @@ module.exports = function(RED) {
         });
         
         node.on('close', function() {
+            // Deregister widget from Dashboard 2
+            if (ui) {
+                ui.deregister(node);
+            }
             node.status({});
         });
     }
