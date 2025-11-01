@@ -26,7 +26,9 @@
                 const registryId = $('#node-input-registry').val();
                 if (!registryId) return;
                 
-                $('#node-input-senderId').html('<option value="">Loading...</option>');
+                const $senderSelect = $('#node-input-senderId');
+                $senderSelect.empty();
+                $senderSelect.append($('<option></option>').attr('value', '').text('Loading...'));
                 
                 $.getJSON(`nmos-connection/senders?registry=${registryId}`)
                     .done(function(data) {
@@ -45,7 +47,9 @@
                         });
                     })
                     .fail(function() {
-                        $('#node-input-senderId').html('<option value="">Error loading senders</option>');
+                        const $select = $('#node-input-senderId');
+                        $select.empty();
+                        $select.append($('<option></option>').attr('value', '').text('Error loading senders'));
                     });
             };
             
@@ -54,7 +58,9 @@
                 const registryId = $('#node-input-registry').val();
                 if (!registryId) return;
                 
-                $('#node-input-receiverId').html('<option value="">Loading...</option>');
+                const $receiverSelect = $('#node-input-receiverId');
+                $receiverSelect.empty();
+                $receiverSelect.append($('<option></option>').attr('value', '').text('Loading...'));
                 
                 $.getJSON(`nmos-connection/receivers?registry=${registryId}`)
                     .done(function(data) {
@@ -73,7 +79,9 @@
                         });
                     })
                     .fail(function() {
-                        $('#node-input-receiverId').html('<option value="">Error loading receivers</option>');
+                        const $select = $('#node-input-receiverId');
+                        $select.empty();
+                        $select.append($('<option></option>').attr('value', '').text('Error loading receivers'));
                     });
             };
             
