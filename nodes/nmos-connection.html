@@ -5,7 +5,9 @@
         defaults: {
             name: {value: ""},
             registry: {value: "", type: "nmos-config", required: true},
-            operation: {value: "activate"}
+            operation: {value: "activate"},
+            receiverId: {value: ""},  // Store selected receiver UUID
+            senderId: {value: ""}      // Store selected sender UUID
         },
         inputs: 1,
         outputs: 1,
@@ -15,6 +17,74 @@
         },
         labelStyle: function() {
             return this.name ? "node_label_italic" : "";
+        },
+        oneditprepare: function() {
+            const node = this;
+            
+            // Function to load senders from registry
+            const loadSenders = function() {
+                const registryId = $('#node-input-registry').val();
+                if (!registryId) return;
+                
+                $('#node-input-senderId').html('<option value="">Loading...</option>');
+                
+                $.getJSON(`nmos-connection/senders?registry=${registryId}`)
+                    .done(function(data) {
+                        let options = '<option value="">Use msg.senderId</option>';
+                        data.forEach(sender => {
+                            const label = `${sender.label} (${sender.id.substring(0, 8)}...)`;
+                            const selected = sender.id === node.senderId ? 'selected' : '';
+                            options += `<option value="${sender.id}" ${selected}>${label}</option>`;
+                        });
+                        $('#node-input-senderId').html(options);
+                    })
+                    .fail(function() {
+                        $('#node-input-senderId').html('<option value="">Error loading senders</option>');
+                    });
+            };
+            
+            // Function to load receivers from registry
+            const loadReceivers = function() {
+                const registryId = $('#node-input-registry').val();
+                if (!registryId) return;
+                
+                $('#node-input-receiverId').html('<option value="">Loading...</option>');
+                
+                $.getJSON(`nmos-connection/receivers?registry=${registryId}`)
+                    .done(function(data) {
+                        let options = '<option value="">Use msg.receiverId</option>';
+                        data.forEach(receiver => {
+                            const label = `${receiver.label} (${receiver.id.substring(0, 8)}...)`;
+                            const selected = receiver.id === node.receiverId ? 'selected' : '';
+                            options += `<option value="${receiver.id}" ${selected}>${label}</option>`;
+                        });
+                        $('#node-input-receiverId').html(options);
+                    })
+                    .fail(function() {
+                        $('#node-input-receiverId').html('<option value="">Error loading receivers</option>');
+                    });
+            };
+            
+            // Load on registry change
+            $('#node-input-registry').change(function() {
+                loadSenders();
+                loadReceivers();
+            });
+            
+            // Refresh buttons
+            $('#refresh-senders').click(function() {
+                loadSenders();
+            });
+            
+            $('#refresh-receivers').click(function() {
+                loadReceivers();
+            });
+            
+            // Initial load
+            if (node.registry) {
+                loadSenders();
+                loadReceivers();
+            }
         }
     });
 </script>
@@ -36,6 +106,28 @@
             <option value="disconnect">Disconnect</option>
             <option value="scheduled">Scheduled Activation</option>
         </select>
+    </div>
+    
+    <!-- Receiver dropdown -->
+    <div class="form-row">
+        <label for="node-input-receiverId"><i class="fa fa-sign-in"></i> Receiver</label>
+        <select id="node-input-receiverId" style="width: calc(100% - 40px);">
+            <option value="">Use msg.receiverId</option>
+        </select>
+        <button type="button" id="refresh-receivers" class="red-ui-button" style="width: 35px; margin-left: 5px;">
+            <i class="fa fa-refresh"></i>
+        </button>
+    </div>
+    
+    <!-- Sender dropdown -->
+    <div class="form-row">
+        <label for="node-input-senderId"><i class="fa fa-sign-out"></i> Sender</label>
+        <select id="node-input-senderId" style="width: calc(100% - 40px);">
+            <option value="">Use msg.senderId</option>
+        </select>
+        <button type="button" id="refresh-senders" class="red-ui-button" style="width: 35px; margin-left: 5px;">
+            <i class="fa fa-refresh"></i>
+        </button>
     </div>
 </script>
 
