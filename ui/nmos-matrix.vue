@@ -407,7 +407,12 @@ export default {
         let errorDetails = error.message;
         let suggestions = [];
         
-        if (error.message.includes('Connection refused')) {
+        // Check if error has detailed information from backend
+        if (error.details && error.suggestions) {
+          errorMessage = error.message;
+          errorDetails = error.details;
+          suggestions = error.suggestions;
+        } else if (error.message.includes('Connection refused')) {
           errorMessage = 'Connection Refused';
           errorDetails = 'Cannot connect to the NMOS registry';
           suggestions = [
@@ -432,7 +437,7 @@ export default {
             'Verify the registry is responding',
             'Increase the timeout setting if registry is slow'
           ];
-        } else if (error.message.includes('404')) {
+        } else if (error.message.includes('404') || error.message.includes('Registry Not Found')) {
           errorMessage = 'Registry Not Found';
           errorDetails = 'The registry endpoint does not exist';
           suggestions = [
@@ -448,6 +453,11 @@ export default {
             'Check the matrix node configuration',
             'Restart Node-RED'
           ];
+        } else if (error.message.includes('Configuration Error')) {
+          // This is already a configuration error with details
+          errorMessage = error.message;
+          errorDetails = error.details || errorDetails;
+          suggestions = error.suggestions || suggestions;
         }
         
         this.connectionError = {
@@ -740,6 +750,24 @@ export default {
       });
       
       if (!response.ok) {
+        // Try to parse error details from response
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          errorData = null;
+        }
+        
+        // If we have detailed error info, use it
+        if (errorData && errorData.message) {
+          const error = new Error(errorData.message);
+          error.details = errorData.details;
+          error.suggestions = errorData.suggestions;
+          error.statusCode = response.status;
+          throw error;
+        }
+        
+        // Otherwise use default messages
         const statusMessages = {
           400: 'Invalid request parameters',
           404: 'Matrix node not found',
