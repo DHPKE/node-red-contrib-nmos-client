@@ -36,7 +36,7 @@ npm install node-red-contrib-nmos-client
 1. Add an `nmos-config` node and configure your NMOS registry URL
 2. Use `nmos-query` to discover resources
 3. Use `nmos-connection` to route senders to receivers
-4. Optional: Add `nmos-matrix-ui` for visual routing control
+4. Optional: Import the dynamic matrix flow for visual routing control
 
 ## Nodes
 
@@ -99,28 +99,7 @@ Subscribe to real-time resource updates via WebSocket.
 - `msg.payload`: Resource update event
 - `msg.event`: `added`, `modified`, or `removed`
 
-#### nmos-matrix-ui
-Visual routing matrix for FlowFuse Dashboard.
 
-**Configuration:**
-- Registry: NMOS registry (required)
-- Group: Dashboard UI group (required)
-- Width/Height: Widget dimensions
-
-**Features:**
-- Interactive crosspoint matrix
-- Click to connect/disconnect
-- Search and filter
-- Active connections highlighted
-
-**Usage:**
-Connect to `nmos-connection` node for automatic routing:
-```
-[nmos-matrix-ui] → [nmos-connection] → [debug]
-```
-
-**Requirements:**
-- `@flowfuse/node-red-dashboard` v1.2.9 or higher
 
 ### Device Nodes
 
@@ -186,14 +165,88 @@ msg.payload = {
 };
 ```
 
+## Dynamic Matrix Flow
+
+A complete flow-based NMOS routing matrix is available in the `examples` directory. This modular approach provides full routing control without requiring dashboard dependencies.
+
+📖 **[Full Documentation](MATRIX_FLOW.md)** - Complete guide with examples, API reference, and integration options
+
+### Features
+- **Modular Architecture**: Separate query, processing, and routing nodes
+- **Vue.js UI**: Standalone web interface at `http://localhost:1880/nmos-matrix`
+- **Real-time Updates**: WebSocket subscriptions for live resource changes
+- **IS-05 Routing**: Full connection management with staged/activate workflow
+- **No Dashboard Required**: Works with any Node-RED installation
+
+### Quick Start
+
+1. Import `examples/dynamic-matrix-flow.json` into Node-RED
+2. Configure the `nmos-config` node with your registry URL
+3. Deploy the flow
+4. Open `http://localhost:1880/nmos-matrix` in your browser
+5. Click crosspoints to route senders to receivers
+
+### Architecture
+
+The flow consists of five main sections:
+
+#### 1. Query NMOS Resources
+- Inject nodes poll senders and receivers every 5 seconds
+- `nmos-query` nodes fetch resources from IS-04 registry
+- Automatic discovery keeps the matrix updated
+
+#### 2. Process & Store Data
+- Function nodes transform raw NMOS data
+- Extract active connections from receiver subscriptions
+- Store in flow context for matrix UI access
+
+#### 3. Matrix UI Endpoints
+- `GET /nmos-matrix` - Serves the Vue.js matrix interface
+- `GET /nmos-matrix/data` - Returns current matrix data as JSON
+- Responsive design with search/filter capabilities
+
+#### 4. Routing Operations
+- `POST /nmos-matrix/route` - Accepts routing requests from UI
+- Routes through `nmos-connection` node for IS-05 operations
+- Supports connect, disconnect, and staged operations
+
+#### 5. WebSocket Updates (Optional)
+- Subscribe to real-time sender/receiver changes
+- Automatic matrix updates when devices are added/removed
+- Minimal polling overhead
+
+### Integration Options
+
+#### Option 1: Native Flow (Default)
+The provided flow uses built-in NMOS nodes and a custom Vue UI. This is self-contained and requires no external dependencies beyond Node-RED and an NMOS registry.
+
+#### Option 2: nmos_crosspoint Integration
+To integrate with the [DHPKE/nmos_crosspoint](https://github.com/DHPKE/nmos_crosspoint) application:
+
+1. Clone and run nmos_crosspoint:
+```bash
+git clone https://github.com/DHPKE/nmos_crosspoint
+cd nmos_crosspoint
+npm install
+npm start
+```
+
+2. Replace the matrix UI template node with an iframe:
+```html
+<iframe src="http://localhost:3000" width="100%" height="100%" frameborder="0"></iframe>
+```
+
+3. Configure nmos_crosspoint to use your NMOS registry
+
+4. Use crosspoint's built-in routing and visualization features
+
+Both approaches support the same NMOS IS-04/IS-05 workflows and can be switched without changing the query or connection logic.
+
 ## Examples
 
 Example flows are available in the `examples` directory:
-- Basic query and connection
-- WebSocket subscriptions
-- IS-07 event publishing
-- IS-12 device control
-- Matrix UI routing
+- **dynamic-matrix-flow.json**: Complete modular matrix with Vue UI
+- **is12-control-example.json**: IS-12 device control demonstration
 
 ## License
 
