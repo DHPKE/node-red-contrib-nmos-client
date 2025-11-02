@@ -74,7 +74,7 @@
 <script>
 export default {
     name: 'NmosMatrix',
-    inject: ['$socket'],
+    inject: ['$socket', 'send'],
     props: {
         id: { type: String, required: true },
         props: { type: Object, default: () => ({}) }
@@ -110,14 +110,16 @@ export default {
     mounted() {
         this.loadResources();
         
-        // Listen for incoming messages from Node-RED
+        // Listen for incoming messages from Node-RED (Dashboard 2.0 pattern)
         if (this.$socket) {
             this.$socket.on(`msg-input:${this.id}`, this.handleMessage);
+            this.$socket.on(`widget-load:${this.id}`, this.handleMessage);
         }
     },
     beforeUnmount() {
         if (this.$socket) {
             this.$socket.off(`msg-input:${this.id}`, this.handleMessage);
+            this.$socket.off(`widget-load:${this.id}`, this.handleMessage);
         }
     },
     methods: {
@@ -187,7 +189,7 @@ export default {
                 operation: isActive ? 'disconnect' : 'activate'
             };
             
-            this.send({ payload: action });
+            this.sendMessage({ payload: action });
             
             // Refresh after a delay to get accurate state from IS-05
             setTimeout(() => {
@@ -200,11 +202,9 @@ export default {
                 this.loadResources();
             }
         },
-        send(msg) {
-            // Send message back to Node-RED
-            if (this.$socket) {
-                this.$socket.emit('widget-action', this.id, msg);
-            }
+        sendMessage(msg) {
+            // Send message back to Node-RED using Dashboard 2.0 API
+            this.send(msg);
         }
     }
 }
