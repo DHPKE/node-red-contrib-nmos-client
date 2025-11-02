@@ -55,7 +55,11 @@
     "topic": "",
     "x": 120,
     "y": 160,
-    "wires": [["query-senders"]]
+    "wires": [
+      [
+        "query-senders"
+      ]
+    ]
   },
   {
     "id": "inject-poll-receivers",
@@ -76,7 +80,11 @@
     "topic": "",
     "x": 130,
     "y": 220,
-    "wires": [["query-receivers"]]
+    "wires": [
+      [
+        "query-receivers"
+      ]
+    ]
   },
   {
     "id": "query-senders",
@@ -88,7 +96,11 @@
     "filter": "",
     "x": 320,
     "y": 160,
-    "wires": [["process-senders"]]
+    "wires": [
+      [
+        "process-senders"
+      ]
+    ]
   },
   {
     "id": "query-receivers",
@@ -100,7 +112,11 @@
     "filter": "",
     "x": 330,
     "y": 220,
-    "wires": [["process-receivers"]]
+    "wires": [
+      [
+        "process-receivers"
+      ]
+    ]
   },
   {
     "id": "comment-process",
@@ -126,7 +142,11 @@
     "libs": [],
     "x": 530,
     "y": 160,
-    "wires": [["merge-matrix-data"]]
+    "wires": [
+      [
+        "merge-matrix-data"
+      ]
+    ]
   },
   {
     "id": "process-receivers",
@@ -142,7 +162,11 @@
     "libs": [],
     "x": 540,
     "y": 220,
-    "wires": [["merge-matrix-data"]]
+    "wires": [
+      [
+        "merge-matrix-data"
+      ]
+    ]
   },
   {
     "id": "merge-matrix-data",
@@ -158,7 +182,11 @@
     "libs": [],
     "x": 780,
     "y": 190,
-    "wires": [["debug-matrix-data"]]
+    "wires": [
+      [
+        "debug-matrix-data"
+      ]
+    ]
   },
   {
     "id": "debug-matrix-data",
@@ -198,7 +226,11 @@
     "swaggerDoc": "",
     "x": 130,
     "y": 420,
-    "wires": [["serve-matrix-ui"]]
+    "wires": [
+      [
+        "serve-matrix-ui"
+      ]
+    ]
   },
   {
     "id": "serve-matrix-ui",
@@ -209,11 +241,15 @@
     "fieldType": "msg",
     "format": "html",
     "syntax": "mustache",
-    "template": "<!DOCTYPE html>\n<html>\n<head>\n    <title>NMOS Routing Matrix</title>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <script src=\"https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js\"></script>\n    <style>\n        * { margin: 0; padding: 0; box-sizing: border-box; }\n        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a1a1a; color: #e0e0e0; }\n        #app { width: 100%; height: 100vh; display: flex; flex-direction: column; }\n        .header { padding: 20px; background: linear-gradient(135deg, #252525 0%, #2a2a2a 100%); border-bottom: 2px solid #3FADB5; }\n        .header h1 { color: #3FADB5; margin-bottom: 10px; }\n        .controls { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }\n        .search-box { flex: 1; min-width: 200px; padding: 10px; background: #333; border: 1px solid #555; border-radius: 6px; color: #e0e0e0; }\n        .btn { padding: 10px 18px; border: none; border-radius: 6px; color: white; cursor: pointer; font-weight: 600; transition: all 0.3s; }\n        .btn-refresh { background: linear-gradient(135deg, #3FADB5 0%, #2d8a91 100%); }\n        .btn-refresh:hover { background: linear-gradient(135deg, #2d8a91 0%, #236a70 100%); }\n        .status { margin-top: 10px; font-size: 14px; color: #999; }\n        .status strong { color: #3FADB5; }\n        .matrix-container { flex: 1; overflow: auto; padding: 20px; }\n        .matrix-grid { display: grid; grid-template-columns: 200px repeat(auto-fit, 50px); gap: 1px; background: #333; }\n        .corner { grid-column: 1; grid-row: 1; background: #252525; display: flex; align-items: center; justify-content: center; color: #3FADB5; font-weight: bold; }\n        .sender-header { background: #252525; padding: 10px 5px; text-align: center; font-size: 11px; writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 120px; }\n        .receiver-label { background: #252525; padding: 10px; font-size: 13px; font-weight: 600; display: flex; align-items: center; }\n        .crosspoint { background: #2a2a2a; min-height: 50px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }\n        .crosspoint:hover { background: #3a3a3a; }\n        .crosspoint.active { background: linear-gradient(135deg, #3FADB5 0%, #2d8a91 100%); }\n        .crosspoint.active:hover { background: linear-gradient(135deg, #4FBDC5 0%, #3D9AA1 100%); }\n        .loading { display: flex; justify-content: center; align-items: center; height: 100%; color: #3FADB5; font-size: 18px; }\n        .empty { display: flex; justify-content: center; align-items: center; height: 100%; color: #999; font-size: 16px; }\n    </style>\n</head>\n<body>\n    <div id=\"app\">\n        <div class=\"header\">\n            <h1>🎛️ NMOS Routing Matrix</h1>\n            <div class=\"controls\">\n                <input v-model=\"senderFilter\" class=\"search-box\" placeholder=\"Filter senders...\" />\n                <input v-model=\"receiverFilter\" class=\"search-box\" placeholder=\"Filter receivers...\" />\n                <button class=\"btn btn-refresh\" @click=\"loadData\" :disabled=\"loading\">{{ loading ? 'Loading...' : 'Refresh' }}</button>\n            </div>\n            <div class=\"status\">\n                <strong>Senders:</strong> {{ filteredSenders.length }} / {{ senders.length }} |\n                <strong>Receivers:</strong> {{ filteredReceivers.length }} / {{ receivers.length }} |\n                <strong>Active:</strong> {{ connections.length }} connections\n            </div>\n        </div>\n        <div class=\"matrix-container\">\n            <div v-if=\"loading\" class=\"loading\">Loading matrix data...</div>\n            <div v-else-if=\"senders.length === 0 || receivers.length === 0\" class=\"empty\">No senders or receivers found. Check your NMOS registry.</div>\n            <div v-else class=\"matrix-grid\" :style=\"gridStyle\">\n                <div class=\"corner\">Matrix</div>\n                <div v-for=\"sender in filteredSenders\" :key=\"sender.id\" class=\"sender-header\" :title=\"sender.label\">{{ sender.label }}</div>\n                <template v-for=\"receiver in filteredReceivers\" :key=\"receiver.id\">\n                    <div class=\"receiver-label\" :title=\"receiver.label\">{{ receiver.label }}</div>\n                    <div v-for=\"sender in filteredSenders\" :key=\"sender.id\" \n                         class=\"crosspoint\" \n                         :class=\"{ active: isConnected(receiver.id, sender.id) }\"\n                         @click=\"toggleConnection(receiver.id, sender.id)\"\n                         :title=\"`${sender.label} → ${receiver.label}`\">\n                        <span v-if=\"isConnected(receiver.id, sender.id)\">✓</span>\n                    </div>\n                </template>\n            </div>\n        </div>\n    </div>\n    <script>\n        const { createApp } = Vue;\n        createApp({\n            data() {\n                return {\n                    senders: [],\n                    receivers: [],\n                    connections: [],\n                    senderFilter: '',\n                    receiverFilter: '',\n                    loading: true\n                };\n            },\n            computed: {\n                filteredSenders() {\n                    if (!this.senderFilter) return this.senders;\n                    const search = this.senderFilter.toLowerCase();\n                    return this.senders.filter(s => s.label.toLowerCase().includes(search));\n                },\n                filteredReceivers() {\n                    if (!this.receiverFilter) return this.receivers;\n                    const search = this.receiverFilter.toLowerCase();\n                    return this.receivers.filter(r => r.label.toLowerCase().includes(search));\n                },\n                gridStyle() {\n                    return {\n                        gridTemplateColumns: `200px repeat(${this.filteredSenders.length}, 50px)`\n                    };\n                }\n            },\n            methods: {\n                async loadData() {\n                    this.loading = true;\n                    try {\n                        const response = await fetch('/nmos-matrix/data');\n                        const data = await response.json();\n                        this.senders = data.senders || [];\n                        this.receivers = data.receivers || [];\n                        this.connections = data.connections || [];\n                    } catch (error) {\n                        console.error('Error loading matrix data:', error);\n                        alert('Failed to load matrix data. Check Node-RED connection.');\n                    } finally {\n                        this.loading = false;\n                    }\n                },\n                isConnected(receiverId, senderId) {\n                    return this.connections.some(c => c.receiverId === receiverId && c.senderId === senderId);\n                },\n                async toggleConnection(receiverId, senderId) {\n                    const isActive = this.isConnected(receiverId, senderId);\n                    const operation = isActive ? 'disconnect' : 'activate';\n                    \n                    try {\n                        const response = await fetch('/nmos-matrix/route', {\n                            method: 'POST',\n                            headers: { 'Content-Type': 'application/json' },\n                            body: JSON.stringify({\n                                receiverId: receiverId,\n                                senderId: isActive ? null : senderId,\n                                operation: operation\n                            })\n                        });\n                        \n                        if (response.ok) {\n                            // Optimistic update\n                            if (isActive) {\n                                this.connections = this.connections.filter(c => !(c.receiverId === receiverId && c.senderId === senderId));\n                            } else {\n                                this.connections = this.connections.filter(c => c.receiverId !== receiverId);\n                                this.connections.push({ receiverId, senderId });\n                            }\n                            \n                            // Reload after delay to get actual state\n                            setTimeout(() => this.loadData(), 2000);\n                        } else {\n                            alert('Routing operation failed. Check Node-RED logs.');\n                        }\n                    } catch (error) {\n                        console.error('Error toggling connection:', error);\n                        alert('Failed to route connection.');\n                    }\n                }\n            },\n            mounted() {\n                this.loadData();\n                // Auto-refresh every 10 seconds\n                setInterval(() => this.loadData(), 10000);\n            }\n        }).mount('#app');\n    </script>\n</body>\n</html>",
+    "template": "<!DOCTYPE html>\n<html>\n<head>\n    <title>NMOS Routing Matrix</title>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <script src=\"https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js\"></script>\n    <style>\n        * { margin: 0; padding: 0; box-sizing: border-box; }\n        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a1a1a; color: #e0e0e0; }\n        #app { width: 100%; height: 100vh; display: flex; flex-direction: column; }\n        .header { padding: 20px; background: linear-gradient(135deg, #252525 0%, #2a2a2a 100%); border-bottom: 2px solid #3FADB5; }\n        .header h1 { color: #3FADB5; margin-bottom: 10px; }\n        .controls { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; align-items: center; }\n        .search-box { flex: 1; min-width: 200px; padding: 10px; background: #333; border: 1px solid #555; border-radius: 6px; color: #e0e0e0; }\n        .btn { padding: 10px 18px; border: none; border-radius: 6px; color: white; cursor: pointer; font-weight: 600; transition: all 0.3s; }\n        .btn:disabled { opacity: 0.5; cursor: not-allowed; }\n        .btn-refresh { background: linear-gradient(135deg, #3FADB5 0%, #2d8a91 100%); }\n        .btn-refresh:hover:not(:disabled) { background: linear-gradient(135deg, #2d8a91 0%, #236a70 100%); }\n        .btn-snapshot { background: linear-gradient(135deg, #5a9fd4 0%, #4a7fb4 100%); }\n        .btn-snapshot:hover:not(:disabled) { background: linear-gradient(135deg, #4a7fb4 0%, #3a6fa4 100%); }\n        .btn-export { background: linear-gradient(135deg, #7cb342 0%, #6ca332 100%); }\n        .btn-export:hover:not(:disabled) { background: linear-gradient(135deg, #6ca332 0%, #5c9322 100%); }\n        .btn-import { background: linear-gradient(135deg, #ffa726 0%, #ef8f16 100%); }\n        .btn-import:hover:not(:disabled) { background: linear-gradient(135deg, #ef8f16 0%, #df7f06 100%); }\n        .file-input { display: none; }\n        .status { margin-top: 10px; font-size: 14px; color: #999; }\n        .status strong { color: #3FADB5; }\n        .matrix-container { flex: 1; overflow: auto; padding: 20px; }\n        .matrix-grid { display: grid; grid-template-columns: 200px repeat(auto-fit, 50px); gap: 1px; background: #333; }\n        .corner { grid-column: 1; grid-row: 1; background: #252525; display: flex; align-items: center; justify-content: center; color: #3FADB5; font-weight: bold; }\n        .sender-header { background: #252525; padding: 10px 5px; text-align: center; font-size: 11px; writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 120px; }\n        .receiver-label { background: #252525; padding: 10px; font-size: 13px; font-weight: 600; display: flex; align-items: center; }\n        .crosspoint { background: #2a2a2a; min-height: 50px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }\n        .crosspoint:hover { background: #3a3a3a; }\n        .crosspoint.active { background: linear-gradient(135deg, #3FADB5 0%, #2d8a91 100%); }\n        .crosspoint.active:hover { background: linear-gradient(135deg, #4FBDC5 0%, #3D9AA1 100%); }\n        .loading { display: flex; justify-content: center; align-items: center; height: 100%; color: #3FADB5; font-size: 18px; }\n        .empty { display: flex; justify-content: center; align-items: center; height: 100%; color: #999; font-size: 16px; }\n        \n        /* Modal styles */\n        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; }\n        .modal { background: #2a2a2a; border-radius: 8px; padding: 30px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; border: 2px solid #3FADB5; }\n        .modal h2 { color: #3FADB5; margin-bottom: 20px; }\n        .modal-input { width: 100%; padding: 10px; margin-bottom: 15px; background: #333; border: 1px solid #555; border-radius: 6px; color: #e0e0e0; }\n        .modal-textarea { width: 100%; padding: 10px; margin-bottom: 15px; background: #333; border: 1px solid #555; border-radius: 6px; color: #e0e0e0; min-height: 80px; resize: vertical; }\n        .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }\n        .btn-cancel { background: #666; }\n        .btn-cancel:hover { background: #555; }\n        .btn-primary { background: linear-gradient(135deg, #3FADB5 0%, #2d8a91 100%); }\n        .btn-primary:hover { background: linear-gradient(135deg, #2d8a91 0%, #236a70 100%); }\n        .change-list { max-height: 300px; overflow-y: auto; margin: 15px 0; }\n        .change-item { padding: 10px; margin: 5px 0; background: #333; border-radius: 4px; border-left: 3px solid #3FADB5; }\n        .change-item.add { border-left-color: #7cb342; }\n        .change-item.remove { border-left-color: #ef5350; }\n        .change-item.change { border-left-color: #ffa726; }\n        .change-label { font-weight: 600; color: #3FADB5; margin-right: 5px; }\n        .validation-summary { background: #333; padding: 15px; border-radius: 6px; margin-bottom: 15px; }\n        .validation-item { margin: 5px 0; }\n        .validation-success { color: #7cb342; }\n        .validation-warning { color: #ffa726; }\n        .validation-error { color: #ef5350; }\n    </style>\n</head>\n<body>\n    <div id=\"app\">\n        <div class=\"header\">\n            <h1>🎛️ NMOS Routing Matrix</h1>\n            <div class=\"controls\">\n                <input v-model=\"senderFilter\" class=\"search-box\" placeholder=\"Filter senders...\" />\n                <input v-model=\"receiverFilter\" class=\"search-box\" placeholder=\"Filter receivers...\" />\n                <button class=\"btn btn-refresh\" @click=\"loadData\" :disabled=\"loading\">{{ loading ? 'Loading...' : 'Refresh' }}</button>\n                <button class=\"btn btn-snapshot\" @click=\"showSaveSnapshotModal\" :disabled=\"loading\">💾 Save Snapshot</button>\n                <button class=\"btn btn-export\" @click=\"exportSnapshot\" :disabled=\"loading\">⬇️ Export</button>\n                <button class=\"btn btn-import\" @click=\"$refs.fileInput.click()\" :disabled=\"loading\">⬆️ Import</button>\n                <input ref=\"fileInput\" type=\"file\" accept=\".json\" class=\"file-input\" @change=\"handleFileImport\" />\n            </div>\n            <div class=\"status\">\n                <strong>Senders:</strong> {{ filteredSenders.length }} / {{ senders.length }} |\n                <strong>Receivers:</strong> {{ filteredReceivers.length }} / {{ receivers.length }} |\n                <strong>Active:</strong> {{ connections.length }} connections\n            </div>\n        </div>\n        <div class=\"matrix-container\">\n            <div v-if=\"loading\" class=\"loading\">Loading matrix data...</div>\n            <div v-else-if=\"senders.length === 0 || receivers.length === 0\" class=\"empty\">No senders or receivers found. Check your NMOS registry.</div>\n            <div v-else class=\"matrix-grid\" :style=\"gridStyle\">\n                <div class=\"corner\">Matrix</div>\n                <div v-for=\"sender in filteredSenders\" :key=\"sender.id\" class=\"sender-header\" :title=\"sender.label\">{{ sender.label }}</div>\n                <template v-for=\"receiver in filteredReceivers\" :key=\"receiver.id\">\n                    <div class=\"receiver-label\" :title=\"receiver.label\">{{ receiver.label }}</div>\n                    <div v-for=\"sender in filteredSenders\" :key=\"sender.id\" \n                         class=\"crosspoint\" \n                         :class=\"{ active: isConnected(receiver.id, sender.id) }\"\n                         @click=\"toggleConnection(receiver.id, sender.id)\"\n                         :title=\"`${sender.label} → ${receiver.label}`\">\n                        <span v-if=\"isConnected(receiver.id, sender.id)\">✓</span>\n                    </div>\n                </template>\n            </div>\n        </div>\n        \n        <!-- Save Snapshot Modal -->\n        <div v-if=\"showSaveModal\" class=\"modal-overlay\" @click.self=\"showSaveModal = false\">\n            <div class=\"modal\">\n                <h2>💾 Save Routing Snapshot</h2>\n                <label>Snapshot Name:</label>\n                <input v-model=\"snapshotName\" class=\"modal-input\" placeholder=\"e.g., Production Setup 1\" />\n                <label>Description (Optional):</label>\n                <textarea v-model=\"snapshotDescription\" class=\"modal-textarea\" placeholder=\"e.g., Main routing configuration for live show\"></textarea>\n                <div class=\"validation-summary\">\n                    <div class=\"validation-item validation-success\">✓ {{ connections.length }} active connections will be saved</div>\n                </div>\n                <div class=\"modal-buttons\">\n                    <button class=\"btn btn-cancel\" @click=\"showSaveModal = false\">Cancel</button>\n                    <button class=\"btn btn-primary\" @click=\"saveSnapshot\">Save Snapshot</button>\n                </div>\n            </div>\n        </div>\n        \n        <!-- Import Preview Modal -->\n        <div v-if=\"showPreviewModal\" class=\"modal-overlay\" @click.self=\"showPreviewModal = false\">\n            <div class=\"modal\">\n                <h2>📋 Snapshot Preview</h2>\n                <div v-if=\"previewData\">\n                    <div class=\"validation-summary\">\n                        <div class=\"validation-item\"><strong>Name:</strong> {{ previewData.snapshot.name }}</div>\n                        <div class=\"validation-item\"><strong>Description:</strong> {{ previewData.snapshot.description || 'None' }}</div>\n                        <div class=\"validation-item\"><strong>Created:</strong> {{ new Date(previewData.snapshot.timestamp).toLocaleString() }}</div>\n                        <div class=\"validation-item validation-success\">✓ Valid Routes: {{ previewData.validation.validRoutes }}</div>\n                        <div v-if=\"previewData.validation.invalidRoutes > 0\" class=\"validation-item validation-error\">\n                            ⚠️ Invalid Routes: {{ previewData.validation.invalidRoutes }}\n                        </div>\n                        <div class=\"validation-item validation-warning\">🔄 Changes: {{ previewData.validation.changes }}</div>\n                    </div>\n                    \n                    <div v-if=\"previewData.invalidRoutes && previewData.invalidRoutes.length > 0\">\n                        <h3 style=\"color: #ef5350; margin: 15px 0;\">Invalid Routes (Will Be Skipped)</h3>\n                        <div class=\"change-list\">\n                            <div v-for=\"(invalid, idx) in previewData.invalidRoutes\" :key=\"idx\" class=\"change-item remove\">\n                                <div>{{ invalid.reason }}</div>\n                            </div>\n                        </div>\n                    </div>\n                    \n                    <div v-if=\"previewData.changes && previewData.changes.length > 0\">\n                        <h3 style=\"color: #3FADB5; margin: 15px 0;\">Routing Changes</h3>\n                        <div class=\"change-list\">\n                            <div v-for=\"(change, idx) in previewData.changes\" :key=\"idx\" \n                                 class=\"change-item\" \n                                 :class=\"change.type\">\n                                <div v-if=\"change.type === 'add'\">\n                                    <span class=\"change-label\">➕ Connect:</span>\n                                    {{ change.senderLabel }} → {{ change.receiverLabel }}\n                                </div>\n                                <div v-else-if=\"change.type === 'remove'\">\n                                    <span class=\"change-label\">➖ Disconnect:</span>\n                                    {{ change.senderLabel }} ⛔ {{ change.receiverLabel }}\n                                </div>\n                                <div v-else-if=\"change.type === 'change'\">\n                                    <span class=\"change-label\">🔄 Change:</span>\n                                    {{ change.receiverLabel }}<br/>\n                                    <small style=\"color: #999;\">From: {{ change.oldSenderLabel }}</small><br/>\n                                    <small style=\"color: #7cb342;\">To: {{ change.newSenderLabel }}</small>\n                                </div>\n                            </div>\n                        </div>\n                    </div>\n                    \n                    <div v-else>\n                        <p style=\"color: #7cb342; text-align: center; padding: 20px;\">✓ No changes needed - routing matches snapshot</p>\n                    </div>\n                </div>\n                <div class=\"modal-buttons\">\n                    <button class=\"btn btn-cancel\" @click=\"showPreviewModal = false\">Cancel</button>\n                    <button class=\"btn btn-primary\" @click=\"applySnapshot\" :disabled=\"!previewData || previewData.validation.changes === 0\">\n                        Apply Snapshot\n                    </button>\n                </div>\n            </div>\n        </div>\n    </div>\n    <script>\n        const { createApp } = Vue;\n        createApp({\n            data() {\n                return {\n                    senders: [],\n                    receivers: [],\n                    connections: [],\n                    senderFilter: '',\n                    receiverFilter: '',\n                    loading: true,\n                    showSaveModal: false,\n                    showPreviewModal: false,\n                    snapshotName: '',\n                    snapshotDescription: '',\n                    previewData: null\n                };\n            },\n            computed: {\n                filteredSenders() {\n                    if (!this.senderFilter) return this.senders;\n                    const search = this.senderFilter.toLowerCase();\n                    return this.senders.filter(s => s.label.toLowerCase().includes(search));\n                },\n                filteredReceivers() {\n                    if (!this.receiverFilter) return this.receivers;\n                    const search = this.receiverFilter.toLowerCase();\n                    return this.receivers.filter(r => r.label.toLowerCase().includes(search));\n                },\n                gridStyle() {\n                    return {\n                        gridTemplateColumns: `200px repeat(${this.filteredSenders.length}, 50px)`\n                    };\n                }\n            },\n            methods: {\n                async loadData() {\n                    this.loading = true;\n                    try {\n                        const response = await fetch('/nmos-matrix/data');\n                        const data = await response.json();\n                        this.senders = data.senders || [];\n                        this.receivers = data.receivers || [];\n                        this.connections = data.connections || [];\n                    } catch (error) {\n                        console.error('Error loading matrix data:', error);\n                        alert('Failed to load matrix data. Check Node-RED connection.');\n                    } finally {\n                        this.loading = false;\n                    }\n                },\n                isConnected(receiverId, senderId) {\n                    return this.connections.some(c => c.receiverId === receiverId && c.senderId === senderId);\n                },\n                async toggleConnection(receiverId, senderId) {\n                    const isActive = this.isConnected(receiverId, senderId);\n                    const operation = isActive ? 'disconnect' : 'activate';\n                    \n                    try {\n                        const response = await fetch('/nmos-matrix/route', {\n                            method: 'POST',\n                            headers: { 'Content-Type': 'application/json' },\n                            body: JSON.stringify({\n                                receiverId: receiverId,\n                                senderId: isActive ? null : senderId,\n                                operation: operation\n                            })\n                        });\n                        \n                        if (response.ok) {\n                            // Optimistic update\n                            if (isActive) {\n                                this.connections = this.connections.filter(c => !(c.receiverId === receiverId && c.senderId === senderId));\n                            } else {\n                                this.connections = this.connections.filter(c => c.receiverId !== receiverId);\n                                this.connections.push({ receiverId, senderId });\n                            }\n                            \n                            // Reload after delay to get actual state\n                            setTimeout(() => this.loadData(), 2000);\n                        } else {\n                            alert('Routing operation failed. Check Node-RED logs.');\n                        }\n                    } catch (error) {\n                        console.error('Error toggling connection:', error);\n                        alert('Failed to route connection.');\n                    }\n                },\n                showSaveSnapshotModal() {\n                    this.snapshotName = 'Snapshot ' + new Date().toLocaleString();\n                    this.snapshotDescription = '';\n                    this.showSaveModal = true;\n                },\n                async saveSnapshot() {\n                    try {\n                        const response = await fetch('/nmos-matrix/snapshot/save', {\n                            method: 'POST',\n                            headers: { 'Content-Type': 'application/json' },\n                            body: JSON.stringify({\n                                name: this.snapshotName,\n                                description: this.snapshotDescription\n                            })\n                        });\n                        \n                        if (response.ok) {\n                            const result = await response.json();\n                            alert('Snapshot saved successfully!\\n\\n' + \n                                  'Name: ' + result.snapshot.name + '\\n' +\n                                  'Routes: ' + result.snapshot.routes.length);\n                            this.showSaveModal = false;\n                        } else {\n                            alert('Failed to save snapshot.');\n                        }\n                    } catch (error) {\n                        console.error('Error saving snapshot:', error);\n                        alert('Failed to save snapshot.');\n                    }\n                },\n                async exportSnapshot() {\n                    try {\n                        const response = await fetch('/nmos-matrix/snapshot/export');\n                        \n                        if (response.ok) {\n                            const blob = await response.blob();\n                            const url = window.URL.createObjectURL(blob);\n                            const a = document.createElement('a');\n                            a.href = url;\n                            a.download = 'nmos-routing-snapshot-' + Date.now() + '.json';\n                            document.body.appendChild(a);\n                            a.click();\n                            document.body.removeChild(a);\n                            window.URL.revokeObjectURL(url);\n                        } else {\n                            alert('Failed to export snapshot.');\n                        }\n                    } catch (error) {\n                        console.error('Error exporting snapshot:', error);\n                        alert('Failed to export snapshot.');\n                    }\n                },\n                async handleFileImport(event) {\n                    const file = event.target.files[0];\n                    if (!file) return;\n                    \n                    try {\n                        const text = await file.text();\n                        const snapshot = JSON.parse(text);\n                        \n                        const response = await fetch('/nmos-matrix/snapshot/import', {\n                            method: 'POST',\n                            headers: { 'Content-Type': 'application/json' },\n                            body: JSON.stringify(snapshot)\n                        });\n                        \n                        if (response.ok) {\n                            this.previewData = await response.json();\n                            this.showPreviewModal = true;\n                        } else {\n                            const error = await response.json();\n                            alert('Invalid snapshot: ' + (error.error || 'Unknown error'));\n                        }\n                    } catch (error) {\n                        console.error('Error importing snapshot:', error);\n                        alert('Failed to import snapshot. Make sure it is a valid JSON file.');\n                    }\n                    \n                    // Reset file input\n                    event.target.value = '';\n                },\n                async applySnapshot() {\n                    if (!this.previewData) return;\n                    \n                    try {\n                        const response = await fetch('/nmos-matrix/snapshot/apply', {\n                            method: 'POST',\n                            headers: { 'Content-Type': 'application/json' }\n                        });\n                        \n                        if (response.ok) {\n                            const result = await response.json();\n                            alert('Snapshot applied successfully!\\n\\n' +\n                                  'Routing changes: ' + result.totalRoutes + '\\n' +\n                                  'Please wait a few seconds for all connections to complete.');\n                            this.showPreviewModal = false;\n                            this.previewData = null;\n                            \n                            // Reload after delay to show updated connections\n                            setTimeout(() => this.loadData(), 3000);\n                        } else {\n                            alert('Failed to apply snapshot.');\n                        }\n                    } catch (error) {\n                        console.error('Error applying snapshot:', error);\n                        alert('Failed to apply snapshot.');\n                    }\n                }\n            },\n            mounted() {\n                this.loadData();\n                // Auto-refresh every 10 seconds\n                setInterval(() => this.loadData(), 10000);\n            }\n        }).mount('#app');\n    </script>\n</body>\n</html>",
     "output": "str",
     "x": 360,
     "y": 420,
-    "wires": [["http-response-matrix"]]
+    "wires": [
+      [
+        "http-response-matrix"
+      ]
+    ]
   },
   {
     "id": "http-response-matrix",
@@ -239,7 +275,11 @@
     "swaggerDoc": "",
     "x": 150,
     "y": 480,
-    "wires": [["get-matrix-data"]]
+    "wires": [
+      [
+        "get-matrix-data"
+      ]
+    ]
   },
   {
     "id": "get-matrix-data",
@@ -255,7 +295,11 @@
     "libs": [],
     "x": 380,
     "y": 480,
-    "wires": [["http-response-data"]]
+    "wires": [
+      [
+        "http-response-data"
+      ]
+    ]
   },
   {
     "id": "http-response-data",
@@ -289,7 +333,11 @@
     "swaggerDoc": "",
     "x": 140,
     "y": 600,
-    "wires": [["parse-route-request"]]
+    "wires": [
+      [
+        "parse-route-request"
+      ]
+    ]
   },
   {
     "id": "parse-route-request",
@@ -305,7 +353,11 @@
     "libs": [],
     "x": 370,
     "y": 600,
-    "wires": [["nmos-connection"]]
+    "wires": [
+      [
+        "nmos-connection"
+      ]
+    ]
   },
   {
     "id": "nmos-connection",
@@ -317,7 +369,12 @@
     "senderId": "",
     "x": 590,
     "y": 600,
-    "wires": [["route-response", "debug-route-result"]]
+    "wires": [
+      [
+        "route-response",
+        "debug-route-result"
+      ]
+    ]
   },
   {
     "id": "route-response",
@@ -333,7 +390,11 @@
     "libs": [],
     "x": 790,
     "y": 600,
-    "wires": [["http-response-route"]]
+    "wires": [
+      [
+        "http-response-route"
+      ]
+    ]
   },
   {
     "id": "http-response-route",
@@ -383,7 +444,11 @@
     "filter": "",
     "x": 130,
     "y": 760,
-    "wires": [["handle-sender-change"]]
+    "wires": [
+      [
+        "handle-sender-change"
+      ]
+    ]
   },
   {
     "id": "websocket-receivers",
@@ -395,7 +460,11 @@
     "filter": "",
     "x": 140,
     "y": 800,
-    "wires": [["handle-receiver-change"]]
+    "wires": [
+      [
+        "handle-receiver-change"
+      ]
+    ]
   },
   {
     "id": "handle-sender-change",
@@ -411,7 +480,11 @@
     "libs": [],
     "x": 370,
     "y": 760,
-    "wires": [["debug-ws-update"]]
+    "wires": [
+      [
+        "debug-ws-update"
+      ]
+    ]
   },
   {
     "id": "handle-receiver-change",
@@ -427,7 +500,11 @@
     "libs": [],
     "x": 380,
     "y": 800,
-    "wires": [["debug-ws-update"]]
+    "wires": [
+      [
+        "debug-ws-update"
+      ]
+    ]
   },
   {
     "id": "debug-ws-update",
@@ -447,13 +524,255 @@
     "wires": []
   },
   {
-    "id": "comment-integration",
+    "id": "comment-snapshot",
     "type": "comment",
     "z": "matrix-flow-tab",
-    "name": "6. nmos_crosspoint Integration (Optional)",
+    "name": "6. Snapshot Management",
+    "info": "Save, export, import, and apply routing snapshots.",
+    "x": 140,
+    "y": 900,
+    "wires": []
+  },
+  {
+    "id": "http-in-snapshot-save",
+    "type": "http in",
+    "z": "matrix-flow-tab",
+    "name": "",
+    "url": "/nmos-matrix/snapshot/save",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 170,
+    "y": 960,
+    "wires": [
+      [
+        "save-snapshot"
+      ]
+    ]
+  },
+  {
+    "id": "save-snapshot",
+    "type": "function",
+    "z": "matrix-flow-tab",
+    "name": "Save Snapshot",
+    "func": "// Save current routing configuration as snapshot\nconst matrixData = flow.get('matrixData') || { senders: [], receivers: [], connections: [] };\nconst request = msg.payload || {};\n\n// Generate snapshot with metadata\nconst snapshot = {\n    version: \"1.0\",\n    timestamp: new Date().toISOString(),\n    name: request.name || \"Untitled Snapshot\",\n    description: request.description || \"\",\n    routes: matrixData.connections.map(c => ({\n        sender_id: c.senderId,\n        receiver_id: c.receiverId,\n        sender_label: c.senderLabel,\n        receiver_label: c.receiverLabel,\n        transport_params: {}\n    }))\n};\n\n// Store snapshot in flow context with timestamp key\nconst snapshotKey = 'snapshot_' + Date.now();\nconst snapshots = flow.get('snapshots') || {};\nsnapshots[snapshotKey] = snapshot;\nflow.set('snapshots', snapshots);\n\nmsg.payload = {\n    success: true,\n    snapshot: snapshot,\n    snapshotKey: snapshotKey\n};\n\nmsg.statusCode = 200;\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 390,
+    "y": 960,
+    "wires": [
+      [
+        "http-response-snapshot-save"
+      ]
+    ]
+  },
+  {
+    "id": "http-response-snapshot-save",
+    "type": "http response",
+    "z": "matrix-flow-tab",
+    "name": "",
+    "statusCode": "",
+    "headers": {},
+    "x": 610,
+    "y": 960,
+    "wires": []
+  },
+  {
+    "id": "http-in-snapshot-export",
+    "type": "http in",
+    "z": "matrix-flow-tab",
+    "name": "",
+    "url": "/nmos-matrix/snapshot/export",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 180,
+    "y": 1020,
+    "wires": [
+      [
+        "export-snapshot"
+      ]
+    ]
+  },
+  {
+    "id": "export-snapshot",
+    "type": "function",
+    "z": "matrix-flow-tab",
+    "name": "Export Snapshot",
+    "func": "// Export current routing as JSON file\nconst matrixData = flow.get('matrixData') || { senders: [], receivers: [], connections: [] };\n\nconst snapshot = {\n    version: \"1.0\",\n    timestamp: new Date().toISOString(),\n    name: \"Routing Configuration Export\",\n    description: \"Current NMOS routing configuration\",\n    routes: matrixData.connections.map(c => ({\n        sender_id: c.senderId,\n        receiver_id: c.receiverId,\n        sender_label: c.senderLabel,\n        receiver_label: c.receiverLabel,\n        transport_params: {}\n    }))\n};\n\nmsg.payload = JSON.stringify(snapshot, null, 2);\nmsg.headers = {\n    'Content-Type': 'application/json',\n    'Content-Disposition': 'attachment; filename=\"nmos-routing-snapshot-' + Date.now() + '.json\"'\n};\n\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 400,
+    "y": 1020,
+    "wires": [
+      [
+        "http-response-snapshot-export"
+      ]
+    ]
+  },
+  {
+    "id": "http-response-snapshot-export",
+    "type": "http response",
+    "z": "matrix-flow-tab",
+    "name": "",
+    "statusCode": "200",
+    "headers": {},
+    "x": 630,
+    "y": 1020,
+    "wires": []
+  },
+  {
+    "id": "http-in-snapshot-import",
+    "type": "http in",
+    "z": "matrix-flow-tab",
+    "name": "",
+    "url": "/nmos-matrix/snapshot/import",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 180,
+    "y": 1080,
+    "wires": [
+      [
+        "validate-snapshot"
+      ]
+    ]
+  },
+  {
+    "id": "validate-snapshot",
+    "type": "function",
+    "z": "matrix-flow-tab",
+    "name": "Validate & Preview Snapshot",
+    "func": "// Validate imported snapshot and preview changes\nconst snapshot = msg.payload;\n\n// Validate snapshot structure\nif (!snapshot || typeof snapshot !== 'object') {\n    msg.statusCode = 400;\n    msg.payload = { error: \"Invalid snapshot: must be JSON object\" };\n    return msg;\n}\n\nif (snapshot.version !== \"1.0\") {\n    msg.statusCode = 400;\n    msg.payload = { error: \"Unsupported snapshot version: \" + snapshot.version };\n    return msg;\n}\n\nif (!Array.isArray(snapshot.routes)) {\n    msg.statusCode = 400;\n    msg.payload = { error: \"Invalid snapshot: routes must be array\" };\n    return msg;\n}\n\n// Get current matrix data\nconst matrixData = flow.get('matrixData') || { senders: [], receivers: [], connections: [] };\nconst currentSenders = matrixData.senders;\nconst currentReceivers = matrixData.receivers;\nconst currentConnections = matrixData.connections;\n\n// Validate and categorize routes\nconst validRoutes = [];\nconst invalidRoutes = [];\nconst changes = [];\n\nsnapshot.routes.forEach(route => {\n    const sender = currentSenders.find(s => s.id === route.sender_id);\n    const receiver = currentReceivers.find(r => r.id === route.receiver_id);\n    \n    if (!sender) {\n        invalidRoutes.push({\n            route: route,\n            reason: \"Sender not found: \" + (route.sender_label || route.sender_id)\n        });\n    } else if (!receiver) {\n        invalidRoutes.push({\n            route: route,\n            reason: \"Receiver not found: \" + (route.receiver_label || route.receiver_id)\n        });\n    } else {\n        validRoutes.push(route);\n        \n        // Check if this is a change\n        const currentConnection = currentConnections.find(c => \n            c.receiverId === route.receiver_id\n        );\n        \n        if (!currentConnection) {\n            changes.push({\n                type: \"add\",\n                receiverId: route.receiver_id,\n                receiverLabel: receiver.label,\n                senderId: route.sender_id,\n                senderLabel: sender.label\n            });\n        } else if (currentConnection.senderId !== route.sender_id) {\n            changes.push({\n                type: \"change\",\n                receiverId: route.receiver_id,\n                receiverLabel: receiver.label,\n                oldSenderId: currentConnection.senderId,\n                oldSenderLabel: currentConnection.senderLabel,\n                newSenderId: route.sender_id,\n                newSenderLabel: sender.label\n            });\n        }\n    }\n});\n\n// Check for disconnections (current connections not in snapshot)\ncurrentConnections.forEach(conn => {\n    const inSnapshot = snapshot.routes.find(r => r.receiver_id === conn.receiverId);\n    if (!inSnapshot) {\n        const receiver = currentReceivers.find(r => r.id === conn.receiverId);\n        changes.push({\n            type: \"remove\",\n            receiverId: conn.receiverId,\n            receiverLabel: receiver ? receiver.label : conn.receiverLabel,\n            senderId: conn.senderId,\n            senderLabel: conn.senderLabel\n        });\n    }\n});\n\n// Store validated snapshot for apply operation\nflow.set('pendingSnapshot', {\n    snapshot: snapshot,\n    validRoutes: validRoutes,\n    changes: changes\n});\n\nmsg.payload = {\n    valid: true,\n    snapshot: {\n        name: snapshot.name,\n        description: snapshot.description,\n        timestamp: snapshot.timestamp,\n        totalRoutes: snapshot.routes.length\n    },\n    validation: {\n        validRoutes: validRoutes.length,\n        invalidRoutes: invalidRoutes.length,\n        changes: changes.length\n    },\n    invalidRoutes: invalidRoutes,\n    changes: changes\n};\n\nmsg.statusCode = 200;\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 430,
+    "y": 1080,
+    "wires": [
+      [
+        "http-response-snapshot-import"
+      ]
+    ]
+  },
+  {
+    "id": "http-response-snapshot-import",
+    "type": "http response",
+    "z": "matrix-flow-tab",
+    "name": "",
+    "statusCode": "",
+    "headers": {},
+    "x": 660,
+    "y": 1080,
+    "wires": []
+  },
+  {
+    "id": "http-in-snapshot-apply",
+    "type": "http in",
+    "z": "matrix-flow-tab",
+    "name": "",
+    "url": "/nmos-matrix/snapshot/apply",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 170,
+    "y": 1140,
+    "wires": [
+      [
+        "apply-snapshot"
+      ]
+    ]
+  },
+  {
+    "id": "apply-snapshot",
+    "type": "function",
+    "z": "matrix-flow-tab",
+    "name": "Apply Snapshot Routes",
+    "func": "// Apply validated snapshot by creating routing operations\nconst pendingSnapshot = flow.get('pendingSnapshot');\n\nif (!pendingSnapshot) {\n    msg.statusCode = 400;\n    msg.payload = { error: \"No pending snapshot to apply. Import a snapshot first.\" };\n    return [msg, null];\n}\n\nconst changes = pendingSnapshot.changes || [];\nconst matrixData = flow.get('matrixData') || { connections: [] };\n\n// Create routing messages for each change\nconst routingMsgs = changes.map(change => {\n    const routeMsg = {\n        receiverId: change.receiverId,\n        senderId: change.type === 'remove' ? null : (change.newSenderId || change.senderId),\n        operation: change.type === 'remove' ? 'disconnect' : 'activate'\n    };\n    return routeMsg;\n});\n\n// Store routing operations for execution\nflow.set('pendingRoutes', routingMsgs);\nflow.set('pendingRouteIndex', 0);\nflow.set('snapshotApplyInProgress', true);\n\n// Return response and start routing\nmsg.payload = {\n    success: true,\n    message: \"Applying snapshot routes\",\n    totalRoutes: routingMsgs.length,\n    changes: changes\n};\nmsg.statusCode = 200;\n\n// Send first routing message if any\nconst firstRoute = routingMsgs.length > 0 ? routingMsgs[0] : null;\nconst routeMsg = firstRoute ? {\n    receiverId: firstRoute.receiverId,\n    senderId: firstRoute.senderId,\n    operation: firstRoute.operation,\n    _snapshotApply: true,\n    _routeIndex: 0\n} : null;\n\nreturn [msg, routeMsg];",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 400,
+    "y": 1140,
+    "wires": [
+      [
+        "http-response-snapshot-apply"
+      ],
+      [
+        "execute-nmos-connection"
+      ]
+    ]
+  },
+  {
+    "id": "http-response-snapshot-apply",
+    "type": "http response",
+    "z": "matrix-flow-tab",
+    "name": "",
+    "statusCode": "",
+    "headers": {},
+    "x": 630,
+    "y": 1120,
+    "wires": []
+  },
+  {
+    "id": "execute-nmos-connection",
+    "type": "nmos-connection",
+    "z": "matrix-flow-tab",
+    "name": "Execute Snapshot Route",
+    "registry": "nmos-registry-config",
+    "operation": "",
+    "receiverId": "",
+    "senderId": "",
+    "x": 650,
+    "y": 1160,
+    "wires": [
+      [
+        "handle-snapshot-route-result"
+      ]
+    ]
+  },
+  {
+    "id": "handle-snapshot-route-result",
+    "type": "function",
+    "z": "matrix-flow-tab",
+    "name": "Continue Snapshot Apply",
+    "func": "// Check if this is part of snapshot apply\nif (!msg._snapshotApply) {\n    return null;\n}\n\nconst pendingRoutes = flow.get('pendingRoutes') || [];\nconst currentIndex = msg._routeIndex || 0;\nconst nextIndex = currentIndex + 1;\n\n// If more routes to process, send next one\nif (nextIndex < pendingRoutes.length) {\n    const nextRoute = pendingRoutes[nextIndex];\n    const routeMsg = {\n        receiverId: nextRoute.receiverId,\n        senderId: nextRoute.senderId,\n        operation: nextRoute.operation,\n        _snapshotApply: true,\n        _routeIndex: nextIndex\n    };\n    \n    // Small delay to prevent overwhelming the connection API\n    setTimeout(() => {\n        node.send(routeMsg);\n    }, 100);\n    \n    return null;\n} else {\n    // All routes processed\n    flow.set('snapshotApplyInProgress', false);\n    flow.set('pendingSnapshot', null);\n    node.status({ fill: \"green\", shape: \"dot\", text: \"Snapshot applied\" });\n    \n    setTimeout(() => {\n        node.status({});\n    }, 5000);\n    \n    return null;\n}",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 430,
+    "y": 1200,
+    "wires": [
+      [
+        "execute-nmos-connection"
+      ]
+    ]
+  },
+  {
+    "id": "comment-integration-updated",
+    "type": "comment",
+    "z": "matrix-flow-tab",
+    "name": "7. nmos_crosspoint Integration (Optional)",
     "info": "To integrate with DHPKE/nmos_crosspoint:\n\n1. Install and run nmos_crosspoint:\n   git clone https://github.com/DHPKE/nmos_crosspoint\n   cd nmos_crosspoint\n   npm install\n   npm start\n\n2. Replace the /nmos-matrix endpoint with an iframe:\n   <iframe src=\"http://localhost:3000\" width=\"100%\" height=\"100%\"></iframe>\n\n3. Configure crosspoint to use your NMOS registry\n\n4. Use crosspoint's built-in routing interface\n\nAlternatively, you can proxy crosspoint API calls through Node-RED.",
     "x": 190,
-    "y": 860,
+    "y": 1260,
     "wires": []
   }
 ]
