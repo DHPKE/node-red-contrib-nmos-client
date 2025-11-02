@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-nmos-client",
-  "version": "2.4.1",
+  "version": "2.4.2",
   "description": "Complete NMOS implementation for Node-RED with IS-04, IS-05, IS-07, and IS-12 support",
   "keywords": [
     "node-red",
