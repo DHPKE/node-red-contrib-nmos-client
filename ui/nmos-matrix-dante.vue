@@ -299,7 +299,8 @@ export default {
   props: {
     nodeId: {
       type: String,
-      required: true
+      required: false,
+      default: ''
     },
     uiStyle: {
       type: String,
@@ -345,7 +346,9 @@ export default {
       toasts: [],
       toastIdCounter: 0,
       connectionError: null,
-      avgLatency: 0
+      avgLatency: 0,
+      detectedNodeId: '',
+      availableNodes: []
     }
   },
   computed: {
@@ -376,10 +379,16 @@ export default {
     }
   },
   mounted() {
-    this.refreshEndpoints();
-    this.refreshTimer = setInterval(() => {
+    // Auto-detect node ID if not provided
+    if (!this.nodeId) {
+      this.autoDetectNodeId();
+    } else {
+      this.detectedNodeId = this.nodeId;
       this.refreshEndpoints();
-    }, 10000);
+      this.refreshTimer = setInterval(() => {
+        this.refreshEndpoints();
+      }, 10000);
+    }
   },
   beforeUnmount() {
     if (this.refreshTimer) {
@@ -387,6 +396,70 @@ export default {
     }
   },
   methods: {
+    async autoDetectNodeId() {
+      this.loading = true;
+      this.loadingMessage = 'Detecting matrix nodes...';
+      
+      try {
+        const response = await fetch('/nmos-matrix/nodes');
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch matrix nodes');
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.nodes && data.nodes.length > 0) {
+          this.availableNodes = data.nodes;
+          
+          if (data.nodes.length === 1) {
+            // Only one node, auto-select it
+            this.detectedNodeId = data.nodes[0].id;
+            this.showToast(`Auto-detected matrix node: ${data.nodes[0].name}`, 'success');
+            
+            // Start refreshing
+            this.refreshEndpoints();
+            this.refreshTimer = setInterval(() => {
+              this.refreshEndpoints();
+            }, 10000);
+          } else {
+            // Multiple nodes found, show selection needed
+            this.connectionError = {
+              message: 'Multiple Matrix Nodes Detected',
+              details: `Found ${data.nodes.length} matrix nodes. Please specify which one to connect to.`,
+              suggestions: [
+                'Add nodeId prop to the Vue component',
+                'Available node IDs: ' + data.nodes.map(n => `${n.name} (${n.id})`).join(', ')
+              ]
+            };
+          }
+        } else {
+          this.connectionError = {
+            message: 'No Matrix Nodes Found',
+            details: 'No NMOS matrix nodes are currently deployed in Node-RED.',
+            suggestions: [
+              'Add an NMOS Matrix node to your Node-RED flow',
+              'Deploy the flow',
+              'Refresh this page'
+            ]
+          };
+        }
+      } catch (error) {
+        console.error('Failed to auto-detect node ID:', error);
+        this.connectionError = {
+          message: 'Auto-Detection Failed',
+          details: 'Could not detect matrix nodes automatically.',
+          suggestions: [
+            'Provide the nodeId prop explicitly to the Vue component',
+            'Check that the Node-RED flow is deployed',
+            'Verify Node-RED is running'
+          ]
+        };
+      } finally {
+        this.loading = false;
+      }
+    },
+    
     async refreshEndpoints() {
       this.loading = true;
       this.loadingMessage = 'Refreshing endpoints...';
@@ -748,7 +821,13 @@ export default {
     },
     
     async sendCommand(payload) {
-      const response = await fetch(`/nmos-matrix/${this.nodeId}/command`, {
+      const activeNodeId = this.detectedNodeId || this.nodeId;
+      
+      if (!activeNodeId) {
+        throw new Error('No matrix node ID available. Please configure the nodeId prop or ensure a matrix node is deployed.');
+      }
+      
+      const response = await fetch(`/nmos-matrix/${activeNodeId}/command`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

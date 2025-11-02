@@ -4,7 +4,9 @@
         color: '#CBC3E3',
         defaults: {
             name: {value: ""},
-            registry: {value: "", type: "nmos-config", required: true},
+            registry: {value: "", type: "nmos-config", required: false},
+            directRegistryUrl: {value: ""},
+            directApiVersion: {value: "v1.3"},
             refreshInterval: {value: 5000, validate: RED.validators.number()},
             autoRefresh: {value: true},
             compactView: {value: false},
@@ -53,20 +55,36 @@
                 label: "Advanced"
             });
             
+            // Localhost button handler
+            $('#use-localhost-btn').click(function() {
+                $('#node-input-directRegistryUrl').val('http://localhost:3211');
+            });
+            
             // Test Connection button handler
             $('#test-connection-btn').click(function() {
                 const registryId = $('#node-input-registry').val();
+                const directUrl = $('#node-input-directRegistryUrl').val().trim();
+                const directApiVersion = $('#node-input-directApiVersion').val();
                 const resultSpan = $('#test-connection-result');
                 
-                if (!registryId) {
-                    resultSpan.html('<span style="color:red;">❌ Please select a registry first</span>');
-                    return;
-                }
+                let testUrl, testApiVersion;
                 
-                // Get the registry node configuration
-                const registryNode = RED.nodes.node(registryId);
-                if (!registryNode) {
-                    resultSpan.html('<span style="color:red;">❌ Registry configuration not found</span>');
+                // Determine which configuration to test
+                if (registryId) {
+                    // Test registry node configuration
+                    const registryNode = RED.nodes.node(registryId);
+                    if (!registryNode) {
+                        resultSpan.html('<span style="color:red;">❌ Registry configuration not found</span>');
+                        return;
+                    }
+                    testUrl = registryNode.registryUrl;
+                    testApiVersion = registryNode.queryApiVersion || 'v1.3';
+                } else if (directUrl) {
+                    // Test direct URL configuration
+                    testUrl = directUrl;
+                    testApiVersion = directApiVersion;
+                } else {
+                    resultSpan.html('<span style="color:red;">❌ Please configure either a Registry URL or Config Node</span>');
                     return;
                 }
                 
@@ -76,8 +94,8 @@
                     url: 'nmos-matrix/test-connection',
                     type: 'POST',
                     data: JSON.stringify({ 
-                        url: registryNode.registryUrl,
-                        apiVersion: registryNode.queryApiVersion || 'v1.3'
+                        url: testUrl,
+                        apiVersion: testApiVersion
                     }),
                     contentType: 'application/json',
                     success: function(result) {
@@ -146,8 +164,42 @@
         <!-- Connection Tab -->
         <div id="nmos-matrix-tab-connection" style="display:none">
             <div class="form-row">
-                <label for="node-input-registry"><i class="fa fa-server"></i> Registry</label>
-                <input type="text" id="node-input-registry" placeholder="Select NMOS Registry">
+                <label style="width:100%;"><i class="fa fa-info-circle"></i> Configuration Mode</label>
+                <div style="margin-left:105px; color:#999; margin-bottom:15px;">
+                    <p style="margin:5px 0;">Choose one of the following options:</p>
+                    <ul style="margin:5px 0 0 20px;">
+                        <li><strong>Direct URL</strong> - Quick setup with a registry URL</li>
+                        <li><strong>NMOS Config Node</strong> - Advanced setup with shared configuration</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-directRegistryUrl"><i class="fa fa-link"></i> Registry URL</label>
+                <input type="text" id="node-input-directRegistryUrl" placeholder="http://localhost:3211" style="width:70%;">
+                <button type="button" id="use-localhost-btn" class="red-ui-button" style="width:auto; margin-left:5px;">
+                    <i class="fa fa-home"></i> Localhost
+                </button>
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-directApiVersion"><i class="fa fa-code-fork"></i> API Version</label>
+                <select id="node-input-directApiVersion" style="width:200px;">
+                    <option value="v1.0">v1.0</option>
+                    <option value="v1.1">v1.1</option>
+                    <option value="v1.2">v1.2</option>
+                    <option value="v1.3">v1.3</option>
+                </select>
+                <span style="margin-left:10px; color:#999;">For direct URL configuration</span>
+            </div>
+            
+            <div class="form-row">
+                <label style="width:100%; margin:15px 0 10px 0; padding-top:15px; border-top:1px solid #ddd;"><strong>OR</strong></label>
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-registry"><i class="fa fa-server"></i> Config Node</label>
+                <input type="text" id="node-input-registry" placeholder="Select NMOS Config Node (optional)">
             </div>
             
             <div class="form-row">
@@ -343,8 +395,14 @@
     
     <h3>Configuration</h3>
     <dl class="message-properties">
-        <dt>Registry <span class="property-type">nmos-config</span></dt>
-        <dd>NMOS registry configuration node (required)</dd>
+        <dt>Registry URL <span class="property-type">string</span></dt>
+        <dd>Direct NMOS registry URL (e.g., http://localhost:3211). Quick setup option.</dd>
+        
+        <dt>API Version <span class="property-type">string</span></dt>
+        <dd>NMOS Query API version (default: v1.3). Used with direct URL.</dd>
+        
+        <dt>Config Node <span class="property-type">nmos-config</span></dt>
+        <dd>NMOS registry configuration node (optional, for advanced setup)</dd>
         
         <dt>Auto Refresh <span class="property-type">boolean</span></dt>
         <dd>Enable automatic polling of endpoints</dd>
