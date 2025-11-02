@@ -1,0 +1,340 @@
+<script type="text/javascript">
+    RED.nodes.registerType('nmos-matrix', {
+        category: 'NMOS',
+        color: '#CBC3E3',
+        defaults: {
+            name: {value: ""},
+            registry: {value: "", type: "nmos-config", required: true},
+            refreshInterval: {value: 5000, validate: RED.validators.number()},
+            autoRefresh: {value: true},
+            compactView: {value: false},
+            showLabels: {value: true},
+            colorScheme: {value: "default"},
+            connectionTimeout: {value: 30000, validate: RED.validators.number()},
+            retryAttempts: {value: 3, validate: RED.validators.number()}
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "font-awesome/fa-th",
+        label: function() {
+            return this.name || "NMOS Matrix";
+        },
+        labelStyle: function() {
+            return this.name ? "node_label_italic" : "";
+        },
+        oneditprepare: function() {
+            const node = this;
+            
+            // Setup tabs
+            const tabs = RED.tabs.create({
+                id: "node-nmos-matrix-tabs",
+                onchange: function(tab) {
+                    $("#node-nmos-matrix-tabs-content").children().hide();
+                    $("#" + tab.id).show();
+                }
+            });
+            
+            tabs.addTab({
+                id: "nmos-matrix-tab-connection",
+                label: "Connection"
+            });
+            
+            tabs.addTab({
+                id: "nmos-matrix-tab-display",
+                label: "Display"
+            });
+            
+            tabs.addTab({
+                id: "nmos-matrix-tab-advanced",
+                label: "Advanced"
+            });
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="nmos-matrix">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    
+    <div class="form-row">
+        <ul style="min-width: 600px; margin-bottom: 20px;" id="node-nmos-matrix-tabs"></ul>
+    </div>
+    
+    <div id="node-nmos-matrix-tabs-content" style="min-height: 300px;">
+        <!-- Connection Tab -->
+        <div id="nmos-matrix-tab-connection" style="display:none">
+            <div class="form-row">
+                <label for="node-input-registry"><i class="fa fa-server"></i> Registry</label>
+                <input type="text" id="node-input-registry" placeholder="Select NMOS Registry">
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-autoRefresh"><i class="fa fa-refresh"></i> Auto Refresh</label>
+                <input type="checkbox" id="node-input-autoRefresh" style="display:inline-block; width:auto; vertical-align:baseline;">
+                <label for="node-input-refreshInterval" style="width:auto; margin-left:20px;">Interval (ms)</label>
+                <input type="number" id="node-input-refreshInterval" style="width:100px;" min="1000" step="1000">
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-connectionTimeout"><i class="fa fa-clock-o"></i> Timeout (ms)</label>
+                <input type="number" id="node-input-connectionTimeout" placeholder="30000" min="1000" step="1000">
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-retryAttempts"><i class="fa fa-repeat"></i> Retry Attempts</label>
+                <input type="number" id="node-input-retryAttempts" placeholder="3" min="0" max="10">
+            </div>
+        </div>
+        
+        <!-- Display Tab -->
+        <div id="nmos-matrix-tab-display" style="display:none">
+            <div class="form-row">
+                <label for="node-input-compactView"><i class="fa fa-compress"></i> Compact View</label>
+                <input type="checkbox" id="node-input-compactView" style="display:inline-block; width:auto; vertical-align:baseline;">
+                <span style="margin-left:10px; color:#999;">Smaller grid cells for large matrices</span>
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-showLabels"><i class="fa fa-tag"></i> Show Labels</label>
+                <input type="checkbox" id="node-input-showLabels" style="display:inline-block; width:auto; vertical-align:baseline;">
+                <span style="margin-left:10px; color:#999;">Display sender/receiver labels</span>
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-colorScheme"><i class="fa fa-paint-brush"></i> Color Scheme</label>
+                <select id="node-input-colorScheme" style="width:200px;">
+                    <option value="default">Default</option>
+                    <option value="dark">Dark</option>
+                    <option value="light">Light</option>
+                    <option value="highcontrast">High Contrast</option>
+                </select>
+            </div>
+            
+            <div class="form-row">
+                <label style="width:100%;">
+                    <i class="fa fa-info-circle"></i> Dashboard Integration
+                </label>
+                <div style="margin-left:105px; color:#999;">
+                    <p>To display the matrix UI:</p>
+                    <ol>
+                        <li>Install <code>@flowfuse/node-red-dashboard</code></li>
+                        <li>Add a <code>ui-template</code> node to your dashboard</li>
+                        <li>Use the Vue component from <code>ui/nmos-matrix.vue</code></li>
+                    </ol>
+                    <p>Or use the HTTP endpoints for custom integration.</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Advanced Tab -->
+        <div id="nmos-matrix-tab-advanced" style="display:none">
+            <div class="form-row">
+                <label style="width:100%;"><i class="fa fa-cogs"></i> Input Messages</label>
+                <div style="margin-left:105px; color:#999;">
+                    <p>Control the node via input messages:</p>
+                    <pre style="background:#f4f4f4; padding:10px; border-radius:3px; font-size:11px;">
+// Refresh endpoints
+{ "payload": { "action": "refresh" } }
+
+// Create route
+{ 
+  "payload": { 
+    "action": "route", 
+    "sender_id": "uuid", 
+    "receiver_id": "uuid" 
+  } 
+}
+
+// Disconnect route
+{ 
+  "payload": { 
+    "action": "disconnect", 
+    "receiver_id": "uuid" 
+  } 
+}
+
+// Save snapshot
+{ 
+  "payload": { 
+    "action": "save_snapshot",
+    "name": "Snapshot Name",
+    "description": "Optional"
+  } 
+}
+
+// Load snapshot
+{ 
+  "payload": { 
+    "action": "load_snapshot", 
+    "snapshot": {...} 
+  } 
+}
+
+// Get current state
+{ "payload": { "action": "get_state" } }</pre>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <label style="width:100%;"><i class="fa fa-sign-out"></i> Output Messages</label>
+                <div style="margin-left:105px; color:#999;">
+                    <p>The node sends events on output:</p>
+                    <pre style="background:#f4f4f4; padding:10px; border-radius:3px; font-size:11px;">
+// Route changed
+{ 
+  "payload": { 
+    "event": "route_changed", 
+    "sender_id": "uuid", 
+    "receiver_id": "uuid",
+    "status": "connected"
+  } 
+}
+
+// Snapshot saved
+{ 
+  "payload": { 
+    "event": "snapshot_saved", 
+    "snapshot": {...},
+    "timestamp": "2025-11-02T14:25:35Z"
+  } 
+}
+
+// Error
+{ 
+  "payload": { 
+    "event": "error", 
+    "message": "Connection failed" 
+  } 
+}</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="nmos-matrix">
+    <p>NMOS routing matrix node with integrated dashboard UI support.</p>
+    
+    <h3>Details</h3>
+    <p>This node provides a complete NMOS routing matrix implementation that:</p>
+    <ul>
+        <li>Automatically discovers senders and receivers from IS-04 registry</li>
+        <li>Manages IS-05 connections between endpoints</li>
+        <li>Supports snapshot save/load functionality</li>
+        <li>Can be controlled via input messages</li>
+        <li>Sends events on routing changes</li>
+    </ul>
+    
+    <h3>Configuration</h3>
+    <dl class="message-properties">
+        <dt>Registry <span class="property-type">nmos-config</span></dt>
+        <dd>NMOS registry configuration node (required)</dd>
+        
+        <dt>Auto Refresh <span class="property-type">boolean</span></dt>
+        <dd>Enable automatic polling of endpoints</dd>
+        
+        <dt>Refresh Interval <span class="property-type">number</span></dt>
+        <dd>Polling frequency in milliseconds (default: 5000)</dd>
+        
+        <dt>Connection Timeout <span class="property-type">number</span></dt>
+        <dd>IS-05 connection timeout in milliseconds (default: 30000)</dd>
+        
+        <dt>Retry Attempts <span class="property-type">number</span></dt>
+        <dd>Number of retry attempts for failed connections (default: 3)</dd>
+    </dl>
+    
+    <h3>Input Messages</h3>
+    <p>Send commands to the node via <code>msg.payload.action</code>:</p>
+    
+    <h4>Refresh Endpoints</h4>
+    <pre>{ "payload": { "action": "refresh" } }</pre>
+    
+    <h4>Create Route</h4>
+    <pre>{ 
+  "payload": { 
+    "action": "route", 
+    "sender_id": "sender-uuid", 
+    "receiver_id": "receiver-uuid" 
+  } 
+}</pre>
+    
+    <h4>Disconnect Route</h4>
+    <pre>{ 
+  "payload": { 
+    "action": "disconnect", 
+    "receiver_id": "receiver-uuid" 
+  } 
+}</pre>
+    
+    <h4>Save Snapshot</h4>
+    <pre>{ 
+  "payload": { 
+    "action": "save_snapshot",
+    "name": "Production Setup",
+    "description": "Main routing configuration"
+  } 
+}</pre>
+    
+    <h4>Load Snapshot</h4>
+    <pre>{ 
+  "payload": { 
+    "action": "load_snapshot", 
+    "snapshot": {
+      "version": "1.0",
+      "routes": [...]
+    }
+  } 
+}</pre>
+    
+    <h4>Get Current State</h4>
+    <pre>{ "payload": { "action": "get_state" } }</pre>
+    
+    <h3>Output Messages</h3>
+    <p>The node sends status updates and events:</p>
+    
+    <h4>Route Changed</h4>
+    <pre>{ 
+  "payload": { 
+    "event": "route_changed", 
+    "sender_id": "sender-uuid", 
+    "receiver_id": "receiver-uuid",
+    "status": "connected"
+  } 
+}</pre>
+    
+    <h4>Snapshot Saved</h4>
+    <pre>{ 
+  "payload": { 
+    "event": "snapshot_saved", 
+    "snapshot": {...},
+    "timestamp": "2025-11-02T14:25:35Z"
+  } 
+}</pre>
+    
+    <h4>Error</h4>
+    <pre>{ 
+  "payload": { 
+    "event": "error", 
+    "message": "Error description"
+  } 
+}</pre>
+    
+    <h3>Dashboard Integration</h3>
+    <p>For FlowFuse Dashboard integration:</p>
+    <ol>
+        <li>Install <code>@flowfuse/node-red-dashboard</code></li>
+        <li>Use the Vue component from <code>ui/nmos-matrix.vue</code></li>
+        <li>Or use HTTP endpoints for custom UI integration</li>
+    </ol>
+    
+    <h3>Multiple Instances</h3>
+    <p>Multiple matrix nodes can coexist in the same flow, each managing independent routing configurations.</p>
+    
+    <h3>References</h3>
+    <ul>
+        <li><a href="https://specs.amwa.tv/is-04/">AMWA IS-04</a> - Discovery and Registration</li>
+        <li><a href="https://specs.amwa.tv/is-05/">AMWA IS-05</a> - Device Connection Management</li>
+    </ul>
+</script>
