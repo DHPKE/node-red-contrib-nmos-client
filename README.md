@@ -99,6 +99,43 @@ Subscribe to real-time resource updates via WebSocket.
 - `msg.payload`: Resource update event
 - `msg.event`: `added`, `modified`, or `removed`
 
+#### nmos-matrix
+Complete routing matrix node with automated discovery and snapshot management.
+
+**Features:**
+- Automatic discovery of senders and receivers
+- IS-05 routing operations
+- Snapshot save/load/export/import
+- FlowFuse Dashboard integration
+- Programmatic control via messages
+
+**Input:**
+- `msg.payload.action`: `refresh`, `route`, `disconnect`, `save_snapshot`, `load_snapshot`, `get_state`
+- Action-specific parameters (sender_id, receiver_id, snapshot, etc.)
+
+**Output:**
+- `msg.payload.event`: `route_changed`, `snapshot_saved`, `error`, etc.
+- Event-specific data
+
+**Example:**
+```javascript
+// Create a route
+msg.payload = {
+    action: "route",
+    sender_id: "sender-uuid",
+    receiver_id: "receiver-uuid"
+};
+
+// Save snapshot
+msg.payload = {
+    action: "save_snapshot",
+    name: "Production Setup",
+    description: "Main configuration"
+};
+```
+
+See [docs/nmos-matrix.md](docs/nmos-matrix.md) for complete documentation.
+
 
 
 ### Device Nodes

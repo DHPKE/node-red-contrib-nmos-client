@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-nmos-client",
-  "version": "2.4.3",
+  "version": "2.4.4",
   "description": "Complete NMOS implementation for Node-RED with IS-04, IS-05, IS-07, and IS-12 support including dynamic routing matrix flow with snapshot management",
   "keywords": [
     "node-red",
@@ -36,7 +36,8 @@
       "nmos-websocket": "nodes/nmos-websocket.js",
       "nmos-node": "nodes/nmos-node.js",
       "nmos-is12-control": "nodes/nmos-is12-control.js",
-      "nmos-is07-events": "nodes/nmos-is07-events.js"
+      "nmos-is07-events": "nodes/nmos-is07-events.js",
+      "nmos-matrix": "nodes/nmos-matrix.js"
     }
   },
   "author": "DHPKE",

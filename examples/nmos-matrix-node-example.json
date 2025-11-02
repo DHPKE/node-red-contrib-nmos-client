@@ -1,0 +1,200 @@
+[
+  {
+    "id": "matrix-example-tab",
+    "type": "tab",
+    "label": "NMOS Matrix Node Example",
+    "disabled": false,
+    "info": "# NMOS Matrix Node Example\n\nThis example demonstrates the nmos-matrix node usage.\n\n## Features\n- Automatic endpoint discovery\n- Programmatic routing control\n- Snapshot management\n- Event monitoring\n\n## Usage\n1. Configure the nmos-config node with your registry URL\n2. Deploy the flow\n3. Use inject nodes to send commands\n4. Monitor output in debug nodes\n\n## Commands\n- Refresh: Update sender/receiver list\n- Route: Connect sender to receiver\n- Disconnect: Remove connection\n- Save Snapshot: Save current routing\n- Load Snapshot: Restore from snapshot\n- Get State: Query current state"
+  },
+  {
+    "id": "nmos-registry-example",
+    "type": "nmos-config",
+    "name": "NMOS Registry",
+    "queryUrl": "http://localhost:3211",
+    "connectionUrl": "http://localhost:3212",
+    "auth": false,
+    "username": "",
+    "password": ""
+  },
+  {
+    "id": "matrix-node",
+    "type": "nmos-matrix",
+    "z": "matrix-example-tab",
+    "name": "NMOS Matrix",
+    "registry": "nmos-registry-example",
+    "refreshInterval": "5000",
+    "autoRefresh": true,
+    "compactView": false,
+    "showLabels": true,
+    "colorScheme": "default",
+    "connectionTimeout": "30000",
+    "retryAttempts": "3",
+    "x": 530,
+    "y": 300,
+    "wires": [
+      ["debug-output"]
+    ]
+  },
+  {
+    "id": "inject-refresh",
+    "type": "inject",
+    "z": "matrix-example-tab",
+    "name": "Refresh Endpoints",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "{\"action\":\"refresh\"}",
+    "payloadType": "json",
+    "x": 260,
+    "y": 200,
+    "wires": [
+      ["matrix-node"]
+    ]
+  },
+  {
+    "id": "inject-get-state",
+    "type": "inject",
+    "z": "matrix-example-tab",
+    "name": "Get Current State",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "{\"action\":\"get_state\"}",
+    "payloadType": "json",
+    "x": 260,
+    "y": 240,
+    "wires": [
+      ["matrix-node"]
+    ]
+  },
+  {
+    "id": "inject-route",
+    "type": "inject",
+    "z": "matrix-example-tab",
+    "name": "Route Example",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "{\"action\":\"route\",\"sender_id\":\"SENDER-UUID-HERE\",\"receiver_id\":\"RECEIVER-UUID-HERE\"}",
+    "payloadType": "json",
+    "x": 250,
+    "y": 300,
+    "wires": [
+      ["matrix-node"]
+    ]
+  },
+  {
+    "id": "inject-disconnect",
+    "type": "inject",
+    "z": "matrix-example-tab",
+    "name": "Disconnect Example",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "{\"action\":\"disconnect\",\"receiver_id\":\"RECEIVER-UUID-HERE\"}",
+    "payloadType": "json",
+    "x": 260,
+    "y": 340,
+    "wires": [
+      ["matrix-node"]
+    ]
+  },
+  {
+    "id": "inject-save-snapshot",
+    "type": "inject",
+    "z": "matrix-example-tab",
+    "name": "Save Snapshot",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "{\"action\":\"save_snapshot\",\"name\":\"Test Snapshot\",\"description\":\"Example routing configuration\"}",
+    "payloadType": "json",
+    "x": 250,
+    "y": 380,
+    "wires": [
+      ["matrix-node"]
+    ]
+  },
+  {
+    "id": "debug-output",
+    "type": "debug",
+    "z": "matrix-example-tab",
+    "name": "Matrix Events",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 760,
+    "y": 300,
+    "wires": []
+  },
+  {
+    "id": "comment-header",
+    "type": "comment",
+    "z": "matrix-example-tab",
+    "name": "NMOS Matrix Node Example - Demonstrates routing matrix control",
+    "info": "",
+    "x": 310,
+    "y": 140,
+    "wires": []
+  },
+  {
+    "id": "comment-commands",
+    "type": "comment",
+    "z": "matrix-example-tab",
+    "name": "Send Commands →",
+    "info": "",
+    "x": 250,
+    "y": 160,
+    "wires": []
+  },
+  {
+    "id": "comment-output",
+    "type": "comment",
+    "z": "matrix-example-tab",
+    "name": "← Receive Events",
+    "info": "",
+    "x": 760,
+    "y": 260,
+    "wires": []
+  }
+]
