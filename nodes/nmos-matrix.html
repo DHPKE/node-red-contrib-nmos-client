@@ -48,6 +48,82 @@
                 id: "nmos-matrix-tab-advanced",
                 label: "Advanced"
             });
+            
+            // Test Connection button handler
+            $('#test-connection-btn').click(function() {
+                const registryId = $('#node-input-registry').val();
+                const resultSpan = $('#test-connection-result');
+                
+                if (!registryId) {
+                    resultSpan.html('<span style="color:red;">❌ Please select a registry first</span>');
+                    return;
+                }
+                
+                // Get the registry node configuration
+                const registryNode = RED.nodes.node(registryId);
+                if (!registryNode) {
+                    resultSpan.html('<span style="color:red;">❌ Registry configuration not found</span>');
+                    return;
+                }
+                
+                resultSpan.html('<span style="color:blue;">⏳ Testing connection...</span>');
+                
+                $.ajax({
+                    url: 'nmos-matrix/test-connection',
+                    type: 'POST',
+                    data: JSON.stringify({ 
+                        url: registryNode.registryUrl,
+                        apiVersion: registryNode.queryApiVersion || 'v1.3'
+                    }),
+                    contentType: 'application/json',
+                    success: function(result) {
+                        if (result.success) {
+                            resultSpan.empty();
+                            const successSpan = $('<span>').css('color', 'green').text(
+                                '✅ Connected! Found ' + result.senders + ' senders and ' + result.receivers + ' receivers'
+                            );
+                            resultSpan.append(successSpan);
+                        } else {
+                            resultSpan.empty();
+                            const errorSpan = $('<span>').css('color', 'red').text('❌ ' + result.error);
+                            resultSpan.append(errorSpan);
+                        }
+                    },
+                    error: function(xhr) {
+                        let errorMsg = '❌ Connection failed';
+                        let suggestions = [];
+                        
+                        try {
+                            const response = JSON.parse(xhr.responseText);
+                            if (response.error) {
+                                errorMsg = '❌ ' + response.error;
+                            }
+                            if (response.suggestions && response.suggestions.length > 0) {
+                                suggestions = response.suggestions;
+                            }
+                        } catch (e) {
+                            errorMsg = '❌ Connection failed: ' + xhr.statusText;
+                        }
+                        
+                        // Build error message with proper escaping
+                        resultSpan.empty();
+                        const errorSpan = $('<span>').css('color', 'red').text(errorMsg);
+                        resultSpan.append(errorSpan);
+                        
+                        if (suggestions.length > 0) {
+                            const suggestionsDiv = $('<small>').css('color', '#999');
+                            suggestionsDiv.append($('<br>'));
+                            suggestionsDiv.append($('<span>').text('Suggestions:'));
+                            const ul = $('<ul>').css({'margin': '5px 0 0 20px'});
+                            suggestions.forEach(function(s) {
+                                ul.append($('<li>').text(s));
+                            });
+                            suggestionsDiv.append(ul);
+                            resultSpan.append(suggestionsDiv);
+                        }
+                    }
+                });
+            });
         }
     });
 </script>
@@ -68,6 +144,14 @@
             <div class="form-row">
                 <label for="node-input-registry"><i class="fa fa-server"></i> Registry</label>
                 <input type="text" id="node-input-registry" placeholder="Select NMOS Registry">
+            </div>
+            
+            <div class="form-row">
+                <label>&nbsp;</label>
+                <button type="button" id="test-connection-btn" class="red-ui-button" style="width:auto;">
+                    <i class="fa fa-plug"></i> Test Connection
+                </button>
+                <span id="test-connection-result" style="margin-left:10px;"></span>
             </div>
             
             <div class="form-row">
