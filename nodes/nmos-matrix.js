@@ -461,10 +461,13 @@ module.exports = function(RED) {
         // Refresh endpoints
         node.refreshEndpoints = async () => {
             try {
+                console.log('NMOS Matrix: Starting endpoint refresh for node', node.id);
                 node.log('NMOS Matrix: Starting endpoint refresh');
                 node.status({fill: "blue", shape: "dot", text: "refreshing"});
                 
                 await Promise.all([fetchSenders(), fetchReceivers()]);
+                
+                console.log(`Refresh complete: ${node.senders.length} senders, ${node.receivers.length} receivers`);
                 
                 // Check if registry is empty
                 if (node.senders.length === 0 && node.receivers.length === 0) {
@@ -478,6 +481,7 @@ module.exports = function(RED) {
                 broadcastUpdate();
                 return true;
             } catch (error) {
+                console.error('Endpoint refresh failed:', error.message, error.code);
                 node.error(`Endpoint refresh failed: ${error.message}`);
                 node.status({fill: "red", shape: "ring", text: "connection failed"});
                 return false;
