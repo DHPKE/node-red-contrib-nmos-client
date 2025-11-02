@@ -150,11 +150,31 @@ module.exports = function(RED) {
             
             switch(action) {
                 case 'get_state':
+                    // Extract device information for grouping
+                    const devices = new Map();
+                    node.senders.forEach(s => {
+                        if (s.device_id && !devices.has(s.device_id)) {
+                            devices.set(s.device_id, {
+                                id: s.device_id,
+                                name: s.device_name || s.device_id
+                            });
+                        }
+                    });
+                    node.receivers.forEach(r => {
+                        if (r.device_id && !devices.has(r.device_id)) {
+                            devices.set(r.device_id, {
+                                id: r.device_id,
+                                name: r.device_name || r.device_id
+                            });
+                        }
+                    });
+                    
                     result = {
                         event: 'state',
                         senders: node.senders,
                         receivers: node.receivers,
-                        routes: node.routes
+                        routes: node.routes,
+                        devices: Array.from(devices.values())
                     };
                     break;
                     

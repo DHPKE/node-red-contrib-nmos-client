@@ -11,7 +11,11 @@
             showLabels: {value: true},
             colorScheme: {value: "default"},
             connectionTimeout: {value: 30000, validate: RED.validators.number()},
-            retryAttempts: {value: 3, validate: RED.validators.number()}
+            retryAttempts: {value: 3, validate: RED.validators.number()},
+            uiStyle: {value: "dante"},
+            showMeters: {value: false},
+            confirmRoutes: {value: true},
+            routeLockDefault: {value: false}
         },
         inputs: 1,
         outputs: 1,
@@ -175,6 +179,14 @@
         <!-- Display Tab -->
         <div id="nmos-matrix-tab-display" style="display:none">
             <div class="form-row">
+                <label for="node-input-uiStyle"><i class="fa fa-desktop"></i> UI Style</label>
+                <select id="node-input-uiStyle" style="width:250px;">
+                    <option value="nmos">NMOS Standard</option>
+                    <option value="dante">Dante Controller Style</option>
+                </select>
+            </div>
+            
+            <div class="form-row">
                 <label for="node-input-compactView"><i class="fa fa-compress"></i> Compact View</label>
                 <input type="checkbox" id="node-input-compactView" style="display:inline-block; width:auto; vertical-align:baseline;">
                 <span style="margin-left:10px; color:#999;">Smaller grid cells for large matrices</span>
@@ -194,6 +206,24 @@
                     <option value="light">Light</option>
                     <option value="highcontrast">High Contrast</option>
                 </select>
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-showMeters"><i class="fa fa-signal"></i> Show Audio Meters</label>
+                <input type="checkbox" id="node-input-showMeters" style="display:inline-block; width:auto; vertical-align:baseline;">
+                <span style="margin-left:10px; color:#999;">Display audio level meters (UI only)</span>
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-confirmRoutes"><i class="fa fa-check-square"></i> Confirm Routes</label>
+                <input type="checkbox" id="node-input-confirmRoutes" style="display:inline-block; width:auto; vertical-align:baseline;">
+                <span style="margin-left:10px; color:#999;">Show confirmation dialog before routing</span>
+            </div>
+            
+            <div class="form-row">
+                <label for="node-input-routeLockDefault"><i class="fa fa-lock"></i> Lock Routes by Default</label>
+                <input type="checkbox" id="node-input-routeLockDefault" style="display:inline-block; width:auto; vertical-align:baseline;">
+                <span style="margin-left:10px; color:#999;">Start with routes locked</span>
             </div>
             
             <div class="form-row">

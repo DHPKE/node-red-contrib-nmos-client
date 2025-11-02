@@ -1,0 +1,237 @@
+[
+  {
+    "id": "dante-matrix-tab",
+    "type": "tab",
+    "label": "NMOS Matrix - Dante Style Example",
+    "disabled": false,
+    "info": "# NMOS Matrix Node - Dante Controller Style Example\n\nThis example demonstrates the Dante Controller-inspired UI for the nmos-matrix node.\n\n## Features\n- Dual view modes (Grid and List)\n- Professional Dante-style interface\n- Device filtering capabilities\n- Route locking and confirmation dialogs\n- Status panel with real-time metrics\n- Audio level meters (UI only)\n\n## Usage\n1. Configure the nmos-config node with your registry URL\n2. Deploy the flow\n3. Use inject nodes to send commands\n4. Monitor output in debug nodes\n\n## UI Features\n- **Grid View**: Crosspoint matrix with click-to-route\n- **List View**: Dropdown-based routing\n- **Device Filter**: Filter channels by device\n- **Route Lock**: Prevent accidental changes\n- **Confirmation**: Optional dialogs before routing\n- **Status Panel**: Device count, channels, active routes\n- **Snapshots**: Save, export, and import routing configs"
+  },
+  {
+    "id": "nmos-registry-dante",
+    "type": "nmos-config",
+    "name": "NMOS Registry",
+    "queryUrl": "http://localhost:3211",
+    "connectionUrl": "http://localhost:3212",
+    "auth": false,
+    "username": "",
+    "password": ""
+  },
+  {
+    "id": "dante-matrix-node",
+    "type": "nmos-matrix",
+    "z": "dante-matrix-tab",
+    "name": "Dante Matrix Controller",
+    "registry": "nmos-registry-dante",
+    "refreshInterval": "5000",
+    "autoRefresh": true,
+    "compactView": false,
+    "showLabels": true,
+    "colorScheme": "default",
+    "connectionTimeout": "30000",
+    "retryAttempts": "3",
+    "uiStyle": "dante",
+    "showMeters": true,
+    "confirmRoutes": true,
+    "routeLockDefault": false,
+    "x": 570,
+    "y": 300,
+    "wires": [
+      ["debug-events"]
+    ]
+  },
+  {
+    "id": "inject-refresh",
+    "type": "inject",
+    "z": "dante-matrix-tab",
+    "name": "Manual Refresh",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "{\"action\":\"refresh\"}",
+    "payloadType": "json",
+    "x": 280,
+    "y": 200,
+    "wires": [
+      ["dante-matrix-node"]
+    ]
+  },
+  {
+    "id": "inject-get-state",
+    "type": "inject",
+    "z": "dante-matrix-tab",
+    "name": "Get State",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "{\"action\":\"get_state\"}",
+    "payloadType": "json",
+    "x": 270,
+    "y": 240,
+    "wires": [
+      ["dante-matrix-node"]
+    ]
+  },
+  {
+    "id": "inject-route",
+    "type": "inject",
+    "z": "dante-matrix-tab",
+    "name": "Route Example",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "{\"action\":\"route\",\"sender_id\":\"SENDER-UUID-HERE\",\"receiver_id\":\"RECEIVER-UUID-HERE\"}",
+    "payloadType": "json",
+    "x": 270,
+    "y": 300,
+    "wires": [
+      ["dante-matrix-node"]
+    ]
+  },
+  {
+    "id": "inject-disconnect",
+    "type": "inject",
+    "z": "dante-matrix-tab",
+    "name": "Disconnect",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "{\"action\":\"disconnect\",\"receiver_id\":\"RECEIVER-UUID-HERE\"}",
+    "payloadType": "json",
+    "x": 270,
+    "y": 340,
+    "wires": [
+      ["dante-matrix-node"]
+    ]
+  },
+  {
+    "id": "inject-save-snapshot",
+    "type": "inject",
+    "z": "dante-matrix-tab",
+    "name": "Save Snapshot",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "{\"action\":\"save_snapshot\",\"name\":\"Dante Test Snapshot\",\"description\":\"Example Dante-style routing configuration\"}",
+    "payloadType": "json",
+    "x": 270,
+    "y": 380,
+    "wires": [
+      ["dante-matrix-node"]
+    ]
+  },
+  {
+    "id": "inject-load-snapshot",
+    "type": "inject",
+    "z": "dante-matrix-tab",
+    "name": "Load Snapshot",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "{\"action\":\"load_snapshot\",\"snapshot\":{\"version\":\"1.0\",\"routes\":[]}}",
+    "payloadType": "json",
+    "x": 270,
+    "y": 420,
+    "wires": [
+      ["dante-matrix-node"]
+    ]
+  },
+  {
+    "id": "debug-events",
+    "type": "debug",
+    "z": "dante-matrix-tab",
+    "name": "Matrix Events",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 820,
+    "y": 300,
+    "wires": []
+  },
+  {
+    "id": "comment-header",
+    "type": "comment",
+    "z": "dante-matrix-tab",
+    "name": "NMOS Matrix - Dante Controller Style Demo",
+    "info": "",
+    "x": 330,
+    "y": 140,
+    "wires": []
+  },
+  {
+    "id": "comment-commands",
+    "type": "comment",
+    "z": "dante-matrix-tab",
+    "name": "Control Commands →",
+    "info": "",
+    "x": 270,
+    "y": 160,
+    "wires": []
+  },
+  {
+    "id": "comment-output",
+    "type": "comment",
+    "z": "dante-matrix-tab",
+    "name": "← Events & Status",
+    "info": "",
+    "x": 820,
+    "y": 260,
+    "wires": []
+  },
+  {
+    "id": "comment-features",
+    "type": "comment",
+    "z": "dante-matrix-tab",
+    "name": "Features: Grid View, List View, Device Filter, Route Lock, Confirmation Dialogs, Status Panel",
+    "info": "",
+    "x": 410,
+    "y": 480,
+    "wires": []
+  }
+]
