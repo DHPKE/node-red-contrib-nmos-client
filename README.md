@@ -36,7 +36,7 @@ npm install node-red-contrib-nmos-client
 1. Add an `nmos-config` node and configure your NMOS registry URL
 2. Use `nmos-query` to discover resources
 3. Use `nmos-connection` to route senders to receivers
-4. Optional: Add `nmos-matrix-ui` for visual routing control
+4. Optional: Import the dynamic matrix flow for visual routing control
 
 ## Nodes
 
