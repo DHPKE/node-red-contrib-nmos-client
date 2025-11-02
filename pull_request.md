@@ -1,0 +1,1 @@
+This fixes the missing closing parenthesis on line 36 that was preventing the node from appearing in Node-RED palette.
