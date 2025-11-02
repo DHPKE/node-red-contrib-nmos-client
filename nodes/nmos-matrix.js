@@ -242,7 +242,7 @@ module.exports = function(RED) {
         // Register this node instance IMMEDIATELY for HTTP endpoint access
         // This ensures the Vue component can communicate even if configuration fails
         nodeInstances.set(node.id, node);
-        console.log('✅ Node registered in nodeInstances Map');
+        console.log('[SUCCESS] Node registered in nodeInstances Map');
         
         // Get registry configuration
         this.registry = RED.nodes.getNode(config.registry);
@@ -267,7 +267,7 @@ module.exports = function(RED) {
         
         // Validate configuration
         if (!this.registry) {
-            const errorMsg = "❌ No NMOS registry configured";
+            const errorMsg = "[ERROR] No NMOS registry configured";
             console.error(errorMsg);
             node.error(errorMsg);
             node.status({fill: "red", shape: "dot", text: "not configured"});
@@ -283,11 +283,11 @@ module.exports = function(RED) {
             return;
         }
         
-        console.log('✅ Registry configuration found:', this.registry.id);
+        console.log('[SUCCESS] Registry configuration found:', this.registry.id);
         
         const registryUrl = this.registry.getQueryApiUrl();
         if (!registryUrl) {
-            const errorMsg = "❌ Invalid registry configuration - no Query API URL";
+            const errorMsg = "[ERROR] Invalid registry configuration - no Query API URL";
             console.error(errorMsg);
             node.error(errorMsg);
             node.status({fill: "red", shape: "dot", text: "invalid config"});
@@ -303,12 +303,12 @@ module.exports = function(RED) {
             return;
         }
         
-        console.log('✅ Query API URL:', registryUrl);
+        console.log('[SUCCESS] Query API URL:', registryUrl);
         
         // Validate registry URL format
         const baseUrl = this.registry.registryUrl;
         if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
-            const errorMsg = '❌ Registry URL must start with http:// or https://';
+            const errorMsg = '[ERROR] Registry URL must start with http:// or https://';
             console.error(errorMsg, 'Got:', baseUrl);
             node.error(errorMsg);
             node.status({fill: "red", shape: "dot", text: "invalid URL"});
@@ -324,12 +324,13 @@ module.exports = function(RED) {
             return;
         }
         
-        console.log('✅ Registry URL format valid:', baseUrl);
+        console.log('[SUCCESS] Registry URL format valid:', baseUrl);
         
         node.log(`NMOS Matrix initialized with registry: ${baseUrl}`);
         node.status({fill: "yellow", shape: "ring", text: "initializing"});
         
         console.log('=== NMOS Matrix Node Initialized Successfully ===');
+        console.log('[INFO] Auto-refresh:', node.autoRefresh, '| Interval:', node.refreshInterval, 'ms');
         
         // Fetch senders from registry with retry logic
         const fetchSenders = async (retryCount = 0) => {

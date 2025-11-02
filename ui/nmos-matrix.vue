@@ -453,12 +453,7 @@ export default {
             'Check the matrix node configuration',
             'Restart Node-RED'
           ];
-        } else if (error.message.includes('Configuration Error')) {
-          // This is already a configuration error with details
-          errorMessage = error.message;
-          errorDetails = error.details || errorDetails;
-          suggestions = error.suggestions || suggestions;
-        }
+
         
         this.connectionError = {
           message: errorMessage,
