@@ -169,6 +169,8 @@ msg.payload = {
 
 A complete flow-based NMOS routing matrix is available in the `examples` directory. This modular approach provides full routing control without requiring dashboard dependencies.
 
+📖 **[Full Documentation](MATRIX_FLOW.md)** - Complete guide with examples, API reference, and integration options
+
 ### Features
 - **Modular Architecture**: Separate query, processing, and routing nodes
 - **Vue.js UI**: Standalone web interface at `http://localhost:1880/nmos-matrix`
