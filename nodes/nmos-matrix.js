@@ -1,6 +1,103 @@
 const axios = require('axios');
 
 module.exports = function(RED) {
+    // Store node instances for HTTP endpoint access
+    const nodeInstances = new Map();
+    
+    // HTTP endpoint to handle commands from Vue component
+    RED.httpAdmin.post('/nmos-matrix/:nodeId/command', async (req, res) => {
+        try {
+            const nodeId = req.params.nodeId;
+            const node = nodeInstances.get(nodeId);
+            
+            if (!node) {
+                return res.status(404).json({ error: 'Node not found' });
+            }
+            
+            const payload = req.body.payload || req.body;
+            const action = payload.action;
+            
+            let result;
+            
+            switch(action) {
+                case 'get_state':
+                    result = {
+                        event: 'state',
+                        senders: node.senders,
+                        receivers: node.receivers,
+                        routes: node.routes
+                    };
+                    break;
+                    
+                case 'refresh':
+                    await node.refreshEndpoints();
+                    result = {
+                        event: 'refreshed',
+                        senders: node.senders.length,
+                        receivers: node.receivers.length
+                    };
+                    break;
+                    
+                case 'route':
+                    if (!payload.sender_id || !payload.receiver_id) {
+                        return res.status(400).json({ error: 'sender_id and receiver_id required' });
+                    }
+                    await node.executeRoute(payload.sender_id, payload.receiver_id, 'activate');
+                    result = {
+                        event: 'route_changed',
+                        sender_id: payload.sender_id,
+                        receiver_id: payload.receiver_id,
+                        status: 'connected'
+                    };
+                    break;
+                    
+                case 'disconnect':
+                    if (!payload.receiver_id) {
+                        return res.status(400).json({ error: 'receiver_id required' });
+                    }
+                    await node.executeRoute(null, payload.receiver_id, 'disconnect');
+                    result = {
+                        event: 'route_changed',
+                        receiver_id: payload.receiver_id,
+                        status: 'disconnected'
+                    };
+                    break;
+                    
+                case 'save_snapshot':
+                    const snapshot = node.saveSnapshot(payload.name, payload.description);
+                    result = {
+                        event: 'snapshot_saved',
+                        snapshot: snapshot,
+                        timestamp: snapshot.timestamp
+                    };
+                    break;
+                    
+                case 'load_snapshot':
+                    if (!payload.snapshot) {
+                        return res.status(400).json({ error: 'snapshot required' });
+                    }
+                    const loadResult = await node.loadSnapshot(payload.snapshot);
+                    result = {
+                        event: 'snapshot_loaded',
+                        result: loadResult
+                    };
+                    break;
+                    
+                default:
+                    return res.status(400).json({ error: 'Unknown action: ' + action });
+            }
+            
+            res.json(result);
+        } catch (error) {
+            console.error('Command error:', error);
+            res.status(500).json({ 
+                error: error.message,
+                event: 'error',
+                message: error.message
+            });
+        }
+    });
+    
     function NMOSMatrixNode(config) {
         RED.nodes.createNode(this, config);
         const node = this;
@@ -29,6 +126,9 @@ module.exports = function(RED) {
         }
         
         node.status({fill: "yellow", shape: "ring", text: "initializing"});
+        
+        // Register this node instance for HTTP endpoint access
+        nodeInstances.set(node.id, node);
         
         // Fetch senders from registry
         const fetchSenders = async () => {
@@ -98,7 +198,7 @@ module.exports = function(RED) {
         };
         
         // Refresh endpoints
-        const refreshEndpoints = async () => {
+        node.refreshEndpoints = async () => {
             try {
                 node.status({fill: "blue", shape: "dot", text: "refreshing"});
                 await Promise.all([fetchSenders(), fetchReceivers()]);
@@ -156,7 +256,7 @@ module.exports = function(RED) {
         };
         
         // Create or remove route
-        const executeRoute = async (senderId, receiverId, operation = 'activate') => {
+        node.executeRoute = async (senderId, receiverId, operation = 'activate') => {
             const operationId = `${receiverId}-${Date.now()}`;
             node.pendingOperations.set(operationId, {senderId, receiverId, operation});
             
@@ -227,7 +327,7 @@ module.exports = function(RED) {
         };
         
         // Save snapshot
-        const saveSnapshot = (name, description) => {
+        node.saveSnapshot = (name, description) => {
             const snapshot = {
                 version: "1.0",
                 timestamp: new Date().toISOString(),
@@ -273,7 +373,7 @@ module.exports = function(RED) {
         };
         
         // Load snapshot
-        const loadSnapshot = async (snapshot) => {
+        node.loadSnapshot = async (snapshot) => {
             try {
                 if (!snapshot || !snapshot.routes || !Array.isArray(snapshot.routes)) {
                     throw new Error("Invalid snapshot format");
@@ -301,7 +401,7 @@ module.exports = function(RED) {
                 const results = [];
                 for (const route of validRoutes) {
                     try {
-                        await executeRoute(route.sender_id, route.receiver_id, 'activate');
+                        await node.executeRoute(route.sender_id, route.receiver_id, 'activate');
                         results.push({success: true, route});
                     } catch (error) {
                         results.push({success: false, route, error: error.message});
@@ -342,7 +442,7 @@ module.exports = function(RED) {
                 
                 switch(action) {
                     case 'refresh':
-                        await refreshEndpoints();
+                        await node.refreshEndpoints();
                         msg.payload = {
                             event: 'refreshed',
                             senders: node.senders.length,
@@ -355,18 +455,18 @@ module.exports = function(RED) {
                         if (!msg.payload.sender_id || !msg.payload.receiver_id) {
                             throw new Error("sender_id and receiver_id required for route action");
                         }
-                        await executeRoute(msg.payload.sender_id, msg.payload.receiver_id, 'activate');
+                        await node.executeRoute(msg.payload.sender_id, msg.payload.receiver_id, 'activate');
                         break;
                         
                     case 'disconnect':
                         if (!msg.payload.receiver_id) {
                             throw new Error("receiver_id required for disconnect action");
                         }
-                        await executeRoute(null, msg.payload.receiver_id, 'disconnect');
+                        await node.executeRoute(null, msg.payload.receiver_id, 'disconnect');
                         break;
                         
                     case 'save_snapshot':
-                        const snapshot = saveSnapshot(msg.payload.name, msg.payload.description);
+                        const snapshot = node.saveSnapshot(msg.payload.name, msg.payload.description);
                         msg.payload = {
                             event: 'snapshot_saved',
                             snapshot
@@ -378,7 +478,7 @@ module.exports = function(RED) {
                         if (!msg.payload.snapshot) {
                             throw new Error("snapshot required for load_snapshot action");
                         }
-                        const result = await loadSnapshot(msg.payload.snapshot);
+                        const result = await node.loadSnapshot(msg.payload.snapshot);
                         msg.payload = {
                             event: 'snapshot_loaded',
                             result
@@ -412,14 +512,17 @@ module.exports = function(RED) {
         
         // Start auto-refresh if enabled
         if (node.autoRefresh) {
-            refreshEndpoints(); // Initial refresh
+            node.refreshEndpoints(); // Initial refresh
             node.pollTimer = setInterval(() => {
-                refreshEndpoints();
+                node.refreshEndpoints();
             }, node.refreshInterval);
         }
         
         // Cleanup on close
         node.on('close', (done) => {
+            // Remove from instances map
+            nodeInstances.delete(node.id);
+            
             if (node.pollTimer) {
                 clearInterval(node.pollTimer);
                 node.pollTimer = null;
