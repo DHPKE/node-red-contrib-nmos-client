@@ -4,6 +4,49 @@ module.exports = function(RED) {
     // Store node instances for HTTP endpoint access
     const nodeInstances = new Map();
     
+    // Shared error handler for HTTP requests
+    const handleConnectionError = (error) => {
+        let errorMessage = error.message;
+        let suggestions = [];
+        
+        if (error.code === 'ECONNREFUSED') {
+            errorMessage = 'Connection refused - Registry is not reachable';
+            suggestions = [
+                'Verify the registry is running',
+                'Check if the port number is correct',
+                'Ensure Node-RED can reach the registry network'
+            ];
+        } else if (error.code === 'ENOTFOUND') {
+            errorMessage = 'Host not found - Invalid registry URL';
+            suggestions = [
+                'Verify the hostname or IP address is correct',
+                'Check DNS resolution',
+                'Try using IP address instead of hostname'
+            ];
+        } else if (error.code === 'ETIMEDOUT') {
+            errorMessage = 'Connection timeout';
+            suggestions = [
+                'Check network connectivity',
+                'Verify firewall settings',
+                'Ensure registry is responding'
+            ];
+        } else if (error.response) {
+            errorMessage = `HTTP ${error.response.status}: ${error.response.statusText}`;
+            suggestions = [
+                'Verify the API version is correct',
+                'Check if authentication is required',
+                'Ensure the endpoint path is correct'
+            ];
+        }
+        
+        return {
+            error: errorMessage,
+            code: error.code,
+            details: error.code || 'Unknown error',
+            suggestions: suggestions
+        };
+    };
+    
     // HTTP endpoint to test connection to registry
     // NOTE: This endpoint uses Node-RED's httpAdmin which inherits Node-RED's
     // authentication settings. For production use, ensure Node-RED's adminAuth
@@ -53,44 +96,10 @@ module.exports = function(RED) {
             });
             
         } catch (error) {
-            let errorMessage = error.message;
-            let suggestions = [];
-            
-            if (error.code === 'ECONNREFUSED') {
-                errorMessage = 'Connection refused - Registry is not reachable';
-                suggestions = [
-                    'Verify the registry is running',
-                    'Check if the port number is correct',
-                    'Ensure Node-RED can reach the registry network'
-                ];
-            } else if (error.code === 'ENOTFOUND') {
-                errorMessage = 'Host not found - Invalid registry URL';
-                suggestions = [
-                    'Verify the hostname or IP address is correct',
-                    'Check DNS resolution',
-                    'Try using IP address instead of hostname'
-                ];
-            } else if (error.code === 'ETIMEDOUT') {
-                errorMessage = 'Connection timeout';
-                suggestions = [
-                    'Check network connectivity',
-                    'Verify firewall settings',
-                    'Ensure registry is responding'
-                ];
-            } else if (error.response) {
-                errorMessage = `HTTP ${error.response.status}: ${error.response.statusText}`;
-                suggestions = [
-                    'Verify the API version is correct',
-                    'Check if authentication is required',
-                    'Ensure the endpoint path is correct'
-                ];
-            }
-            
+            const errorInfo = handleConnectionError(error);
             res.status(500).json({
                 success: false,
-                error: errorMessage,
-                details: error.code || 'Unknown error',
-                suggestions: suggestions
+                ...errorInfo
             });
         }
     });
@@ -184,37 +193,12 @@ module.exports = function(RED) {
             res.json(result);
         } catch (error) {
             console.error('Command error:', error);
-            
-            let errorMessage = error.message;
-            let suggestions = [];
-            
-            if (error.code === 'ECONNREFUSED') {
-                errorMessage = 'Connection refused - Registry is not reachable';
-                suggestions = [
-                    'Verify the registry is running',
-                    'Check if the port number is correct',
-                    'Ensure Node-RED can reach the registry network'
-                ];
-            } else if (error.code === 'ENOTFOUND') {
-                errorMessage = 'Host not found - Invalid registry URL';
-                suggestions = [
-                    'Verify the hostname or IP address is correct',
-                    'Check DNS resolution'
-                ];
-            } else if (error.code === 'ETIMEDOUT') {
-                errorMessage = 'Connection timeout';
-                suggestions = [
-                    'Check network connectivity',
-                    'Verify firewall settings'
-                ];
-            }
+            const errorInfo = handleConnectionError(error);
             
             res.status(500).json({ 
-                error: errorMessage,
+                ...errorInfo,
                 event: 'error',
-                message: errorMessage,
-                code: error.code,
-                suggestions: suggestions
+                message: errorInfo.error
             });
         }
     });
@@ -232,6 +216,9 @@ module.exports = function(RED) {
         this.colorScheme = config.colorScheme || 'default';
         this.connectionTimeout = parseInt(config.connectionTimeout) || 30000;
         this.retryAttempts = parseInt(config.retryAttempts) || 3;
+        
+        // Constants
+        const REQUEST_TIMEOUT = 10000; // 10 seconds for API requests
         
         // Internal state
         this.senders = [];
@@ -276,7 +263,7 @@ module.exports = function(RED) {
                 node.log(`Fetching senders from: ${url}`);
                 const response = await axios.get(url, {
                     headers: node.registry.getAuthHeaders(),
-                    timeout: 10000,
+                    timeout: REQUEST_TIMEOUT,
                     params: { 'paging.limit': 1000 }
                 });
                 
@@ -333,7 +320,7 @@ module.exports = function(RED) {
                 node.log(`Fetching receivers from: ${url}`);
                 const response = await axios.get(url, {
                     headers: node.registry.getAuthHeaders(),
-                    timeout: 10000,
+                    timeout: REQUEST_TIMEOUT,
                     params: { 'paging.limit': 1000 }
                 });
                 
@@ -427,7 +414,7 @@ module.exports = function(RED) {
                 const receiverUrl = `${node.registry.getQueryApiUrl()}/receivers/${receiverId}`;
                 const receiverResp = await axios.get(receiverUrl, {
                     headers: node.registry.getAuthHeaders(),
-                    timeout: 10000
+                    timeout: REQUEST_TIMEOUT
                 });
                 
                 const receiver = receiverResp.data;
@@ -439,7 +426,7 @@ module.exports = function(RED) {
                 const deviceUrl = `${node.registry.getQueryApiUrl()}/devices/${receiver.device_id}`;
                 const deviceResp = await axios.get(deviceUrl, {
                     headers: node.registry.getAuthHeaders(),
-                    timeout: 10000
+                    timeout: REQUEST_TIMEOUT
                 });
                 
                 const device = deviceResp.data;

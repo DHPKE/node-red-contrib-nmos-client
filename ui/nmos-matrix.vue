@@ -129,15 +129,11 @@
     </div>
     
     <!-- Empty State -->
-    <div v-else-if="!loading" class="empty-state">
+    <div v-else-if="!loading && !connectionError && senders.length === 0 && receivers.length === 0" class="empty-state">
       <div class="empty-icon">📡</div>
       <h3>No Endpoints Found</h3>
-      <p v-if="loading">Loading NMOS endpoints...</p>
-      <p v-else-if="senders.length === 0 && receivers.length === 0">
-        Registry is connected but has no senders or receivers registered.
-      </p>
-      <p v-else>No senders or receivers available. Check your NMOS registry connection.</p>
-      <ul v-if="!loading && senders.length === 0 && receivers.length === 0" class="suggestions-list">
+      <p>Registry is connected but has no senders or receivers registered.</p>
+      <ul class="suggestions-list">
         <li>Check if NMOS devices are running</li>
         <li>Verify devices are configured to register with this registry</li>
         <li>Ensure devices are on the same network</li>
