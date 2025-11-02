@@ -1,6 +1,8 @@
 const axios = require('axios');
 
 module.exports = function(RED) {
+    console.log('=== NMOS Matrix Module Loading ===');
+    
     // Store node instances for HTTP endpoint access
     const nodeInstances = new Map();
     
@@ -120,7 +122,25 @@ module.exports = function(RED) {
             const node = nodeInstances.get(nodeId);
             
             if (!node) {
-                return res.status(404).json({ error: 'Node not found' });
+                return res.status(404).json({ 
+                    error: 'Matrix node not found',
+                    message: 'Configuration Error',
+                    details: 'The matrix node is not properly configured',
+                    suggestions: [
+                        'Redeploy the Node-RED flow',
+                        'Check the matrix node configuration',
+                        'Restart Node-RED'
+                    ]
+                });
+            }
+            
+            // Check if node has initialization error
+            if (node.initializationError) {
+                return res.status(400).json({
+                    error: 'Node initialization failed',
+                    event: 'error',
+                    ...node.initializationError
+                });
             }
             
             const payload = req.body.payload || req.body;
@@ -210,8 +230,19 @@ module.exports = function(RED) {
     });
     
     function NMOSMatrixNode(config) {
+        console.log('=== NMOS Matrix Node Creation Started ===');
+        console.log('Config received:', JSON.stringify(config, null, 2));
+        
         RED.nodes.createNode(this, config);
         const node = this;
+        
+        console.log('Node ID:', node.id);
+        console.log('Node Name:', node.name);
+        
+        // Register this node instance IMMEDIATELY for HTTP endpoint access
+        // This ensures the Vue component can communicate even if configuration fails
+        nodeInstances.set(node.id, node);
+        console.log('[SUCCESS] Node registered in nodeInstances Map');
         
         // Get registry configuration
         this.registry = RED.nodes.getNode(config.registry);
@@ -232,34 +263,74 @@ module.exports = function(RED) {
         this.routes = {};
         this.pollTimer = null;
         this.pendingOperations = new Map();
+        this.initializationError = null;
         
         // Validate configuration
         if (!this.registry) {
-            node.error("No NMOS registry configured");
+            const errorMsg = "[ERROR] No NMOS registry configured";
+            console.error(errorMsg);
+            node.error(errorMsg);
             node.status({fill: "red", shape: "dot", text: "not configured"});
+            this.initializationError = {
+                message: "Configuration Error",
+                details: "No NMOS registry configured",
+                suggestions: [
+                    "Open the node configuration panel",
+                    "Select or create an NMOS registry configuration node",
+                    "Deploy the flow"
+                ]
+            };
             return;
         }
         
+        console.log('[SUCCESS] Registry configuration found:', this.registry.id);
+        
         const registryUrl = this.registry.getQueryApiUrl();
         if (!registryUrl) {
-            node.error("Invalid registry configuration");
+            const errorMsg = "[ERROR] Invalid registry configuration - no Query API URL";
+            console.error(errorMsg);
+            node.error(errorMsg);
             node.status({fill: "red", shape: "dot", text: "invalid config"});
+            this.initializationError = {
+                message: "Configuration Error",
+                details: "Registry configuration is invalid or incomplete",
+                suggestions: [
+                    "Check the NMOS registry configuration node",
+                    "Ensure Query API URL is set",
+                    "Verify the registry URL format is correct"
+                ]
+            };
             return;
         }
+        
+        console.log('[SUCCESS] Query API URL:', registryUrl);
         
         // Validate registry URL format
         const baseUrl = this.registry.registryUrl;
         if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
-            node.error('Registry URL must start with http:// or https://');
+            const errorMsg = '[ERROR] Registry URL must start with http:// or https://';
+            console.error(errorMsg, 'Got:', baseUrl);
+            node.error(errorMsg);
             node.status({fill: "red", shape: "dot", text: "invalid URL"});
+            this.initializationError = {
+                message: "Configuration Error",
+                details: "Registry URL must start with http:// or https://",
+                suggestions: [
+                    "Open the NMOS registry configuration",
+                    "Update the URL to include http:// or https://",
+                    "Example: http://registry.local:3211"
+                ]
+            };
             return;
         }
+        
+        console.log('[SUCCESS] Registry URL format valid:', baseUrl);
         
         node.log(`NMOS Matrix initialized with registry: ${baseUrl}`);
         node.status({fill: "yellow", shape: "ring", text: "initializing"});
         
-        // Register this node instance for HTTP endpoint access
-        nodeInstances.set(node.id, node);
+        console.log('=== NMOS Matrix Node Initialized Successfully ===');
+        console.log('[INFO] Auto-refresh:', node.autoRefresh, '| Interval:', node.refreshInterval, 'ms');
         
         // Fetch senders from registry with retry logic
         const fetchSenders = async (retryCount = 0) => {
@@ -391,10 +462,13 @@ module.exports = function(RED) {
         // Refresh endpoints
         node.refreshEndpoints = async () => {
             try {
+                console.log('NMOS Matrix: Starting endpoint refresh for node', node.id);
                 node.log('NMOS Matrix: Starting endpoint refresh');
                 node.status({fill: "blue", shape: "dot", text: "refreshing"});
                 
                 await Promise.all([fetchSenders(), fetchReceivers()]);
+                
+                console.log(`Refresh complete: ${node.senders.length} senders, ${node.receivers.length} receivers`);
                 
                 // Check if registry is empty
                 if (node.senders.length === 0 && node.receivers.length === 0) {
@@ -408,6 +482,7 @@ module.exports = function(RED) {
                 broadcastUpdate();
                 return true;
             } catch (error) {
+                console.error('Endpoint refresh failed:', error.message, error.code);
                 node.error(`Endpoint refresh failed: ${error.message}`);
                 node.status({fill: "red", shape: "ring", text: "connection failed"});
                 return false;
@@ -711,12 +786,15 @@ module.exports = function(RED) {
             }
         });
         
-        // Start auto-refresh if enabled
-        if (node.autoRefresh) {
+        // Start auto-refresh if enabled and no initialization error
+        if (node.autoRefresh && !node.initializationError) {
+            console.log('Starting auto-refresh with interval:', node.refreshInterval, 'ms');
             node.refreshEndpoints(); // Initial refresh
             node.pollTimer = setInterval(() => {
                 node.refreshEndpoints();
             }, node.refreshInterval);
+        } else if (node.initializationError) {
+            console.log('Skipping auto-refresh due to initialization error');
         }
         
         // Cleanup on close
@@ -733,4 +811,5 @@ module.exports = function(RED) {
     }
     
     RED.nodes.registerType("nmos-matrix", NMOSMatrixNode);
+    console.log('=== NMOS Matrix Node Type Registered ===');
 };
