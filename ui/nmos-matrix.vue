@@ -106,14 +106,71 @@
       </div>
     </div>
     
+    <!-- Connection Error Banner -->
+    <div v-if="connectionError && !loading" class="error-banner">
+      <div class="error-icon">⚠️</div>
+      <div class="error-content">
+        <h3>{{ connectionError.message }}</h3>
+        <p v-if="connectionError.details">{{ connectionError.details }}</p>
+        <ul v-if="connectionError.suggestions && connectionError.suggestions.length > 0" class="suggestions-list">
+          <li v-for="(suggestion, idx) in connectionError.suggestions" :key="idx">
+            {{ suggestion }}
+          </li>
+        </ul>
+        <div class="error-actions">
+          <button @click="retryConnection" class="btn btn-primary">
+            🔄 Retry Connection
+          </button>
+          <button @click="toggleDebugMode" class="btn btn-secondary">
+            🐛 {{ debugMode ? 'Hide' : 'Show' }} Debug Info
+          </button>
+        </div>
+      </div>
+    </div>
+    
     <!-- Empty State -->
-    <div v-else class="empty-state">
+    <div v-else-if="!loading" class="empty-state">
       <div class="empty-icon">📡</div>
       <h3>No Endpoints Found</h3>
       <p v-if="loading">Loading NMOS endpoints...</p>
+      <p v-else-if="senders.length === 0 && receivers.length === 0">
+        Registry is connected but has no senders or receivers registered.
+      </p>
       <p v-else>No senders or receivers available. Check your NMOS registry connection.</p>
+      <ul v-if="!loading && senders.length === 0 && receivers.length === 0" class="suggestions-list">
+        <li>Check if NMOS devices are running</li>
+        <li>Verify devices are configured to register with this registry</li>
+        <li>Ensure devices are on the same network</li>
+      </ul>
       <button @click="refreshEndpoints" class="btn btn-primary">
-        Refresh
+        🔄 Refresh
+      </button>
+    </div>
+    
+    <!-- Debug Info Panel -->
+    <div v-if="debugMode" class="debug-panel">
+      <h4>🐛 Debug Information</h4>
+      <div class="debug-item">
+        <strong>Node ID:</strong> {{ nodeId }}
+      </div>
+      <div class="debug-item">
+        <strong>Last Update:</strong> {{ lastUpdate ? formatTime(lastUpdate) : 'Never' }}
+      </div>
+      <div class="debug-item">
+        <strong>Senders:</strong> {{ senders.length }}
+      </div>
+      <div class="debug-item">
+        <strong>Receivers:</strong> {{ receivers.length }}
+      </div>
+      <div class="debug-item">
+        <strong>Active Routes:</strong> {{ activeRoutesCount }}
+      </div>
+      <div class="debug-item" v-if="connectionError">
+        <strong>Last Error:</strong> 
+        <pre>{{ JSON.stringify(connectionError, null, 2) }}</pre>
+      </div>
+      <button @click="showRawData" class="btn btn-info btn-sm">
+        Show Raw API Data
       </button>
     </div>
     
@@ -285,7 +342,9 @@ export default {
       validationResult: null,
       pendingOperations: new Set(),
       toasts: [],
-      toastIdCounter: 0
+      toastIdCounter: 0,
+      connectionError: null,
+      debugMode: false
     }
   },
   computed: {
@@ -325,6 +384,7 @@ export default {
     async refreshEndpoints() {
       this.loading = true;
       this.loadingMessage = 'Refreshing endpoints...';
+      this.connectionError = null;
       
       try {
         // Send refresh command to Node-RED backend
@@ -337,10 +397,70 @@ export default {
           this.receivers = response.receivers || [];
           this.routes = response.routes || {};
           this.lastUpdate = new Date();
+          
+          // Show info if registry is empty
+          if (this.senders.length === 0 && this.receivers.length === 0) {
+            this.showToast('Registry connected but has no endpoints', 'warning');
+          }
         }
       } catch (error) {
         console.error('Failed to refresh endpoints:', error);
-        this.showError('Failed to refresh endpoints');
+        
+        // Parse error details
+        let errorMessage = 'Failed to connect to registry';
+        let errorDetails = error.message;
+        let suggestions = [];
+        
+        if (error.message.includes('Connection refused')) {
+          errorMessage = 'Connection Refused';
+          errorDetails = 'Cannot connect to the NMOS registry';
+          suggestions = [
+            'Verify the registry URL is correct',
+            'Check if the registry is running',
+            'Ensure Node-RED can reach the registry network',
+            'Verify firewall settings'
+          ];
+        } else if (error.message.includes('Host not found')) {
+          errorMessage = 'Host Not Found';
+          errorDetails = 'Invalid registry hostname or IP address';
+          suggestions = [
+            'Verify the hostname or IP address is correct',
+            'Check DNS resolution',
+            'Try using IP address instead of hostname'
+          ];
+        } else if (error.message.includes('timeout')) {
+          errorMessage = 'Connection Timeout';
+          errorDetails = 'Registry did not respond in time';
+          suggestions = [
+            'Check network connectivity',
+            'Verify the registry is responding',
+            'Increase the timeout setting if registry is slow'
+          ];
+        } else if (error.message.includes('404')) {
+          errorMessage = 'Registry Not Found';
+          errorDetails = 'The registry endpoint does not exist';
+          suggestions = [
+            'Verify the API version is correct',
+            'Check the registry URL path',
+            'Ensure the registry supports IS-04 Query API'
+          ];
+        } else if (error.message.includes('Matrix node not found')) {
+          errorMessage = 'Configuration Error';
+          errorDetails = 'The matrix node is not properly configured';
+          suggestions = [
+            'Redeploy the Node-RED flow',
+            'Check the matrix node configuration',
+            'Restart Node-RED'
+          ];
+        }
+        
+        this.connectionError = {
+          message: errorMessage,
+          details: errorDetails,
+          suggestions: suggestions
+        };
+        
+        this.showToast(errorMessage, 'error');
       } finally {
         this.loading = false;
       }
@@ -671,6 +791,32 @@ export default {
       if (!timestamp) return '';
       const date = new Date(timestamp);
       return date.toLocaleTimeString();
+    },
+    
+    retryConnection() {
+      this.connectionError = null;
+      this.refreshEndpoints();
+    },
+    
+    toggleDebugMode() {
+      this.debugMode = !this.debugMode;
+    },
+    
+    showRawData() {
+      const data = {
+        senders: this.senders,
+        receivers: this.receivers,
+        routes: this.routes,
+        lastUpdate: this.lastUpdate,
+        nodeId: this.nodeId
+      };
+      
+      // Open in new window with formatted JSON
+      const win = window.open('', '_blank');
+      win.document.write('<html><head><title>NMOS Matrix Raw Data</title></head><body>');
+      win.document.write('<pre>' + JSON.stringify(data, null, 2) + '</pre>');
+      win.document.write('</body></html>');
+      win.document.close();
     }
   }
 }
@@ -1151,6 +1297,99 @@ export default {
     transform: translateX(0);
     opacity: 1;
   }
+}
+
+/* Error Banner */
+.error-banner {
+  background: rgba(244, 67, 54, 0.1);
+  border: 2px solid #F44336;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  display: flex;
+  gap: 15px;
+}
+
+.error-icon {
+  font-size: 48px;
+  flex-shrink: 0;
+}
+
+.error-content {
+  flex: 1;
+}
+
+.error-content h3 {
+  margin: 0 0 10px 0;
+  color: #F44336;
+  font-size: 18px;
+}
+
+.error-content p {
+  margin: 5px 0;
+  color: #ccc;
+}
+
+.suggestions-list {
+  list-style: none;
+  padding: 10px 0;
+  margin: 10px 0;
+}
+
+.suggestions-list li {
+  padding: 5px 0;
+  color: #999;
+}
+
+.suggestions-list li:before {
+  content: "💡 ";
+  margin-right: 5px;
+}
+
+.error-actions {
+  margin-top: 15px;
+  display: flex;
+  gap: 10px;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+/* Debug Panel */
+.debug-panel {
+  background: rgba(33, 150, 243, 0.1);
+  border: 2px solid #2196F3;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 20px;
+}
+
+.debug-panel h4 {
+  margin: 0 0 10px 0;
+  color: #2196F3;
+  font-size: 16px;
+}
+
+.debug-item {
+  padding: 5px 0;
+  font-size: 13px;
+  color: #ccc;
+}
+
+.debug-item strong {
+  color: #fff;
+  margin-right: 10px;
+}
+
+.debug-item pre {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 10px;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin-top: 5px;
+  font-size: 11px;
 }
 
 /* Theme variations */

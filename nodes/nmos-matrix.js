@@ -4,6 +4,97 @@ module.exports = function(RED) {
     // Store node instances for HTTP endpoint access
     const nodeInstances = new Map();
     
+    // HTTP endpoint to test connection to registry
+    // NOTE: This endpoint uses Node-RED's httpAdmin which inherits Node-RED's
+    // authentication settings. For production use, ensure Node-RED's adminAuth
+    // is properly configured to protect this endpoint.
+    RED.httpAdmin.post('/nmos-matrix/test-connection', async (req, res) => {
+        try {
+            const registryUrl = req.body.url;
+            const apiVersion = req.body.apiVersion || 'v1.3';
+            
+            if (!registryUrl) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'Registry URL is required' 
+                });
+            }
+            
+            // Validate URL format
+            if (!registryUrl.startsWith('http://') && !registryUrl.startsWith('https://')) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'Registry URL must start with http:// or https://' 
+                });
+            }
+            
+            // Normalize URL (remove trailing slash)
+            let normalizedUrl = registryUrl;
+            if (normalizedUrl.endsWith('/')) {
+                normalizedUrl = normalizedUrl.slice(0, -1);
+            }
+            
+            const queryApiUrl = `${normalizedUrl}/x-nmos/query/${apiVersion}`;
+            
+            // Test senders endpoint
+            const sendersUrl = `${queryApiUrl}/senders`;
+            const receiversUrl = `${queryApiUrl}/receivers`;
+            
+            const [sendersResponse, receiversResponse] = await Promise.all([
+                axios.get(sendersUrl, { timeout: 10000, params: { 'paging.limit': 1 } }),
+                axios.get(receiversUrl, { timeout: 10000, params: { 'paging.limit': 1 } })
+            ]);
+            
+            res.json({
+                success: true,
+                senders: sendersResponse.data.length,
+                receivers: receiversResponse.data.length,
+                message: `Connected successfully to ${registryUrl}`
+            });
+            
+        } catch (error) {
+            let errorMessage = error.message;
+            let suggestions = [];
+            
+            if (error.code === 'ECONNREFUSED') {
+                errorMessage = 'Connection refused - Registry is not reachable';
+                suggestions = [
+                    'Verify the registry is running',
+                    'Check if the port number is correct',
+                    'Ensure Node-RED can reach the registry network'
+                ];
+            } else if (error.code === 'ENOTFOUND') {
+                errorMessage = 'Host not found - Invalid registry URL';
+                suggestions = [
+                    'Verify the hostname or IP address is correct',
+                    'Check DNS resolution',
+                    'Try using IP address instead of hostname'
+                ];
+            } else if (error.code === 'ETIMEDOUT') {
+                errorMessage = 'Connection timeout';
+                suggestions = [
+                    'Check network connectivity',
+                    'Verify firewall settings',
+                    'Ensure registry is responding'
+                ];
+            } else if (error.response) {
+                errorMessage = `HTTP ${error.response.status}: ${error.response.statusText}`;
+                suggestions = [
+                    'Verify the API version is correct',
+                    'Check if authentication is required',
+                    'Ensure the endpoint path is correct'
+                ];
+            }
+            
+            res.status(500).json({
+                success: false,
+                error: errorMessage,
+                details: error.code || 'Unknown error',
+                suggestions: suggestions
+            });
+        }
+    });
+    
     // HTTP endpoint to handle commands from Vue component
     // NOTE: This endpoint uses Node-RED's httpAdmin which inherits Node-RED's
     // authentication settings. For production use, ensure Node-RED's adminAuth
@@ -93,10 +184,37 @@ module.exports = function(RED) {
             res.json(result);
         } catch (error) {
             console.error('Command error:', error);
+            
+            let errorMessage = error.message;
+            let suggestions = [];
+            
+            if (error.code === 'ECONNREFUSED') {
+                errorMessage = 'Connection refused - Registry is not reachable';
+                suggestions = [
+                    'Verify the registry is running',
+                    'Check if the port number is correct',
+                    'Ensure Node-RED can reach the registry network'
+                ];
+            } else if (error.code === 'ENOTFOUND') {
+                errorMessage = 'Host not found - Invalid registry URL';
+                suggestions = [
+                    'Verify the hostname or IP address is correct',
+                    'Check DNS resolution'
+                ];
+            } else if (error.code === 'ETIMEDOUT') {
+                errorMessage = 'Connection timeout';
+                suggestions = [
+                    'Check network connectivity',
+                    'Verify firewall settings'
+                ];
+            }
+            
             res.status(500).json({ 
-                error: error.message,
+                error: errorMessage,
                 event: 'error',
-                message: error.message
+                message: errorMessage,
+                code: error.code,
+                suggestions: suggestions
             });
         }
     });
@@ -122,21 +240,40 @@ module.exports = function(RED) {
         this.pollTimer = null;
         this.pendingOperations = new Map();
         
+        // Validate configuration
         if (!this.registry) {
             node.error("No NMOS registry configured");
-            node.status({fill: "red", shape: "ring", text: "no config"});
+            node.status({fill: "red", shape: "dot", text: "not configured"});
             return;
         }
         
+        const registryUrl = this.registry.getQueryApiUrl();
+        if (!registryUrl) {
+            node.error("Invalid registry configuration");
+            node.status({fill: "red", shape: "dot", text: "invalid config"});
+            return;
+        }
+        
+        // Validate registry URL format
+        const baseUrl = this.registry.registryUrl;
+        if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+            node.error('Registry URL must start with http:// or https://');
+            node.status({fill: "red", shape: "dot", text: "invalid URL"});
+            return;
+        }
+        
+        node.log(`NMOS Matrix initialized with registry: ${baseUrl}`);
         node.status({fill: "yellow", shape: "ring", text: "initializing"});
         
         // Register this node instance for HTTP endpoint access
         nodeInstances.set(node.id, node);
         
-        // Fetch senders from registry
-        const fetchSenders = async () => {
+        // Fetch senders from registry with retry logic
+        const fetchSenders = async (retryCount = 0) => {
+            const url = `${node.registry.getQueryApiUrl()}/senders`;
+            
             try {
-                const url = `${node.registry.getQueryApiUrl()}/senders`;
+                node.log(`Fetching senders from: ${url}`);
                 const response = await axios.get(url, {
                     headers: node.registry.getAuthHeaders(),
                     timeout: 10000,
@@ -153,17 +290,47 @@ module.exports = function(RED) {
                     transport: s.transport
                 })).sort((a, b) => a.label.localeCompare(b.label));
                 
+                node.log(`Fetched ${node.senders.length} senders`);
                 return node.senders;
             } catch (error) {
-                node.error(`Failed to fetch senders: ${error.message}`);
+                const errorDetails = {
+                    message: error.message,
+                    code: error.code,
+                    url: url,
+                    attempt: retryCount + 1
+                };
+                
+                // Log detailed error information
+                if (error.code === 'ECONNREFUSED') {
+                    node.error(`Connection refused to registry at ${url} - verify registry is running and accessible`);
+                } else if (error.code === 'ENOTFOUND') {
+                    node.error(`Registry host not found: ${url} - verify registry URL is correct`);
+                } else if (error.code === 'ETIMEDOUT') {
+                    node.error(`Connection timeout to registry at ${url}`);
+                } else if (error.response) {
+                    node.error(`Registry responded with HTTP ${error.response.status}: ${error.response.statusText}`);
+                } else {
+                    node.error(`Failed to fetch senders: ${error.message}`);
+                }
+                
+                // Retry logic
+                if (retryCount < node.retryAttempts) {
+                    const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff: 1s, 2s, 4s
+                    node.warn(`Retrying in ${delay}ms (attempt ${retryCount + 1}/${node.retryAttempts})...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return fetchSenders(retryCount + 1);
+                }
+                
                 throw error;
             }
         };
         
-        // Fetch receivers from registry
-        const fetchReceivers = async () => {
+        // Fetch receivers from registry with retry logic
+        const fetchReceivers = async (retryCount = 0) => {
+            const url = `${node.registry.getQueryApiUrl()}/receivers`;
+            
             try {
-                const url = `${node.registry.getQueryApiUrl()}/receivers`;
+                node.log(`Fetching receivers from: ${url}`);
                 const response = await axios.get(url, {
                     headers: node.registry.getAuthHeaders(),
                     timeout: 10000,
@@ -183,9 +350,37 @@ module.exports = function(RED) {
                 // Extract active connections from subscriptions
                 extractConnections();
                 
+                node.log(`Fetched ${node.receivers.length} receivers`);
                 return node.receivers;
             } catch (error) {
-                node.error(`Failed to fetch receivers: ${error.message}`);
+                const errorDetails = {
+                    message: error.message,
+                    code: error.code,
+                    url: url,
+                    attempt: retryCount + 1
+                };
+                
+                // Log detailed error information
+                if (error.code === 'ECONNREFUSED') {
+                    node.error(`Connection refused to registry at ${url} - verify registry is running and accessible`);
+                } else if (error.code === 'ENOTFOUND') {
+                    node.error(`Registry host not found: ${url} - verify registry URL is correct`);
+                } else if (error.code === 'ETIMEDOUT') {
+                    node.error(`Connection timeout to registry at ${url}`);
+                } else if (error.response) {
+                    node.error(`Registry responded with HTTP ${error.response.status}: ${error.response.statusText}`);
+                } else {
+                    node.error(`Failed to fetch receivers: ${error.message}`);
+                }
+                
+                // Retry logic
+                if (retryCount < node.retryAttempts) {
+                    const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff: 1s, 2s, 4s
+                    node.warn(`Retrying in ${delay}ms (attempt ${retryCount + 1}/${node.retryAttempts})...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return fetchReceivers(retryCount + 1);
+                }
+                
                 throw error;
             }
         };
@@ -203,15 +398,25 @@ module.exports = function(RED) {
         // Refresh endpoints
         node.refreshEndpoints = async () => {
             try {
+                node.log('NMOS Matrix: Starting endpoint refresh');
                 node.status({fill: "blue", shape: "dot", text: "refreshing"});
+                
                 await Promise.all([fetchSenders(), fetchReceivers()]);
-                node.status({fill: "green", shape: "dot", text: `${node.senders.length}S/${node.receivers.length}R`});
+                
+                // Check if registry is empty
+                if (node.senders.length === 0 && node.receivers.length === 0) {
+                    node.warn('Registry is connected but has no senders or receivers registered');
+                    node.status({fill: "yellow", shape: "ring", text: "no endpoints"});
+                } else {
+                    node.status({fill: "green", shape: "dot", text: `${node.senders.length}S/${node.receivers.length}R`});
+                }
                 
                 // Broadcast update to all connected clients
                 broadcastUpdate();
                 return true;
             } catch (error) {
-                node.status({fill: "red", shape: "ring", text: "error"});
+                node.error(`Endpoint refresh failed: ${error.message}`);
+                node.status({fill: "red", shape: "ring", text: "connection failed"});
                 return false;
             }
         };

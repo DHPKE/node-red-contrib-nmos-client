@@ -48,6 +48,74 @@
                 id: "nmos-matrix-tab-advanced",
                 label: "Advanced"
             });
+            
+            // Test Connection button handler
+            $('#test-connection-btn').click(function() {
+                const registryId = $('#node-input-registry').val();
+                const resultSpan = $('#test-connection-result');
+                
+                if (!registryId) {
+                    resultSpan.html('<span style="color:red;">❌ Please select a registry first</span>');
+                    return;
+                }
+                
+                // Get the registry node configuration
+                const registryNode = RED.nodes.node(registryId);
+                if (!registryNode) {
+                    resultSpan.html('<span style="color:red;">❌ Registry configuration not found</span>');
+                    return;
+                }
+                
+                resultSpan.html('<span style="color:blue;">⏳ Testing connection...</span>');
+                
+                $.ajax({
+                    url: 'nmos-matrix/test-connection',
+                    type: 'POST',
+                    data: JSON.stringify({ 
+                        url: registryNode.registryUrl,
+                        apiVersion: registryNode.queryApiVersion || 'v1.3'
+                    }),
+                    contentType: 'application/json',
+                    success: function(result) {
+                        if (result.success) {
+                            resultSpan.html(
+                                '<span style="color:green;">✅ Connected! Found ' + 
+                                result.senders + ' senders and ' + 
+                                result.receivers + ' receivers</span>'
+                            );
+                        } else {
+                            resultSpan.html('<span style="color:red;">❌ ' + result.error + '</span>');
+                        }
+                    },
+                    error: function(xhr) {
+                        let errorMsg = '❌ Connection failed';
+                        let suggestions = [];
+                        
+                        try {
+                            const response = JSON.parse(xhr.responseText);
+                            if (response.error) {
+                                errorMsg = '❌ ' + response.error;
+                            }
+                            if (response.suggestions && response.suggestions.length > 0) {
+                                suggestions = response.suggestions;
+                            }
+                        } catch (e) {
+                            errorMsg = '❌ Connection failed: ' + xhr.statusText;
+                        }
+                        
+                        let html = '<span style="color:red;">' + errorMsg + '</span>';
+                        if (suggestions.length > 0) {
+                            html += '<br><small style="color:#999;">Suggestions:<ul style="margin:5px 0 0 20px;">';
+                            suggestions.forEach(function(s) {
+                                html += '<li>' + s + '</li>';
+                            });
+                            html += '</ul></small>';
+                        }
+                        
+                        resultSpan.html(html);
+                    }
+                });
+            });
         }
     });
 </script>
@@ -68,6 +136,14 @@
             <div class="form-row">
                 <label for="node-input-registry"><i class="fa fa-server"></i> Registry</label>
                 <input type="text" id="node-input-registry" placeholder="Select NMOS Registry">
+            </div>
+            
+            <div class="form-row">
+                <label>&nbsp;</label>
+                <button type="button" id="test-connection-btn" class="red-ui-button" style="width:auto;">
+                    <i class="fa fa-plug"></i> Test Connection
+                </button>
+                <span id="test-connection-result" style="margin-left:10px;"></span>
             </div>
             
             <div class="form-row">
