@@ -5,6 +5,9 @@ module.exports = function(RED) {
     const nodeInstances = new Map();
     
     // HTTP endpoint to handle commands from Vue component
+    // NOTE: This endpoint uses Node-RED's httpAdmin which inherits Node-RED's
+    // authentication settings. For production use, ensure Node-RED's adminAuth
+    // is properly configured to protect this endpoint.
     RED.httpAdmin.post('/nmos-matrix/:nodeId/command', async (req, res) => {
         try {
             const nodeId = req.params.nodeId;

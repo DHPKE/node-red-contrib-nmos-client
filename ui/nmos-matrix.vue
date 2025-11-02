@@ -230,6 +230,19 @@
       <div class="spinner"></div>
       <p>{{ loadingMessage }}</p>
     </div>
+    
+    <!-- Toast Notifications -->
+    <div class="toast-container">
+      <div 
+        v-for="toast in toasts" 
+        :key="toast.id" 
+        :class="['toast', `toast-${toast.type}`]"
+        @click="removeToast(toast.id)"
+      >
+        <span class="toast-icon">{{ toast.icon }}</span>
+        <span class="toast-message">{{ toast.message }}</span>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -270,7 +283,9 @@ export default {
       snapshotDescription: '',
       importedSnapshot: null,
       validationResult: null,
-      pendingOperations: new Set()
+      pendingOperations: new Set(),
+      toasts: [],
+      toastIdCounter: 0
     }
   },
   computed: {
@@ -413,7 +428,7 @@ export default {
     
     async saveSnapshot() {
       if (!this.snapshotName.trim()) {
-        alert('Please enter a snapshot name');
+        this.showToast('Please enter a snapshot name', 'warning');
         return;
       }
       
@@ -430,10 +445,10 @@ export default {
         this.showSaveDialog = false;
         this.snapshotName = '';
         this.snapshotDescription = '';
-        alert('Snapshot saved successfully');
+        this.showToast('Snapshot saved successfully', 'success');
       } catch (error) {
         console.error('Failed to save snapshot:', error);
-        this.showError('Failed to save snapshot');
+        this.showToast('Failed to save snapshot', 'error');
       } finally {
         this.loading = false;
       }
@@ -491,7 +506,7 @@ export default {
         this.showImportDialog = true;
       } catch (error) {
         console.error('Failed to import snapshot:', error);
-        alert('Invalid snapshot file');
+        this.showToast('Invalid snapshot file', 'error');
       } finally {
         this.loading = false;
         // Reset file input
@@ -588,10 +603,10 @@ export default {
         // Refresh to get updated state
         await this.refreshEndpoints();
         
-        alert('Snapshot applied successfully');
+        this.showToast('Snapshot applied successfully', 'success');
       } catch (error) {
         console.error('Failed to apply snapshot:', error);
-        this.showError('Failed to apply snapshot');
+        this.showToast('Failed to apply snapshot', 'error');
       } finally {
         this.loading = false;
       }
@@ -609,14 +624,47 @@ export default {
       });
       
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const statusMessages = {
+          400: 'Invalid request parameters',
+          404: 'Matrix node not found',
+          500: 'Server error occurred',
+          503: 'Registry unavailable'
+        };
+        const message = statusMessages[response.status] || `HTTP ${response.status}: ${response.statusText}`;
+        throw new Error(message);
       }
       
       return await response.json();
     },
     
-    showError(message) {
-      alert(message);
+    showToast(message, type = 'info') {
+      const icons = {
+        success: '✅',
+        error: '❌',
+        warning: '⚠️',
+        info: 'ℹ️'
+      };
+      
+      const toast = {
+        id: ++this.toastIdCounter,
+        message,
+        type,
+        icon: icons[type] || icons.info
+      };
+      
+      this.toasts.push(toast);
+      
+      // Auto-remove after 3 seconds
+      setTimeout(() => {
+        this.removeToast(toast.id);
+      }, 3000);
+    },
+    
+    removeToast(id) {
+      const index = this.toasts.findIndex(t => t.id === id);
+      if (index !== -1) {
+        this.toasts.splice(index, 1);
+      }
     },
     
     formatTime(timestamp) {
@@ -1040,6 +1088,69 @@ export default {
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
+}
+
+/* Toast Notifications */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 400px;
+}
+
+.toast {
+  background: #2a2a2a;
+  border-radius: 8px;
+  padding: 15px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  animation: slideIn 0.3s ease-out;
+  border-left: 4px solid;
+}
+
+.toast-success {
+  border-left-color: #4CAF50;
+}
+
+.toast-error {
+  border-left-color: #F44336;
+}
+
+.toast-warning {
+  border-left-color: #FF9800;
+}
+
+.toast-info {
+  border-left-color: #2196F3;
+}
+
+.toast-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.toast-message {
+  flex: 1;
+  font-size: 14px;
+  color: #fff;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 /* Theme variations */
