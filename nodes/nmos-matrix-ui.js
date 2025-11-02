@@ -33,7 +33,7 @@ module.exports = function(RED) {
                 label: s.label || s.id,
                 description: s.description || '',
                 flow_id: s.flow_id
-            });
+            }));
             
             const receivers = receiversResp.data.map(r => ({
                 id: r.id,
