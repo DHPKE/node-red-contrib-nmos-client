@@ -1,4 +1,4 @@
-const mqtt = require('mqtt');
+const WebSocket = require('ws');
 const axios = require('axios');
 const os = require('os');
 const { v4: uuidv4 } = require('uuid');
@@ -9,14 +9,15 @@ module.exports = function(RED) {
         const node = this;
         
         this.registry = RED.nodes.getNode(config.registry);
-        this.mqttBroker = config.mqttBroker || 'mqtt://localhost:1883';
+        this.wsPort = config.wsPort || 3001;
         this.deviceLabel = config.deviceLabel || 'Node-RED IS-12 Device';
         this.deviceDescription = config.deviceDescription || 'IS-12 Control Device';
         this.deviceId = config.deviceId || uuidv4();
         this.nodeId = config.nodeId || uuidv4();
         this.controlType = config.controlType || 'generic';
         
-        let mqttClient = null;
+        let wss = null;
+        let wsConnections = new Set();
         let registrationComplete = false;
         let heartbeatInterval = null;
         
@@ -26,9 +27,9 @@ module.exports = function(RED) {
             return;
         }
         
-        if (!this.mqttBroker) {
-            node.error("No MQTT broker configured");
-            node.status({fill: "red", shape: "ring", text: "no mqtt broker"});
+        if (!this.wsPort) {
+            node.error("No WebSocket port configured");
+            node.status({fill: "red", shape: "ring", text: "no ws port"});
             return;
         }
         
@@ -92,14 +93,7 @@ module.exports = function(RED) {
         const localMAC = networkInfo.mac;
         const ifaceName = networkInfo.ifaceName;
         
-        const getMQTTTopics = () => {
-            return {
-                command: `x-nmos/nc/${node.deviceId}/commands`,
-                response: `x-nmos/nc/${node.deviceId}/responses`,
-                notification: `x-nmos/nc/${node.deviceId}/notifications`,
-                subscription: `x-nmos/nc/${node.deviceId}/subscriptions`
-            };
-        };
+
         
         const getTAITimestamp = () => {
             const now = Date.now() / 1000;
@@ -156,7 +150,7 @@ module.exports = function(RED) {
                 receivers: [],
                 controls: [{
                     type: 'urn:x-nmos:control:ncp/v1.0',
-                    href: node.mqttBroker
+                    href: `ws://${localIP}:${node.wsPort}/x-nmos/ncp/v1.0`
                 }]
             };
         };
@@ -235,51 +229,58 @@ module.exports = function(RED) {
             }
         };
         
-        const setupMQTT = () => {
-            const topics = getMQTTTopics();
-            
-            node.log('Connecting to MQTT: ' + node.mqttBroker);
+        const setupWebSocketServer = () => {
+            node.log(`Starting WebSocket server on port ${node.wsPort}`);
             
             try {
-                mqttClient = mqtt.connect(node.mqttBroker, {
-                    clientId: `nmos-is12-${node.deviceId}`,
-                    clean: true,
-                    reconnectPeriod: 5000
+                wss = new WebSocket.Server({ 
+                    port: node.wsPort,
+                    path: '/x-nmos/ncp/v1.0'
                 });
                 
-                mqttClient.on('connect', () => {
-                    node.log('✓ MQTT connected');
+                wss.on('listening', () => {
+                    node.log(`✓ WebSocket server listening on port ${node.wsPort}`);
                     if (registrationComplete) {
-                        node.status({fill: "green", shape: "dot", text: "connected"});
+                        node.status({fill: "green", shape: "dot", text: "WebSocket ready"});
                     }
+                });
+                
+                wss.on('connection', (ws) => {
+                    wsConnections.add(ws);
+                    node.log('✓ WebSocket client connected');
                     
-                    mqttClient.subscribe(topics.command, (err) => {
-                        if (!err) {
-                            node.log(`✓ Subscribed to: ${topics.command}`);
+                    ws.on('message', (data) => {
+                        try {
+                            const command = JSON.parse(data.toString());
+                            node.log(`◄ Command received`);
+                            const response = handleIS12Command(command);
+                            ws.send(JSON.stringify(response));
+                        } catch (error) {
+                            node.error(`WebSocket message error: ${error.message}`);
                         }
+                    });
+                    
+                    ws.on('close', () => {
+                        wsConnections.delete(ws);
+                        node.log('WebSocket client disconnected');
+                    });
+                    
+                    ws.on('error', (error) => {
+                        node.error(`WebSocket error: ${error.message}`);
                     });
                 });
                 
-                mqttClient.on('message', (topic, message) => {
-                    try {
-                        const command = JSON.parse(message.toString());
-                        node.log(`◄ Command received`);
-                        handleIS12Command(command);
-                    } catch (error) {
-                        node.error(`MQTT message error: ${error.message}`);
-                    }
-                });
-                
-                mqttClient.on('error', (error) => {
-                    node.error(`MQTT error: ${error.message}`);
+                wss.on('error', (error) => {
+                    node.error(`WebSocket server error: ${error.message}`);
+                    node.status({fill: "red", shape: "ring", text: "WebSocket error"});
                 });
             } catch (error) {
-                node.error(`MQTT setup failed: ${error.message}`);
+                node.error(`WebSocket setup failed: ${error.message}`);
+                node.status({fill: "red", shape: "ring", text: "setup failed"});
             }
         };
         
         const handleIS12Command = (command) => {
-            const topics = getMQTTTopics();
             const response = {
                 messageType: 1,
                 responses: []
@@ -305,10 +306,8 @@ module.exports = function(RED) {
                 }
             }
             
-            if (mqttClient && mqttClient.connected) {
-                mqttClient.publish(topics.response, JSON.stringify(response), { qos: 1 });
-                node.log(`► Response sent`);
-            }
+            node.log(`► Response prepared`);
+            return response;
         };
         
         const processCommand = (cmd) => {
@@ -376,9 +375,8 @@ module.exports = function(RED) {
         };
         
         const sendNotification = (oid, propertyName, value) => {
-            if (!mqttClient || !mqttClient.connected) return;
+            if (wsConnections.size === 0) return;
             
-            const topics = getMQTTTopics();
             const notification = {
                 messageType: 2,
                 notifications: [{
@@ -392,7 +390,12 @@ module.exports = function(RED) {
                 }]
             };
             
-            mqttClient.publish(topics.notification, JSON.stringify(notification), { qos: 0 });
+            const notificationStr = JSON.stringify(notification);
+            wsConnections.forEach(ws => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(notificationStr);
+                }
+            });
             node.log(`► Notification sent: ${propertyName}=${value}`);
         };
         
@@ -419,10 +422,11 @@ module.exports = function(RED) {
             }
         };
         
-        setupMQTT();
+        setupWebSocketServer();
         
         registerWithRegistry().then(success => {
             if (success) {
+                node.status({fill: "green", shape: "dot", text: "WebSocket ready"});
                 heartbeatInterval = setInterval(() => sendHeartbeat(), 5000);
                 setTimeout(() => sendHeartbeat(), 1000);
             }
@@ -437,9 +441,10 @@ module.exports = function(RED) {
                         deviceId: node.deviceId,
                         nodeId: node.nodeId,
                         registered: registrationComplete,
-                        mqttConnected: mqttClient && mqttClient.connected,
-                        mqttBroker: node.mqttBroker,
-                        topics: getMQTTTopics(),
+                        wsConnected: wsConnections.size > 0,
+                        wsPort: node.wsPort,
+                        wsEndpoint: `ws://${localIP}:${node.wsPort}/x-nmos/ncp/v1.0`,
+                        activeConnections: wsConnections.size,
                         controlModel: controlModel
                     };
                     node.send(msg);
@@ -469,20 +474,6 @@ module.exports = function(RED) {
                     }
                     break;
                     
-                case 'send_command':
-                    const { targetDevice, command } = msg.payload;
-                    const commandTopic = `x-nmos/nc/${targetDevice}/commands`;
-                    const ncpCommand = {
-                        messageType: 0,
-                        commands: [command]
-                    };
-                    
-                    if (mqttClient && mqttClient.connected) {
-                        mqttClient.publish(commandTopic, JSON.stringify(ncpCommand), { qos: 1 });
-                        node.log(`► Command sent to ${targetDevice}`);
-                    }
-                    break;
-                    
                 case 're-register':
                     registerWithRegistry();
                     break;
@@ -494,14 +485,31 @@ module.exports = function(RED) {
                 clearInterval(heartbeatInterval);
             }
             
-            if (mqttClient) {
-                mqttClient.end(true);
-            }
+            // Close all WebSocket connections
+            wsConnections.forEach(ws => {
+                try {
+                    ws.close();
+                } catch (e) {
+                    // Ignore close errors
+                }
+            });
+            wsConnections.clear();
             
-            unregisterFromRegistry().then(() => {
-                node.status({});
-                done();
-            }).catch(() => done());
+            // Close WebSocket server
+            if (wss) {
+                wss.close(() => {
+                    node.log('✓ WebSocket server closed');
+                    unregisterFromRegistry().then(() => {
+                        node.status({});
+                        done();
+                    }).catch(() => done());
+                });
+            } else {
+                unregisterFromRegistry().then(() => {
+                    node.status({});
+                    done();
+                }).catch(() => done());
+            }
         });
     }
     

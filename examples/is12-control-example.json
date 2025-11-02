@@ -4,7 +4,7 @@
         "type": "tab",
         "label": "IS-12 Control Example",
         "disabled": false,
-        "info": "NMOS IS-12 Control Protocol with MQTT"
+        "info": "NMOS IS-12 Control Protocol with WebSocket"
     },
     {
         "id": "is12_device",
@@ -12,7 +12,7 @@
         "z": "is12_example",
         "name": "Audio Processor",
         "registry": "YOUR_REGISTRY_CONFIG",
-        "mqttBroker": "mqtt://localhost:1883",
+        "wsPort": 3001,
         "deviceLabel": "Node-RED Audio Processor",
         "deviceDescription": "IS-12 controllable audio processor",
         "controlType": "processor",
@@ -91,7 +91,7 @@
         "type": "function",
         "z": "is12_example",
         "name": "Display Property Changes",
-        "func": "if (msg.payload.event === 'property_changed') {\n    node.warn('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');\n    node.warn('PROPERTY CHANGED');\n    node.warn('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');\n    node.warn(`Role: ${msg.payload.role}`);\n    node.warn(`Value: ${msg.payload.value}`);\n    node.warn(`OID: ${msg.payload.oid}`);\n    node.warn('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');\n}\n\nif (msg.payload.mqttConnected !== undefined) {\n    node.warn('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');\n    node.warn('IS-12 DEVICE STATE');\n    node.warn('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');\n    node.warn(`Registered: ${msg.payload.registered}`);\n    node.warn(`MQTT Connected: ${msg.payload.mqttConnected}`);\n    node.warn(`MQTT Broker: ${msg.payload.mqttBroker}`);\n    node.warn('\\nControl Model:');\n    for (const key in msg.payload.controlModel.workers) {\n        const w = msg.payload.controlModel.workers[key];\n        node.warn(`  ${w.role}: ${w.value} ${w.readOnly ? '(read-only)' : ''}`);\n    }\n    node.warn('\\nMQTT Topics:');\n    node.warn(`  Commands: ${msg.payload.topics.command}`);\n    node.warn(`  Responses: ${msg.payload.topics.response}`);\n    node.warn(`  Notifications: ${msg.payload.topics.notification}`);\n    node.warn('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');\n}\n\nreturn msg;",
+        "func": "if (msg.payload.event === 'property_changed') {\n    node.warn('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');\n    node.warn('PROPERTY CHANGED');\n    node.warn('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');\n    node.warn(`Role: ${msg.payload.role}`);\n    node.warn(`Value: ${msg.payload.value}`);\n    node.warn(`OID: ${msg.payload.oid}`);\n    node.warn('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');\n}\n\nif (msg.payload.wsConnected !== undefined) {\n    node.warn('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');\n    node.warn('IS-12 DEVICE STATE');\n    node.warn('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');\n    node.warn(`Registered: ${msg.payload.registered}`);\n    node.warn(`WebSocket Port: ${msg.payload.wsPort}`);\n    node.warn(`WebSocket Endpoint: ${msg.payload.wsEndpoint}`);\n    node.warn(`Active Connections: ${msg.payload.activeConnections}`);\n    node.warn('\\nControl Model:');\n    for (const key in msg.payload.controlModel.workers) {\n        const w = msg.payload.controlModel.workers[key];\n        node.warn(`  ${w.role}: ${w.value} ${w.readOnly ? '(read-only)' : ''}`);\n    }\n    node.warn('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');\n}\n\nreturn msg;",
         "outputs": 1,
         "timeout": "",
         "noerr": 0,
@@ -121,42 +121,10 @@
         "id": "comment_is12",
         "type": "comment",
         "z": "is12_example",
-        "name": "IS-12 Control Protocol via MQTT",
-        "info": "This example demonstrates:\n1. IS-12 device registration\n2. MQTT-based control\n3. Property get/set operations\n4. Property change notifications",
-        "x": 180,
+        "name": "IS-12 Control Protocol via WebSocket",
+        "info": "This example demonstrates:\n1. IS-12 device registration\n2. WebSocket-based control (ws://<ip>:3001/x-nmos/ncp/v1.0)\n3. Property get/set operations\n4. Property change notifications to connected WebSocket clients\n\nConnect to the WebSocket endpoint using a WebSocket client to send NCP commands.",
+        "x": 190,
         "y": 80,
         "wires": []
-    },
-    {
-        "id": "mqtt_monitor",
-        "type": "mqtt in",
-        "z": "is12_example",
-        "name": "Monitor Notifications",
-        "topic": "x-nmos/nc/+/notifications",
-        "qos": "0",
-        "datatype": "json",
-        "broker": "YOUR_MQTT_BROKER_CONFIG",
-        "nl": false,
-        "rap": false,
-        "inputs": 0,
-        "x": 170,
-        "y": 340,
-        "wires": [["show_mqtt_notification"]]
-    },
-    {
-        "id": "show_mqtt_notification",
-        "type": "function",
-        "z": "is12_example",
-        "name": "Show MQTT Notification",
-        "func": "node.warn('━━━ MQTT NOTIFICATION ━━━');\nnode.warn(`Topic: ${msg.topic}`);\nnode.warn(`Payload: ${JSON.stringify(msg.payload, null, 2)}`);\nnode.warn('━━━━━━━━━━━━━━━━━━━━━━━━━');\nreturn msg;",
-        "outputs": 1,
-        "timeout": "",
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 420,
-        "y": 340,
-        "wires": [["debug_output"]]
     }
 ]
