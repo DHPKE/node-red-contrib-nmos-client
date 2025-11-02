@@ -251,7 +251,21 @@ module.exports = function(RED) {
                     
                     ws.on('message', (data) => {
                         try {
+                            // Validate message size (max 1MB)
+                            if (data.length > 1024 * 1024) {
+                                node.error('WebSocket message too large');
+                                ws.close(1009, 'Message too large');
+                                return;
+                            }
+                            
                             const command = JSON.parse(data.toString());
+                            
+                            // Validate command structure
+                            if (!command.messageType || !command.commands) {
+                                node.error('Invalid command structure');
+                                return;
+                            }
+                            
                             node.log(`◄ Command received`);
                             const response = handleIS12Command(command);
                             ws.send(JSON.stringify(response));
@@ -271,8 +285,13 @@ module.exports = function(RED) {
                 });
                 
                 wss.on('error', (error) => {
-                    node.error(`WebSocket server error: ${error.message}`);
-                    node.status({fill: "red", shape: "ring", text: "WebSocket error"});
+                    if (error.code === 'EADDRINUSE') {
+                        node.error(`Port ${node.wsPort} is already in use. Please choose a different port.`);
+                        node.status({fill: "red", shape: "ring", text: "port in use"});
+                    } else {
+                        node.error(`WebSocket server error: ${error.message}`);
+                        node.status({fill: "red", shape: "ring", text: "WebSocket error"});
+                    }
                 });
             } catch (error) {
                 node.error(`WebSocket setup failed: ${error.message}`);
@@ -393,7 +412,11 @@ module.exports = function(RED) {
             const notificationStr = JSON.stringify(notification);
             wsConnections.forEach(ws => {
                 if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(notificationStr);
+                    try {
+                        ws.send(notificationStr);
+                    } catch (error) {
+                        node.warn(`Failed to send notification to client: ${error.message}`);
+                    }
                 }
             });
             node.log(`► Notification sent: ${propertyName}=${value}`);
@@ -495,9 +518,15 @@ module.exports = function(RED) {
             });
             wsConnections.clear();
             
-            // Close WebSocket server
+            // Close WebSocket server with timeout
             if (wss) {
+                let closeTimeout = setTimeout(() => {
+                    node.warn('WebSocket server close timeout - forcing shutdown');
+                    done();
+                }, 5000);
+                
                 wss.close(() => {
+                    clearTimeout(closeTimeout);
                     node.log('✓ WebSocket server closed');
                     unregisterFromRegistry().then(() => {
                         node.status({});
