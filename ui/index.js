@@ -1,5 +1,5 @@
 module.exports = {
-    'nmos-matrix': {
+    'nmos-matrix-ui': {
         component: 'NmosMatrix'
     }
 };
