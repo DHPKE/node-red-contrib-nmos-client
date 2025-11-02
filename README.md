@@ -14,7 +14,7 @@ This Node-RED package provides NMOS (Networked Media Open Specifications) suppor
 - **IS-04**: Query and register NMOS resources (nodes, devices, sources, flows, senders, receivers)
 - **IS-05**: Create and manage connections between senders and receivers
 - **IS-07**: Publish and subscribe to MQTT-based events and tally
-- **IS-12**: Control protocol (NCP) for device control via MQTT
+- **IS-12**: Control protocol (NCP) for device control via WebSocket
 - **Dashboard**: Interactive routing matrix UI for FlowFuse Dashboard
 
 ## Installation
@@ -161,12 +161,16 @@ msg.payload = {
 ```
 
 #### nmos-is12-control
-Implement IS-12 controllable device with MQTT.
+Implement IS-12 controllable device with WebSocket transport.
 
 **Configuration:**
 - Device label and description
-- Control type: `generic`, `audio`, `video`
-- MQTT broker URL
+- Control type: `generic`, `mixer`, `processor`, `router`
+- WebSocket port (default: 3001)
+
+**WebSocket Endpoint:**
+- Path: `ws://<ip>:<port>/x-nmos/ncp/v1.0`
+- Protocol: NMOS Control Protocol (NCP)
 
 **Built-in Controls:**
 - **gain**: -60.0 to 12.0 dB

@@ -15,6 +15,7 @@
     "media",
     "control",
     "mqtt",
+    "websocket",
     "ncp",
     "events",
     "tally",
