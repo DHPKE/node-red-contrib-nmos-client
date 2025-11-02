@@ -18,19 +18,42 @@
                 <button @click="refreshMatrix" class="matrix-refresh-btn" :disabled="loading">
                     <i class="fa fa-refresh" :class="{'fa-spin': loading}"></i> Refresh
                 </button>
+                <label class="auto-refresh-label">
+                    <input type="checkbox" v-model="autoRefresh" @change="toggleAutoRefresh" />
+                    Auto-refresh (30s)
+                </label>
             </div>
             <div class="matrix-status">
-                <span>Senders: {{ filteredSenders.length }}</span>
-                <span>Receivers: {{ filteredReceivers.length }}</span>
+                <span>Senders: {{ filteredSenders.length }} / {{ senders.length }}</span>
+                <span>Receivers: {{ filteredReceivers.length }} / {{ receivers.length }}</span>
                 <span v-if="loading" class="loading-indicator">Loading...</span>
+                <span v-else-if="senders.length > 0 && receivers.length > 0" class="ready-indicator">Ready</span>
+                <span v-else class="warning-indicator">No resources found</span>
             </div>
         </div>
         
+        <!-- Loading overlay for initial load -->
+        <div v-if="initialLoading" class="initial-loading-overlay">
+            <div class="loading-spinner"></div>
+            <p>Loading senders and receivers from NMOS registry...</p>
+        </div>
+        
         <!-- Matrix Grid -->
-        <div class="matrix-wrapper">
-            <div class="matrix-grid-container">
+        <div v-else class="matrix-wrapper">
+            <div v-if="senders.length === 0 || receivers.length === 0" class="empty-state">
+                <i class="fa fa-exclamation-triangle"></i>
+                <p>No senders or receivers found in the registry.</p>
+                <button @click="refreshMatrix" class="matrix-refresh-btn">
+                    <i class="fa fa-refresh"></i> Retry
+                </button>
+            </div>
+            <div v-else class="matrix-grid-container">
                 <!-- Top-left corner cell -->
-                <div class="matrix-corner"></div>
+                <div class="matrix-corner">
+                    <div class="corner-info">
+                        <small>{{ connections.length }} active</small>
+                    </div>
+                </div>
                 
                 <!-- Sender headers (columns) -->
                 <div class="matrix-sender-headers">
@@ -38,7 +61,7 @@
                         v-for="sender in filteredSenders" 
                         :key="sender.id"
                         class="matrix-sender-header"
-                        :title="sender.label"
+                        :title="`${sender.label}\nID: ${sender.id}`"
                     >
                         <span class="sender-label-vertical">{{ sender.label }}</span>
                     </div>
@@ -51,7 +74,7 @@
                         :key="receiver.id"
                         class="matrix-row"
                     >
-                        <div class="matrix-receiver-label" :title="receiver.label">
+                        <div class="matrix-receiver-label" :title="`${receiver.label}\nID: ${receiver.id}`">
                             {{ receiver.label }}
                         </div>
                         <div class="matrix-crosspoints">
@@ -61,7 +84,7 @@
                                 class="matrix-crosspoint"
                                 :class="{ 'active': isConnected(receiver.id, sender.id) }"
                                 @click="toggleConnection(receiver.id, sender.id)"
-                                :title="`${sender.label} → ${receiver.label}`"
+                                :title="`${sender.label} → ${receiver.label}\nClick to ${isConnected(receiver.id, sender.id) ? 'disconnect' : 'connect'}`"
                             ></div>
                         </div>
                     </div>
@@ -86,7 +109,10 @@ export default {
             connections: [],
             senderSearch: '',
             receiverSearch: '',
-            loading: false
+            loading: false,
+            initialLoading: true,
+            autoRefresh: false,
+            refreshInterval: null
         }
     },
     computed: {
@@ -107,8 +133,10 @@ export default {
             );
         }
     },
-    mounted() {
-        this.loadResources();
+    async mounted() {
+        // Automatically load resources on mount for instant use
+        await this.loadResources();
+        this.initialLoading = false;
         
         // Listen for incoming messages from Node-RED (Dashboard 2.0 pattern)
         if (this.$socket) {
@@ -120,6 +148,11 @@ export default {
         if (this.$socket) {
             this.$socket.off(`msg-input:${this.id}`, this.handleMessage);
             this.$socket.off(`widget-load:${this.id}`, this.handleMessage);
+        }
+        
+        // Clear auto-refresh interval
+        if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
         }
     },
     methods: {
@@ -133,24 +166,33 @@ export default {
                     return;
                 }
                 
-                // Fetch resources
-                const resourcesResp = await fetch(`/nmos-matrix-ui/resources?registry=${registryId}`);
+                // Fetch resources and connections in parallel for faster loading
+                const [resourcesResp, connectionsResp] = await Promise.all([
+                    fetch(`/nmos-matrix-ui/resources?registry=${registryId}`),
+                    fetch(`/nmos-matrix-ui/connections?registry=${registryId}`)
+                ]);
+                
                 if (!resourcesResp.ok) {
                     throw new Error(`Failed to fetch resources: ${resourcesResp.statusText}`);
                 }
                 const resourcesData = await resourcesResp.json();
                 
-                this.senders = resourcesData.senders || [];
-                this.receivers = resourcesData.receivers || [];
+                // Sort senders and receivers by label for better UX
+                this.senders = (resourcesData.senders || []).sort((a, b) => 
+                    a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' })
+                );
+                this.receivers = (resourcesData.receivers || []).sort((a, b) => 
+                    a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' })
+                );
                 
-                // Fetch connections
-                const connectionsResp = await fetch(`/nmos-matrix-ui/connections?registry=${registryId}`);
                 if (!connectionsResp.ok) {
                     throw new Error(`Failed to fetch connections: ${connectionsResp.statusText}`);
                 }
                 const connectionsData = await connectionsResp.json();
                 
                 this.connections = connectionsData.connections || [];
+                
+                console.log(`Matrix loaded: ${this.senders.length} senders, ${this.receivers.length} receivers, ${this.connections.length} active connections`);
                 
             } catch (error) {
                 console.error('Error loading matrix resources:', error);
@@ -160,6 +202,20 @@ export default {
         },
         async refreshMatrix() {
             await this.loadResources();
+        },
+        toggleAutoRefresh() {
+            if (this.autoRefresh) {
+                // Start auto-refresh every 30 seconds
+                this.refreshInterval = setInterval(() => {
+                    this.loadResources();
+                }, 30000);
+            } else {
+                // Stop auto-refresh
+                if (this.refreshInterval) {
+                    clearInterval(this.refreshInterval);
+                    this.refreshInterval = null;
+                }
+            }
         },
         isConnected(receiverId, senderId) {
             return this.connections.some(c => 
@@ -222,6 +278,61 @@ export default {
     color: #e0e0e0;
     font-family: Arial, sans-serif;
     min-height: 400px;
+    position: relative;
+}
+
+.initial-loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(26, 26, 26, 0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid #333;
+    border-top: 4px solid #3FADB5;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.initial-loading-overlay p {
+    color: #3FADB5;
+    font-size: 16px;
+}
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #999;
+    gap: 20px;
+}
+
+.empty-state i {
+    font-size: 48px;
+    color: #666;
+}
+
+.empty-state p {
+    font-size: 16px;
+    margin: 0;
 }
 
 .matrix-header {
@@ -236,6 +347,7 @@ export default {
     gap: 10px;
     margin-bottom: 10px;
     flex-wrap: wrap;
+    align-items: center;
 }
 
 .matrix-search {
@@ -275,6 +387,20 @@ export default {
     cursor: not-allowed;
 }
 
+.auto-refresh-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    color: #ccc;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.auto-refresh-label input[type="checkbox"] {
+    cursor: pointer;
+}
+
 .matrix-status {
     display: flex;
     gap: 20px;
@@ -285,6 +411,16 @@ export default {
 
 .loading-indicator {
     color: #3FADB5;
+    font-weight: bold;
+}
+
+.ready-indicator {
+    color: #4CAF50;
+    font-weight: bold;
+}
+
+.warning-indicator {
+    color: #ff9800;
     font-weight: bold;
 }
 
@@ -309,6 +445,16 @@ export default {
     top: 0;
     left: 0;
     z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.corner-info {
+    color: #3FADB5;
+    font-size: 11px;
+    font-weight: bold;
+    text-align: center;
 }
 
 .matrix-sender-headers {
