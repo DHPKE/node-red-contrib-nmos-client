@@ -204,7 +204,9 @@ export default {
         },
         sendMessage(msg) {
             // Send message back to Node-RED using Dashboard 2.0 API
-            this.send(msg);
+            if (this.send) {
+                this.send(msg);
+            }
         }
     }
 }
