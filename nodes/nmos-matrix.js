@@ -51,6 +51,36 @@ module.exports = function(RED) {
         };
     };
     
+    // HTTP endpoint to list all active matrix nodes
+    // NOTE: This endpoint uses Node-RED's httpAdmin which inherits Node-RED's
+    // authentication settings. For production use, ensure Node-RED's adminAuth
+    // is properly configured to protect this endpoint.
+    RED.httpAdmin.get('/nmos-matrix/nodes', (req, res) => {
+        try {
+            const nodes = [];
+            nodeInstances.forEach((node, id) => {
+                nodes.push({
+                    id: id,
+                    name: node.name || 'NMOS Matrix',
+                    type: 'nmos-matrix'
+                });
+            });
+            
+            res.json({
+                success: true,
+                nodes: nodes,
+                count: nodes.length
+            });
+        } catch (error) {
+            console.error('Error listing matrix nodes:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to list matrix nodes',
+                message: error.message
+            });
+        }
+    });
+    
     // HTTP endpoint to test connection to registry
     // NOTE: This endpoint uses Node-RED's httpAdmin which inherits Node-RED's
     // authentication settings. For production use, ensure Node-RED's adminAuth
@@ -264,8 +294,10 @@ module.exports = function(RED) {
         nodeInstances.set(node.id, node);
         console.log('[SUCCESS] Node registered in nodeInstances Map');
         
-        // Get registry configuration
+        // Get registry configuration (optional)
         this.registry = RED.nodes.getNode(config.registry);
+        this.directRegistryUrl = config.directRegistryUrl || '';
+        this.directApiVersion = config.directApiVersion || 'v1.3';
         this.refreshInterval = parseInt(config.refreshInterval) || 5000;
         this.autoRefresh = config.autoRefresh !== false;
         this.compactView = config.compactView || false;
@@ -285,8 +317,94 @@ module.exports = function(RED) {
         this.pendingOperations = new Map();
         this.initializationError = null;
         
-        // Validate configuration
-        if (!this.registry) {
+        // Create registry interface - either from nmos-config node or direct URL
+        let registryInterface = null;
+        let registryUrl = null;
+        let baseUrl = null;
+        
+        if (this.registry) {
+            // Use nmos-config node (preferred for backward compatibility)
+            console.log('[SUCCESS] Using nmos-config node:', this.registry.id);
+            registryInterface = this.registry;
+            registryUrl = this.registry.getQueryApiUrl();
+            baseUrl = this.registry.registryUrl;
+            
+            if (!registryUrl) {
+                const errorMsg = "[ERROR] Invalid registry configuration - no Query API URL";
+                console.error(errorMsg);
+                node.error(errorMsg);
+                node.status({fill: "red", shape: "dot", text: "invalid config"});
+                this.initializationError = {
+                    message: "Configuration Error",
+                    details: "Registry configuration is invalid or incomplete",
+                    suggestions: [
+                        "Check the NMOS registry configuration node",
+                        "Ensure Query API URL is set",
+                        "Verify the registry URL format is correct"
+                    ]
+                };
+                return;
+            }
+            
+            // Validate registry URL format
+            if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+                const errorMsg = '[ERROR] Registry URL must start with http:// or https://';
+                console.error(errorMsg, 'Got:', baseUrl);
+                node.error(errorMsg);
+                node.status({fill: "red", shape: "dot", text: "invalid URL"});
+                this.initializationError = {
+                    message: "Configuration Error",
+                    details: "Registry URL must start with http:// or https://",
+                    suggestions: [
+                        "Open the NMOS registry configuration",
+                        "Update the URL to include http:// or https://",
+                        "Example: http://registry.local:3211"
+                    ]
+                };
+                return;
+            }
+        } else if (this.directRegistryUrl) {
+            // Use direct URL configuration
+            console.log('[SUCCESS] Using direct registry URL:', this.directRegistryUrl);
+            baseUrl = this.directRegistryUrl.trim();
+            
+            // Normalize URL (remove trailing slash)
+            if (baseUrl.endsWith('/')) {
+                baseUrl = baseUrl.slice(0, -1);
+            }
+            
+            // Validate URL format
+            if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+                const errorMsg = '[ERROR] Registry URL must start with http:// or https://';
+                console.error(errorMsg, 'Got:', baseUrl);
+                node.error(errorMsg);
+                node.status({fill: "red", shape: "dot", text: "invalid URL"});
+                this.initializationError = {
+                    message: "Configuration Error",
+                    details: "Registry URL must start with http:// or https://",
+                    suggestions: [
+                        "Open the node configuration",
+                        "Update the Registry URL to include http:// or https://",
+                        "Example: http://localhost:3211"
+                    ]
+                };
+                return;
+            }
+            
+            registryUrl = `${baseUrl}/x-nmos/query/${this.directApiVersion}`;
+            
+            // Create a minimal registry interface compatible with existing code
+            registryInterface = {
+                registryUrl: baseUrl,
+                queryApiVersion: this.directApiVersion,
+                getQueryApiUrl: () => registryUrl,
+                getAuthHeaders: () => ({
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                })
+            };
+        } else {
+            // Neither registry node nor direct URL configured
             const errorMsg = "[ERROR] No NMOS registry configured";
             console.error(errorMsg);
             node.error(errorMsg);
@@ -296,55 +414,19 @@ module.exports = function(RED) {
                 details: "No NMOS registry configured",
                 suggestions: [
                     "Open the node configuration panel",
-                    "Select or create an NMOS registry configuration node",
+                    "Enter a Registry URL (e.g., http://localhost:3211)",
+                    "Or select an existing nmos-config node",
                     "Deploy the flow"
                 ]
             };
             return;
         }
         
-        console.log('[SUCCESS] Registry configuration found:', this.registry.id);
+        // Store the registry interface for use by other methods
+        this.registry = registryInterface;
         
-        const registryUrl = this.registry.getQueryApiUrl();
-        if (!registryUrl) {
-            const errorMsg = "[ERROR] Invalid registry configuration - no Query API URL";
-            console.error(errorMsg);
-            node.error(errorMsg);
-            node.status({fill: "red", shape: "dot", text: "invalid config"});
-            this.initializationError = {
-                message: "Configuration Error",
-                details: "Registry configuration is invalid or incomplete",
-                suggestions: [
-                    "Check the NMOS registry configuration node",
-                    "Ensure Query API URL is set",
-                    "Verify the registry URL format is correct"
-                ]
-            };
-            return;
-        }
-        
+        console.log('[SUCCESS] Registry URL:', baseUrl);
         console.log('[SUCCESS] Query API URL:', registryUrl);
-        
-        // Validate registry URL format
-        const baseUrl = this.registry.registryUrl;
-        if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
-            const errorMsg = '[ERROR] Registry URL must start with http:// or https://';
-            console.error(errorMsg, 'Got:', baseUrl);
-            node.error(errorMsg);
-            node.status({fill: "red", shape: "dot", text: "invalid URL"});
-            this.initializationError = {
-                message: "Configuration Error",
-                details: "Registry URL must start with http:// or https://",
-                suggestions: [
-                    "Open the NMOS registry configuration",
-                    "Update the URL to include http:// or https://",
-                    "Example: http://registry.local:3211"
-                ]
-            };
-            return;
-        }
-        
-        console.log('[SUCCESS] Registry URL format valid:', baseUrl);
         
         node.log(`NMOS Matrix initialized with registry: ${baseUrl}`);
         node.status({fill: "yellow", shape: "ring", text: "initializing"});
