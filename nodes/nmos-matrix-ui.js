@@ -33,7 +33,7 @@ module.exports = function(RED) {
                 label: s.label || s.id,
                 description: s.description || '',
                 flow_id: s.flow_id
-            }));
+            });
             
             const receivers = receiversResp.data.map(r => ({
                 id: r.id,
@@ -109,6 +109,12 @@ module.exports = function(RED) {
             return;
         }
 
+        // Pass registry ID to the UI component
+        const ui_config = {
+            ...config,
+            registry: config.registry
+        };
+
         // Event handlers for FlowFuse Dashboard
         const evts = {
             onAction: true,
@@ -125,7 +131,7 @@ module.exports = function(RED) {
         };
 
         // Register with FlowFuse Dashboard
-        group.register(node, config, evts);
+        group.register(node, ui_config, evts);
         
         node.status({fill: "green", shape: "dot", text: "ready"});
         
