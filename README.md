@@ -176,6 +176,7 @@ A complete flow-based NMOS routing matrix is available in the `examples` directo
 - **Vue.js UI**: Standalone web interface at `http://localhost:1880/nmos-matrix`
 - **Real-time Updates**: WebSocket subscriptions for live resource changes
 - **IS-05 Routing**: Full connection management with staged/activate workflow
+- **Snapshot Management**: Save, export, import, and apply routing configurations
 - **No Dashboard Required**: Works with any Node-RED installation
 
 ### Quick Start
@@ -185,6 +186,7 @@ A complete flow-based NMOS routing matrix is available in the `examples` directo
 3. Deploy the flow
 4. Open `http://localhost:1880/nmos-matrix` in your browser
 5. Click crosspoints to route senders to receivers
+6. Use snapshot buttons to save, export, import, and restore routing configurations
 
 ### Architecture
 

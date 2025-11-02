@@ -8,7 +8,7 @@ The NMOS Dynamic Matrix Flow replaces the previous integrated dashboard widget w
 
 ## Architecture
 
-The flow is organized into six main sections:
+The flow is organized into seven main sections:
 
 ### 1. Query NMOS Resources
 
@@ -178,7 +178,113 @@ Execute a routing operation.
 - Lower network traffic
 - Better scalability
 
-### 6. nmos_crosspoint Integration (Optional)
+### 6. Snapshot Management
+
+**Purpose**: Save, export, import, and apply routing configuration snapshots.
+
+**Components**:
+- **Save Snapshot**: Captures current routing state with metadata
+- **Export Snapshot**: Downloads routing configuration as JSON file
+- **Import Snapshot**: Uploads and validates snapshot JSON
+- **Apply Snapshot**: Restores routing configuration from snapshot
+
+**Snapshot Format**:
+```json
+{
+  "version": "1.0",
+  "timestamp": "2025-11-02T13:44:30Z",
+  "name": "Production Setup 1",
+  "description": "Main routing configuration",
+  "routes": [
+    {
+      "sender_id": "sender-uuid",
+      "receiver_id": "receiver-uuid",
+      "sender_label": "Camera 1",
+      "receiver_label": "Monitor A",
+      "transport_params": {}
+    }
+  ]
+}
+```
+
+**Features**:
+- **Metadata**: Name, description, and timestamp for each snapshot
+- **Validation**: Checks for missing or changed endpoints before applying
+- **Preview**: Shows routing changes before applying snapshot
+- **Graceful Handling**: Skips invalid routes while applying valid ones
+- **Change Detection**: Identifies new connections, disconnections, and route changes
+
+**Endpoints**:
+
+#### `POST /nmos-matrix/snapshot/save`
+Save current routing configuration as a snapshot.
+
+**Request Body**:
+```json
+{
+  "name": "Snapshot Name",
+  "description": "Optional description"
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "snapshot": { /* snapshot object */ },
+  "snapshotKey": "snapshot_1234567890"
+}
+```
+
+#### `GET /nmos-matrix/snapshot/export`
+Export current routing configuration as downloadable JSON file.
+
+**Response**: JSON file download with routing configuration
+
+#### `POST /nmos-matrix/snapshot/import`
+Import and validate a snapshot JSON file.
+
+**Request Body**: Snapshot JSON object
+
+**Response**:
+```json
+{
+  "valid": true,
+  "snapshot": { /* metadata */ },
+  "validation": {
+    "validRoutes": 10,
+    "invalidRoutes": 2,
+    "changes": 5
+  },
+  "invalidRoutes": [ /* array of invalid routes with reasons */ ],
+  "changes": [ /* array of routing changes */ ]
+}
+```
+
+#### `POST /nmos-matrix/snapshot/apply`
+Apply a previously imported and validated snapshot.
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "Applying snapshot routes",
+  "totalRoutes": 10,
+  "changes": [ /* array of changes */ ]
+}
+```
+
+**Workflow**:
+1. User clicks "Save Snapshot" in UI
+2. Enter name and description in modal dialog
+3. Current routing is saved with metadata
+4. To export, click "Export" button to download JSON file
+5. To restore, click "Import" and select JSON file
+6. Preview shows validation results and routing changes
+7. Click "Apply Snapshot" to restore routing configuration
+8. System applies routes sequentially with IS-05
+
+### 7. nmos_crosspoint Integration (Optional)
 
 **Purpose**: Integrate with the standalone nmos_crosspoint application.
 
@@ -247,6 +353,64 @@ Query the data endpoint:
 
 ```bash
 curl http://localhost:1880/nmos-matrix/data | jq
+```
+
+### Snapshot Management
+
+#### Save Current Routing
+1. Click "💾 Save Snapshot" button in the matrix UI
+2. Enter a descriptive name (e.g., "Production Setup 1")
+3. Optionally add a description
+4. Click "Save Snapshot"
+5. Snapshot is stored in Node-RED flow context
+
+#### Export Snapshot
+1. Click "⬇️ Export" button
+2. Current routing configuration downloads as JSON file
+3. File name: `nmos-routing-snapshot-[timestamp].json`
+4. Save to desired location for backup or sharing
+
+#### Import and Apply Snapshot
+1. Click "⬆️ Import" button
+2. Select a snapshot JSON file
+3. Preview modal shows:
+   - Snapshot metadata (name, description, timestamp)
+   - Validation results (valid/invalid routes)
+   - Routing changes (add/remove/change)
+4. Review invalid routes (will be skipped)
+5. Review routing changes to be applied
+6. Click "Apply Snapshot" to restore routing
+7. Wait for operations to complete (progress shown in UI)
+
+#### Programmatic Snapshot Operations
+
+**Save snapshot**:
+```bash
+curl -X POST http://localhost:1880/nmos-matrix/snapshot/save \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Live Show Setup",
+    "description": "Configuration for main broadcast"
+  }'
+```
+
+**Export snapshot**:
+```bash
+curl http://localhost:1880/nmos-matrix/snapshot/export \
+  -o routing-backup.json
+```
+
+**Import and validate snapshot**:
+```bash
+curl -X POST http://localhost:1880/nmos-matrix/snapshot/import \
+  -H "Content-Type: application/json" \
+  -d @routing-backup.json
+```
+
+**Apply snapshot**:
+```bash
+curl -X POST http://localhost:1880/nmos-matrix/snapshot/apply \
+  -H "Content-Type: application/json"
 ```
 
 ### Filtering

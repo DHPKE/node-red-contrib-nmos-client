@@ -1,7 +1,7 @@
 {
   "name": "node-red-contrib-nmos-client",
   "version": "2.4.3",
-  "description": "Complete NMOS implementation for Node-RED with IS-04, IS-05, IS-07, and IS-12 support including dynamic routing matrix flow",
+  "description": "Complete NMOS implementation for Node-RED with IS-04, IS-05, IS-07, and IS-12 support including dynamic routing matrix flow with snapshot management",
   "keywords": [
     "node-red",
     "nmos",
@@ -21,7 +21,11 @@
     "tally",
     "dashboard",
     "matrix",
-    "crosspoint"
+    "crosspoint",
+    "routing",
+    "snapshot",
+    "backup",
+    "vue"
   ],
   "node-red": {
     "nodes": {
