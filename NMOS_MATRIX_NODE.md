@@ -78,6 +78,12 @@ Select or create an `nmos-config` node that defines:
 
 ### Display Tab
 
+#### UI Style
+- **Options**: NMOS Standard, Dante Controller Style
+- **Default**: Dante Controller Style
+- **NMOS Standard**: Traditional matrix view with basic controls
+- **Dante Controller Style**: Professional Dante-inspired interface with advanced features
+
 #### Compact View
 - Smaller grid cells for large matrices
 - Useful when displaying 100+ endpoints
@@ -90,6 +96,21 @@ Select or create an `nmos-config` node that defines:
 #### Color Scheme
 - **Options**: default, dark, light, highcontrast
 - **Default**: default
+
+#### Show Audio Meters
+- Display audio level meters in the UI
+- **Note**: UI only, requires backend support for actual meter data
+- **Default**: Disabled
+
+#### Confirm Routes
+- Show confirmation dialog before routing operations
+- Prevents accidental route changes
+- **Default**: Enabled
+
+#### Lock Routes by Default
+- Start with routes locked to prevent changes
+- User can unlock via UI
+- **Default**: Disabled
 
 ### Advanced Tab
 
@@ -301,6 +322,7 @@ The `ui/nmos-matrix.vue` component provides a complete matrix interface:
 
 ### Component Props
 
+**NMOS Standard Component** (`ui/nmos-matrix.vue`):
 ```vue
 <nmos-matrix
   :node-id="'your-matrix-node-id'"
@@ -310,7 +332,19 @@ The `ui/nmos-matrix.vue` component provides a complete matrix interface:
 />
 ```
 
-### Matrix UI Features
+**Dante Controller Style Component** (`ui/nmos-matrix-dante.vue`):
+```vue
+<nmos-matrix-dante
+  :node-id="'your-matrix-node-id'"
+  :ui-style="'dante'"
+  :show-meters="true"
+  :confirm-routes="true"
+  :compact-view="false"
+  :matrix-name="'Audio Routing Matrix'"
+/>
+```
+
+### Matrix UI Features (NMOS Standard)
 
 - **Grid Layout**: Senders as columns, receivers as rows
 - **Click to Route**: Click any cell to connect/disconnect
@@ -323,6 +357,205 @@ The `ui/nmos-matrix.vue` component provides a complete matrix interface:
 - **Auto-Refresh**: Updates every 10 seconds
 - **Snapshot Tools**: Save, export, import, and apply snapshots
 - **Tooltips**: Hover for endpoint details
+
+## Dante Controller Style UI
+
+### Overview
+
+The Dante Controller Style UI (`ui/nmos-matrix-dante.vue`) provides a professional, Dante Controller-inspired interface with advanced routing features. This UI is designed for broadcast and production environments requiring polished, production-ready controls.
+
+### Key Features
+
+#### Dual View Modes
+
+**Grid View** (Crosspoint Matrix)
+- Traditional crosspoint matrix layout
+- Click-to-route functionality
+- Visual connection indicators with color coding
+- Row/column highlighting on hover
+- Device name display on headers
+- Compact mode for large installations
+
+**List View** (Dropdown-Based Routing)
+- Receiver list with dropdown sender selection
+- Status badges showing connection state
+- Quick disconnect buttons
+- Search filtering
+- Device icons for visual identification
+- Ideal for quick routing changes
+
+#### Dante-Inspired Styling
+
+- **Dark Toolbar**: Professional gradient toolbar with clear visual hierarchy
+- **Status Panel**: Real-time metrics dashboard
+- **Clean Grid**: Organized crosspoint matrix with clear visual indicators
+- **Color-Coded Cells**:
+  - Green: Connected routes
+  - Blue hover: Available routes
+  - Orange: Pending operations
+  - Gray: Inactive crosspoints
+
+#### Device Selector
+
+- Filter channels by device for better organization
+- Automatically extracts device information from endpoints
+- "All Devices" option to view complete matrix
+- Device dropdown in toolbar for quick access
+- Maintains routing state across device switches
+
+#### Route Management
+
+**Route Locking**
+- Lock/unlock routes to prevent accidental changes
+- Visual lock indicator in toolbar (🔒/🔓)
+- Locked state prevents all routing operations
+- Toast notification on lock state change
+- Persists across view switches
+
+**Confirmation Dialogs**
+- Optional confirmation before routing operations
+- Shows source and destination details
+- Displays route type: connect, disconnect, or change
+- Cancel or confirm options
+- Prevents accidental route changes
+
+**Clear All Routes**
+- Bulk disconnect all active routes
+- Confirmation dialog with count display
+- Sequential disconnection with progress
+- Error handling for failed operations
+
+#### Visual Indicators
+
+**Connection Status**
+- ● (Solid dot): Connected
+- Empty cell: Available
+- ⏳ (Hourglass): Pending operation
+- Hover highlighting for active sender/receiver
+
+**Status Panel Metrics**
+- Devices: Total number of unique devices
+- TX Channels: Total sender count (filtered by device)
+- RX Channels: Total receiver count (filtered by device)
+- Active Routes: Current connection count
+- Avg Latency: Placeholder for future implementation
+
+**Status Badges** (List View)
+- Connected: Green badge with "Connected" text
+- No Signal: Gray badge with "No Signal" text
+- Visual device icons (📻) for receivers
+
+#### Enhanced Features
+
+**Search and Filter**
+- Search receivers in list view
+- Device-based filtering in both views
+- Real-time search results
+- Preserves filter state across view switches
+
+**Toast Notifications**
+- Success: ✅ Green border
+- Error: ❌ Red border
+- Warning: ⚠️ Orange border
+- Info: ℹ️ Blue border
+- Auto-dismiss after 3 seconds
+- Click to dismiss manually
+
+**Error Handling**
+- Structured error messages from backend
+- Connection retry UI with countdown
+- Suggestions list for troubleshooting
+- Debug mode for raw data inspection
+- Graceful handling of network disconnections
+
+**Snapshot Management**
+- Save, export, and import snapshots
+- Dropdown menu in toolbar
+- File-based import with validation
+- Snapshot metadata display
+- Integration with backend snapshot API
+
+### Configuration
+
+Configure the Dante-style UI in the matrix node's Display tab:
+
+1. **UI Style**: Select "Dante Controller Style"
+2. **Show Audio Meters**: Enable to show meter placeholders
+3. **Confirm Routes**: Enable confirmation dialogs
+4. **Lock Routes by Default**: Start with routes locked
+5. **Compact View**: Enable for large matrices
+
+### Usage Example
+
+```vue
+<template>
+  <div id="app">
+    <nmos-matrix-dante
+      :node-id="matrixNodeId"
+      :ui-style="'dante'"
+      :show-meters="true"
+      :confirm-routes="true"
+      :compact-view="false"
+      :matrix-name="'Production Audio Matrix'"
+    />
+  </div>
+</template>
+
+<script>
+import NmosMatrixDante from './ui/nmos-matrix-dante.vue';
+
+export default {
+  components: {
+    NmosMatrixDante
+  },
+  data() {
+    return {
+      matrixNodeId: 'your-matrix-node-id'
+    }
+  }
+}
+</script>
+```
+
+### Component Props (Dante Style)
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `nodeId` | String | Required | Node-RED matrix node ID |
+| `uiStyle` | String | 'dante' | UI styling variant |
+| `showMeters` | Boolean | false | Show audio level meters (UI only) |
+| `confirmRoutes` | Boolean | true | Show confirmation dialogs |
+| `compactView` | Boolean | false | Use compact grid cells |
+| `matrixName` | String | '' | Display name in toolbar |
+
+### Keyboard Shortcuts
+
+- **Escape**: Close dialogs
+- **Click outside**: Dismiss menus/dialogs
+
+### Best Practices
+
+1. **Use Device Filtering**: For installations with many devices, use device selector to focus on specific systems
+2. **Enable Route Locking**: In production, lock routes to prevent accidental changes
+3. **Enable Confirmations**: Always enable confirmation dialogs for critical systems
+4. **List View for Quick Changes**: Use list view for quick single-route changes
+5. **Grid View for Overview**: Use grid view to see entire routing matrix at a glance
+6. **Regular Snapshots**: Save snapshots before making major routing changes
+
+### Comparison: Standard vs Dante Style
+
+| Feature | NMOS Standard | Dante Style |
+|---------|--------------|-------------|
+| Grid View | ✅ | ✅ |
+| List View | ❌ | ✅ |
+| Device Filtering | ❌ | ✅ |
+| Route Locking | ❌ | ✅ |
+| Confirmation Dialogs | ❌ | ✅ |
+| Status Panel | Basic | Advanced |
+| Visual Design | Standard | Dante-inspired |
+| Toolbar | Basic | Professional |
+| Bulk Operations | Limited | Clear All Routes |
+| Hover Highlighting | ❌ | ✅ |
 
 ## Snapshot Management
 

@@ -106,8 +106,18 @@ Complete routing matrix node with automated discovery and snapshot management.
 - Automatic discovery of senders and receivers
 - IS-05 routing operations
 - Snapshot save/load/export/import
-- FlowFuse Dashboard integration
+- FlowFuse Dashboard integration with two UI styles:
+  - **NMOS Standard**: Traditional matrix view
+  - **Dante Controller Style**: Professional Dante-inspired interface with advanced features
 - Programmatic control via messages
+
+**Dante Controller Style Features:**
+- Dual view modes (Grid and List)
+- Device filtering and grouping
+- Route locking and confirmation dialogs
+- Status panel with real-time metrics
+- Advanced visual indicators
+- Professional dark theme
 
 **Input:**
 - `msg.payload.action`: `refresh`, `route`, `disconnect`, `save_snapshot`, `load_snapshot`, `get_state`
@@ -134,7 +144,7 @@ msg.payload = {
 };
 ```
 
-See [docs/nmos-matrix.md](docs/nmos-matrix.md) for complete documentation.
+See [NMOS_MATRIX_NODE.md](NMOS_MATRIX_NODE.md) for complete documentation and [examples/dante-matrix-example.json](examples/dante-matrix-example.json) for a Dante-style demo flow.
 
 
 
