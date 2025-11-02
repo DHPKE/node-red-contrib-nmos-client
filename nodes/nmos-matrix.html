@@ -78,13 +78,15 @@
                     contentType: 'application/json',
                     success: function(result) {
                         if (result.success) {
-                            resultSpan.html(
-                                '<span style="color:green;">✅ Connected! Found ' + 
-                                result.senders + ' senders and ' + 
-                                result.receivers + ' receivers</span>'
+                            resultSpan.empty();
+                            const successSpan = $('<span>').css('color', 'green').text(
+                                '✅ Connected! Found ' + result.senders + ' senders and ' + result.receivers + ' receivers'
                             );
+                            resultSpan.append(successSpan);
                         } else {
-                            resultSpan.html('<span style="color:red;">❌ ' + result.error + '</span>');
+                            resultSpan.empty();
+                            const errorSpan = $('<span>').css('color', 'red').text('❌ ' + result.error);
+                            resultSpan.append(errorSpan);
                         }
                     },
                     error: function(xhr) {
@@ -103,16 +105,22 @@
                             errorMsg = '❌ Connection failed: ' + xhr.statusText;
                         }
                         
-                        let html = '<span style="color:red;">' + errorMsg + '</span>';
-                        if (suggestions.length > 0) {
-                            html += '<br><small style="color:#999;">Suggestions:<ul style="margin:5px 0 0 20px;">';
-                            suggestions.forEach(function(s) {
-                                html += '<li>' + s + '</li>';
-                            });
-                            html += '</ul></small>';
-                        }
+                        // Build error message with proper escaping
+                        resultSpan.empty();
+                        const errorSpan = $('<span>').css('color', 'red').text(errorMsg);
+                        resultSpan.append(errorSpan);
                         
-                        resultSpan.html(html);
+                        if (suggestions.length > 0) {
+                            const suggestionsDiv = $('<small>').css('color', '#999');
+                            suggestionsDiv.append($('<br>'));
+                            suggestionsDiv.append($('<span>').text('Suggestions:'));
+                            const ul = $('<ul>').css({'margin': '5px 0 0 20px'});
+                            suggestions.forEach(function(s) {
+                                ul.append($('<li>').text(s));
+                            });
+                            suggestionsDiv.append(ul);
+                            resultSpan.append(suggestionsDiv);
+                        }
                     }
                 });
             });

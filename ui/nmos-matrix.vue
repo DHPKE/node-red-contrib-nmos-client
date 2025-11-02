@@ -809,10 +809,23 @@ export default {
       
       // Open in new window with formatted JSON
       const win = window.open('', '_blank');
-      win.document.write('<html><head><title>NMOS Matrix Raw Data</title></head><body>');
-      win.document.write('<pre>' + JSON.stringify(data, null, 2) + '</pre>');
-      win.document.write('</body></html>');
-      win.document.close();
+      if (!win) {
+        this.showToast('Please allow popups to view raw data', 'warning');
+        return;
+      }
+      
+      try {
+        const jsonString = JSON.stringify(data, null, 2);
+        win.document.write('<html><head><title>NMOS Matrix Raw Data</title></head><body>');
+        win.document.write('<pre style="white-space: pre-wrap; word-wrap: break-word;"></pre>');
+        win.document.write('</body></html>');
+        // Use textContent to prevent XSS
+        win.document.querySelector('pre').textContent = jsonString;
+        win.document.close();
+      } catch (error) {
+        win.close();
+        this.showToast('Failed to display raw data', 'error');
+      }
     }
   }
 }

@@ -8,6 +8,7 @@ module.exports = function(RED) {
     const handleConnectionError = (error) => {
         let errorMessage = error.message;
         let suggestions = [];
+        let errorCode = error.code || 'UNKNOWN';
         
         if (error.code === 'ECONNREFUSED') {
             errorMessage = 'Connection refused - Registry is not reachable';
@@ -32,6 +33,7 @@ module.exports = function(RED) {
             ];
         } else if (error.response) {
             errorMessage = `HTTP ${error.response.status}: ${error.response.statusText}`;
+            errorCode = `HTTP_${error.response.status}`;
             suggestions = [
                 'Verify the API version is correct',
                 'Check if authentication is required',
@@ -41,8 +43,8 @@ module.exports = function(RED) {
         
         return {
             error: errorMessage,
-            code: error.code,
-            details: error.code || 'Unknown error',
+            code: errorCode,
+            details: errorMessage,
             suggestions: suggestions
         };
     };
@@ -88,10 +90,14 @@ module.exports = function(RED) {
                 axios.get(receiversUrl, { timeout: 10000, params: { 'paging.limit': 1 } })
             ]);
             
+            // Validate response data is an array
+            const sendersData = Array.isArray(sendersResponse.data) ? sendersResponse.data : [];
+            const receiversData = Array.isArray(receiversResponse.data) ? receiversResponse.data : [];
+            
             res.json({
                 success: true,
-                senders: sendersResponse.data.length,
-                receivers: receiversResponse.data.length,
+                senders: sendersData.length,
+                receivers: receiversData.length,
                 message: `Connected successfully to ${registryUrl}`
             });
             
