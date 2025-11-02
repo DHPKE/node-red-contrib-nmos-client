@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 module.exports = function(RED) {
-    // API endpoint to get all resources (senders and receivers)
+    // API endpoint to get all resources (senders and receivers) with names
     RED.httpAdmin.get('/nmos-matrix-ui/resources', async function(req, res) {
         try {
             const registryId = req.query.registry;
@@ -28,8 +28,10 @@ module.exports = function(RED) {
                 })
             ]);
             
+            // Map to names (labels) instead of UUIDs for display
             const senders = sendersResp.data.map(s => ({
                 id: s.id,
+                name: s.label || s.id, // Use label as name
                 label: s.label || s.id,
                 description: s.description || '',
                 flow_id: s.flow_id
@@ -37,6 +39,7 @@ module.exports = function(RED) {
             
             const receivers = receiversResp.data.map(r => ({
                 id: r.id,
+                name: r.label || r.id, // Use label as name
                 label: r.label || r.id,
                 description: r.description || '',
                 subscription: r.subscription || {}
@@ -77,7 +80,9 @@ module.exports = function(RED) {
                     receiver.subscription.sender_id) {
                     connections.push({
                         receiverId: receiver.id,
-                        senderId: receiver.subscription.sender_id
+                        senderId: receiver.subscription.sender_id,
+                        receiverName: receiver.label || receiver.id,
+                        senderName: receiver.subscription.sender_id // Will be resolved in Vue component
                     });
                 }
             });
@@ -130,54 +135,39 @@ module.exports = function(RED) {
             }
         };
 
-        // Register with FlowFuse Dashboard
-        group.register(node, ui_config, evts);
+        // Register the UI widget with FlowFuse Dashboard
+        const done = group.register(node, ui_config, evts);
         
-        node.status({fill: "green", shape: "dot", text: "ready"});
-        
+        // Handle incoming messages from the Vue component (routing actions)
         node.on('input', function(msg) {
-            try {
-                // Handle routing actions
-                if (msg.payload && msg.payload.action === 'route') {
-                    const { receiverId, senderId, operation } = msg.payload;
-                    
-                    if (!receiverId) {
-                        node.error("receiverId is required for routing");
-                        return;
+            if (msg.payload && msg.payload.action === 'route') {
+                // Forward routing command to connection node
+                const routingMsg = {
+                    payload: {
+                        receiverId: msg.payload.receiverId,
+                        senderId: msg.payload.senderId,
+                        operation: msg.payload.operation || 'activate'
                     }
-                    
-                    node.status({fill: "blue", shape: "dot", text: "routing..."});
-                    
-                    const routingMsg = {
-                        receiverId: receiverId,
-                        senderId: senderId || null,
-                        operation: operation || (senderId ? 'activate' : 'disconnect')
-                    };
-                    
-                    node.send(routingMsg);
-                    
-                    setTimeout(() => {
-                        node.status({fill: "green", shape: "dot", text: "ready"});
-                    }, 2000);
-                    
-                } else if (msg.payload && msg.payload.action === 'refresh') {
-                    node.status({fill: "blue", shape: "ring", text: "refreshing..."});
-                    setTimeout(() => {
-                        node.status({fill: "green", shape: "dot", text: "ready"});
-                    }, 1000);
-                } else {
-                    // Pass through other messages
-                    node.send(msg);
-                }
-            } catch (error) {
-                node.status({fill: "red", shape: "ring", text: "error"});
-                node.error(error.message, msg);
+                };
+                
+                node.status({
+                    fill: "blue", 
+                    shape: "dot", 
+                    text: `routing: ${msg.payload.operation}`
+                });
+                
+                node.send(routingMsg);
+                
+                // Reset status after 2 seconds
+                setTimeout(() => {
+                    node.status({fill: "green", shape: "dot", text: "ready"});
+                }, 2000);
             }
         });
         
-        node.on('close', function() {
-            node.status({});
-        });
+        node.on('close', done);
+        
+        node.status({fill: "green", shape: "dot", text: "ready"});
     }
     
     RED.nodes.registerType("nmos-matrix-ui", NMOSMatrixUINode);
