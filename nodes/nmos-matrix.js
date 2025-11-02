@@ -781,12 +781,15 @@ module.exports = function(RED) {
             }
         });
         
-        // Start auto-refresh if enabled
-        if (node.autoRefresh) {
+        // Start auto-refresh if enabled and no initialization error
+        if (node.autoRefresh && !node.initializationError) {
+            console.log('Starting auto-refresh with interval:', node.refreshInterval, 'ms');
             node.refreshEndpoints(); // Initial refresh
             node.pollTimer = setInterval(() => {
                 node.refreshEndpoints();
             }, node.refreshInterval);
+        } else if (node.initializationError) {
+            console.log('Skipping auto-refresh due to initialization error');
         }
         
         // Cleanup on close
