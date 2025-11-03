@@ -742,6 +742,20 @@ module.exports = function(RED) {
                 next();
             };
             
+            // Connection API root - lists available resource types
+            RED.httpNode.get(`/x-nmos/connection/${connectionApiVersion}/`, middleware, (req, res) => {
+                res.json(['single/']);
+            });
+            
+            RED.httpNode.get(`/x-nmos/connection/${connectionApiVersion}/single/`, middleware, (req, res) => {
+                res.json(['senders/']);
+            });
+
+            // Connection API root endpoint for senders
+            RED.httpNode.get(`/x-nmos/connection/${connectionApiVersion}/single/senders/`, middleware, (req, res) => {
+                res.json([node.senderId]);
+            });
+
             // Sender endpoints
             RED.httpNode.get(`${senderBasePath}/staged`, middleware, (req, res) => {
                 res.json(senderConnectionState.staged);

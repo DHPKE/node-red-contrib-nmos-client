@@ -904,6 +904,24 @@ module.exports = function(RED) {
                 next();
             };
             
+            // Connection API root - lists available resource types
+            RED.httpNode.get(`/x-nmos/connection/${connectionApiVersion}/`, middleware, (req, res) => {
+                res.json(['single/']);
+            });
+            
+            RED.httpNode.get(`/x-nmos/connection/${connectionApiVersion}/single/`, middleware, (req, res) => {
+                const resources = ['receivers/'];
+                if (node.enableSender) {
+                    resources.push('senders/');
+                }
+                res.json(resources);
+            });
+
+            // Connection API root endpoint for receiver
+            RED.httpNode.get(`/x-nmos/connection/${connectionApiVersion}/single/receivers/`, middleware, (req, res) => {
+                res.json([node.receiverId]);
+            });
+
             // Receiver endpoints
             RED.httpNode.get(`${receiverBasePath}/staged`, middleware, (req, res) => {
                 res.json(receiverConnectionState.staged);
@@ -976,6 +994,11 @@ module.exports = function(RED) {
             // Sender Connection API endpoints (if sender enabled)
             if (node.enableSender && senderConnectionState) {
                 const senderBasePath = `/x-nmos/connection/${connectionApiVersion}/single/senders/${node.senderId}`;
+                
+                // Connection API root endpoint for senders
+                RED.httpNode.get(`/x-nmos/connection/${connectionApiVersion}/single/senders/`, middleware, (req, res) => {
+                    res.json([node.senderId]);
+                });
                 
                 RED.httpNode.get(`${senderBasePath}/staged`, middleware, (req, res) => {
                     res.json(senderConnectionState.staged);
