@@ -26,10 +26,17 @@ module.exports = function(RED) {
         node.statusSourceId = config.statusSourceId || uuidv4();
         node.parseSmartpanel = config.parseSmartpanel !== false;
         
+        // Sender configuration
+        node.enableSender = config.enableSender !== false;
+        node.senderLabel = config.senderLabel || 'Endpoint Sender';
+        node.flowLabel = config.flowLabel || 'Endpoint Flow';
+        
         // Resource IDs
         node.nodeId = config.nodeId || uuidv4();
         node.deviceId = config.deviceId || uuidv4();
         node.receiverId = config.receiverId || uuidv4();
+        node.senderId = config.senderId || uuidv4();
+        node.flowId = config.flowId || uuidv4();
 
         let mqttClient = null;
         let registrationComplete = false;
@@ -232,11 +239,11 @@ module.exports = function(RED) {
                 description: node.deviceDescription,
                 type: 'urn:x-nmos:device:generic',
                 node_id: node.nodeId,
-                senders: [],
+                senders: node.enableSender ? [node.senderId] : [],
                 receivers: [node.receiverId],
                 tags: {
                     'urn:x-nmos:tag:is07/endpoint': ['true'],
-                    'urn:x-nmos:tag:is07/role': ['receiver']
+                    'urn:x-nmos:tag:is07/role': node.enableSender ? ['receiver', 'sender'] : ['receiver']
                 }
             };
 
@@ -267,6 +274,64 @@ module.exports = function(RED) {
                 subscription: {
                     sender_id: null,
                     active: false
+                }
+            };
+
+            return resource;
+        };
+
+        const buildFlowResource = () => {
+            const resource = {
+                id: node.flowId,
+                version: getTAITimestamp(),
+                label: node.flowLabel,
+                description: `IS-07 Endpoint Flow - ${node.flowLabel}`,
+                format: 'urn:x-nmos:format:data',
+                tags: {
+                    'urn:x-nmos:tag:is07/event_types': ['boolean', 'string', 'number', 'object']
+                },
+                source_id: node.statusSourceId,
+                device_id: node.deviceId,
+                parents: []
+            };
+
+            if (node.registry.queryApiVersion >= 'v1.1') {
+                resource.grain_rate = {
+                    numerator: 0,
+                    denominator: 1
+                };
+            }
+
+            resource.media_type = 'application/json';
+
+            return resource;
+        };
+
+        const buildSenderResource = () => {
+            const httpPort = node.registry.httpPort || 1880;
+            const manifestUrl = `http://${localIP}:${httpPort}/x-nmos/events/manifest/${node.senderId}`;
+            
+            const resource = {
+                id: node.senderId,
+                version: getTAITimestamp(),
+                label: node.senderLabel,
+                description: `IS-07 Endpoint Sender - ${node.senderLabel}`,
+                format: 'urn:x-nmos:format:data',
+                caps: {
+                    media_types: ['application/json']
+                },
+                tags: {
+                    'urn:x-nmos:tag:is07/event_types': ['boolean', 'string', 'number', 'object'],
+                    'urn:x-nmos:tag:is07/transport': ['mqtt']
+                },
+                flow_id: node.flowId,
+                device_id: node.deviceId,
+                transport: 'urn:x-nmos:transport:mqtt',
+                interface_bindings: [ifaceName],
+                manifest_href: manifestUrl,
+                subscription: {
+                    receiver_id: null,
+                    active: true
                 }
             };
 
@@ -318,6 +383,7 @@ module.exports = function(RED) {
                 node.log('═══════════════════════════════════════');
                 node.log('Starting IS-07 Endpoint Registration');
                 node.log(`Registry: ${getRegistrationApiUrl()}`);
+                node.log(`Sender enabled: ${node.enableSender}`);
                 node.log('═══════════════════════════════════════');
 
                 // Register Node
@@ -330,9 +396,21 @@ module.exports = function(RED) {
                 if (!ok2) throw new Error('Device registration failed');
                 await new Promise(r => setTimeout(r, 300));
 
+                // Register Flow (if sender enabled)
+                if (node.enableSender) {
+                    const ok3 = await registerResource('flow', buildFlowResource());
+                    if (!ok3) throw new Error('Flow registration failed');
+                    await new Promise(r => setTimeout(r, 300));
+
+                    // Register Sender
+                    const ok4 = await registerResource('sender', buildSenderResource());
+                    if (!ok4) throw new Error('Sender registration failed');
+                    await new Promise(r => setTimeout(r, 300));
+                }
+
                 // Register Receiver
-                const ok3 = await registerResource('receiver', buildReceiverResource());
-                if (!ok3) throw new Error('Receiver registration failed');
+                const ok5 = await registerResource('receiver', buildReceiverResource());
+                if (!ok5) throw new Error('Receiver registration failed');
 
                 registrationComplete = true;
                 node.status({ fill: 'green', shape: 'dot', text: 'registered' });
@@ -555,6 +633,9 @@ module.exports = function(RED) {
                             deviceId: node.deviceId,
                             receiverId: node.receiverId,
                             statusSourceId: node.statusSourceId,
+                            enableSender: node.enableSender,
+                            senderId: node.enableSender ? node.senderId : null,
+                            flowId: node.enableSender ? node.flowId : null,
                             registered: registrationComplete,
                             mqttConnected: mqttClient && mqttClient.connected,
                             mqttBroker: node.mqttBroker,
@@ -627,6 +708,55 @@ module.exports = function(RED) {
         });
 
         // ============================================================================
+        // HTTP Manifest Endpoint
+        // ============================================================================
+
+        if (node.enableSender) {
+            const manifestPath = `/x-nmos/events/manifest/${node.senderId}`;
+            
+            RED.httpNode.get(manifestPath, (req, res) => {
+                const manifest = {
+                    id: node.senderId,
+                    version: getTAITimestamp(),
+                    label: node.senderLabel,
+                    description: `IS-07 Endpoint Sender Manifest`,
+                    format: 'urn:x-nmos:format:data',
+                    event_types: [
+                        {
+                            name: 'boolean',
+                            description: 'Boolean state change event',
+                            type: 'boolean'
+                        },
+                        {
+                            name: 'string',
+                            description: 'String state change event',
+                            type: 'string'
+                        },
+                        {
+                            name: 'number',
+                            description: 'Number state change event',
+                            type: 'number'
+                        },
+                        {
+                            name: 'object',
+                            description: 'Object state change event',
+                            type: 'object'
+                        }
+                    ],
+                    source_id: node.statusSourceId,
+                    flow_id: node.flowId,
+                    device_id: node.deviceId
+                };
+
+                res.setHeader('Content-Type', 'application/json');
+                res.status(200).json(manifest);
+                node.log(`◄ Manifest requested: ${manifestPath}`);
+            });
+
+            node.log(`✓ Manifest endpoint: http://${localIP}:${node.registry.httpPort || 1880}${manifestPath}`);
+        }
+
+        // ============================================================================
         // Lifecycle
         // ============================================================================
 
@@ -659,6 +789,11 @@ module.exports = function(RED) {
                 const registrationApiUrl = getRegistrationApiUrl();
                 const headers = node.registry.getAuthHeaders();
                 try {
+                    // Delete in reverse order: Sender → Flow → Receiver → Device → Node
+                    if (node.enableSender) {
+                        await axios.delete(`${registrationApiUrl}/resource/senders/${node.senderId}`, { headers }).catch(() => {});
+                        await axios.delete(`${registrationApiUrl}/resource/flows/${node.flowId}`, { headers }).catch(() => {});
+                    }
                     await axios.delete(`${registrationApiUrl}/resource/receivers/${node.receiverId}`, { headers }).catch(() => {});
                     await axios.delete(`${registrationApiUrl}/resource/devices/${node.deviceId}`, { headers }).catch(() => {});
                     await axios.delete(`${registrationApiUrl}/resource/nodes/${node.nodeId}`, { headers }).catch(() => {});

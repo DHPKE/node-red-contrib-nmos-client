@@ -13,10 +13,15 @@ RED.nodes.registerType('nmos-is07-endpoint',{
         mqttQos: {value:0},
         sendStatusUpdates: {value:true},
         parseSmartpanel: {value:true},
+        enableSender: {value:true},
+        senderLabel: {value:"Endpoint Sender"},
+        flowLabel: {value:"Endpoint Flow"},
         statusSourceId: {value:""},
         nodeId: {value:""},
         deviceId: {value:""},
-        receiverId: {value:""}
+        receiverId: {value:""},
+        senderId: {value:""},
+        flowId: {value:""}
     },
     inputs:1,
     outputs:1,
@@ -30,11 +35,15 @@ RED.nodes.registerType('nmos-is07-endpoint',{
         if (!this.deviceId) this.deviceId = generateUUID();
         if (!this.receiverId) this.receiverId = generateUUID();
         if (!this.statusSourceId) this.statusSourceId = generateUUID();
+        if (!this.senderId) this.senderId = generateUUID();
+        if (!this.flowId) this.flowId = generateUUID();
         
         $("#node-input-nodeId").val(this.nodeId);
         $("#node-input-deviceId").val(this.deviceId);
         $("#node-input-receiverId").val(this.receiverId);
         $("#node-input-statusSourceId").val(this.statusSourceId);
+        $("#node-input-senderId").val(this.senderId);
+        $("#node-input-flowId").val(this.flowId);
         
         function generateUUID() {
             return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -48,6 +57,11 @@ RED.nodes.registerType('nmos-is07-endpoint',{
             $("#node-input-deviceId").val(generateUUID());
             $("#node-input-receiverId").val(generateUUID());
             $("#node-input-statusSourceId").val(generateUUID());
+        });
+
+        $("#node-input-regenerate-sender-ids").click(function() {
+            $("#node-input-senderId").val(generateUUID());
+            $("#node-input-flowId").val(generateUUID());
         });
     }
 });
@@ -81,6 +95,27 @@ RED.nodes.registerType('nmos-is07-endpoint',{
     <div class="form-row">
         <label for="node-input-receiverLabel"><i class="fa fa-tag"></i> Receiver Label</label>
         <input type="text" id="node-input-receiverLabel">
+    </div>
+    
+    <hr/>
+    <h4>Sender Configuration</h4>
+    
+    <div class="form-row">
+        <label>&nbsp;</label>
+        <input type="checkbox" id="node-input-enableSender" style="display: inline-block; width: auto; vertical-align: top;">
+        <label for="node-input-enableSender" style="width: 70%;">Enable Sender Mode</label>
+    </div>
+    <div class="form-tip">
+        Enable to register as both receiver and sender. Allows publishing status updates as proper IS-07 sender.
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-senderLabel"><i class="fa fa-tag"></i> Sender Label</label>
+        <input type="text" id="node-input-senderLabel">
+    </div>
+    <div class="form-row">
+        <label for="node-input-flowLabel"><i class="fa fa-tag"></i> Flow Label</label>
+        <input type="text" id="node-input-flowLabel">
     </div>
     
     <hr/>
@@ -148,9 +183,20 @@ RED.nodes.registerType('nmos-is07-endpoint',{
         <input type="text" id="node-input-statusSourceId">
     </div>
     <div class="form-row">
+        <label for="node-input-senderId"><i class="fa fa-fingerprint"></i> Sender ID</label>
+        <input type="text" id="node-input-senderId">
+    </div>
+    <div class="form-row">
+        <label for="node-input-flowId"><i class="fa fa-fingerprint"></i> Flow ID</label>
+        <input type="text" id="node-input-flowId">
+    </div>
+    <div class="form-row">
         <label>&nbsp;</label>
         <button type="button" id="node-input-regenerate-ids" class="red-ui-button">
-            <i class="fa fa-refresh"></i> Regenerate All IDs
+            <i class="fa fa-refresh"></i> Regenerate Receiver IDs
+        </button>
+        <button type="button" id="node-input-regenerate-sender-ids" class="red-ui-button">
+            <i class="fa fa-refresh"></i> Regenerate Sender IDs
         </button>
     </div>
 </script>
@@ -159,17 +205,19 @@ RED.nodes.registerType('nmos-is07-endpoint',{
     <p>NMOS IS-07 Endpoint node - Receives control commands and tally from IS-07 sources including RIEDEL Smartpanel.</p>
     
     <h3>Overview</h3>
-    <p>This node acts as an NMOS endpoint that subscribes to IS-07 events via MQTT and processes incoming control commands. 
-    It supports bidirectional communication by optionally sending status updates back to control sources.</p>
+    <p>This node acts as an NMOS endpoint that can function as both a receiver and sender. It subscribes to IS-07 events via MQTT 
+    and processes incoming control commands. When sender mode is enabled, it registers as a proper IS-07 sender with a manifest endpoint, 
+    allowing other systems to discover and connect to it.</p>
     
     <h3>Features</h3>
     <ul>
         <li><strong>IS-07 Event Subscription:</strong> Receives events from any IS-07 source</li>
+        <li><strong>IS-07 Sender Mode:</strong> Registers as sender with manifest endpoint for proper IS-07 integration</li>
         <li><strong>RIEDEL Smartpanel Support:</strong> Automatic parsing of Smartpanel commands (GPIO, buttons, tally, faders)</li>
         <li><strong>Bidirectional Communication:</strong> Send status updates back to sources</li>
         <li><strong>Command History:</strong> Tracks received commands for monitoring and debugging</li>
         <li><strong>State Management:</strong> Maintains state from multiple sources</li>
-        <li><strong>IS-04 Registration:</strong> Registers as receiver in NMOS registry</li>
+        <li><strong>IS-04 Registration:</strong> Registers as receiver and optionally sender in NMOS registry</li>
     </ul>
     
     <h3>Configuration</h3>
@@ -180,6 +228,15 @@ RED.nodes.registerType('nmos-is07-endpoint',{
         <li><strong>Receiver Label:</strong> Label for the IS-07 receiver</li>
         <li><strong>Subscription Filter:</strong> MQTT topic filter (default: all IS-07 events)</li>
     </ul>
+    
+    <h4>Sender Configuration</h4>
+    <ul>
+        <li><strong>Enable Sender Mode:</strong> When enabled, registers as both receiver and sender with a manifest endpoint</li>
+        <li><strong>Sender Label:</strong> Display name for the IS-07 sender</li>
+        <li><strong>Flow Label:</strong> Display name for the IS-07 flow</li>
+    </ul>
+    <p>When sender mode is enabled, the node exposes an HTTP endpoint at <code>/x-nmos/events/manifest/{senderId}</code> 
+    that serves the IS-07 manifest. This allows other IS-07 receivers to discover the event types this sender publishes.</p>
     
     <h4>Endpoint Features</h4>
     <ul>
