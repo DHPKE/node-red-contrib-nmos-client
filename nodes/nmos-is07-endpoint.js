@@ -280,6 +280,25 @@ module.exports = function(RED) {
             return resource;
         };
 
+        const buildSourceResource = () => {
+            const resource = {
+                id: node.statusSourceId,
+                version: getTAITimestamp(),
+                label: 'Endpoint Status Source',
+                description: 'IS-07 Endpoint Status Source',
+                format: 'urn:x-nmos:format:data',
+                caps: {},
+                tags: {
+                    'urn:x-nmos:tag:is07/event_types': ['boolean', 'string', 'number', 'object']
+                },
+                device_id: node.deviceId,
+                parents: [],
+                clock_name: 'clk0'
+            };
+
+            return resource;
+        };
+
         const buildFlowResource = () => {
             const resource = {
                 id: node.flowId,
@@ -396,21 +415,26 @@ module.exports = function(RED) {
                 if (!ok2) throw new Error('Device registration failed');
                 await new Promise(r => setTimeout(r, 300));
 
-                // Register Flow (if sender enabled)
+                // Register Source (if sender enabled)
                 if (node.enableSender) {
-                    const ok3 = await registerResource('flow', buildFlowResource());
-                    if (!ok3) throw new Error('Flow registration failed');
+                    const ok3 = await registerResource('source', buildSourceResource());
+                    if (!ok3) throw new Error('Source registration failed');
+                    await new Promise(r => setTimeout(r, 300));
+
+                    // Register Flow
+                    const ok4 = await registerResource('flow', buildFlowResource());
+                    if (!ok4) throw new Error('Flow registration failed');
                     await new Promise(r => setTimeout(r, 300));
 
                     // Register Sender
-                    const ok4 = await registerResource('sender', buildSenderResource());
-                    if (!ok4) throw new Error('Sender registration failed');
+                    const ok5 = await registerResource('sender', buildSenderResource());
+                    if (!ok5) throw new Error('Sender registration failed');
                     await new Promise(r => setTimeout(r, 300));
                 }
 
                 // Register Receiver
-                const ok5 = await registerResource('receiver', buildReceiverResource());
-                if (!ok5) throw new Error('Receiver registration failed');
+                const ok6 = await registerResource('receiver', buildReceiverResource());
+                if (!ok6) throw new Error('Receiver registration failed');
 
                 registrationComplete = true;
                 node.status({ fill: 'green', shape: 'dot', text: 'registered' });
@@ -789,10 +813,11 @@ module.exports = function(RED) {
                 const registrationApiUrl = getRegistrationApiUrl();
                 const headers = node.registry.getAuthHeaders();
                 try {
-                    // Delete in reverse order: (Sender → Flow if enabled) → Receiver → Device → Node
+                    // Delete in reverse order: (Sender → Flow → Source if enabled) → Receiver → Device → Node
                     if (node.enableSender) {
                         await axios.delete(`${registrationApiUrl}/resource/senders/${node.senderId}`, { headers }).catch(() => {});
                         await axios.delete(`${registrationApiUrl}/resource/flows/${node.flowId}`, { headers }).catch(() => {});
+                        await axios.delete(`${registrationApiUrl}/resource/sources/${node.statusSourceId}`, { headers }).catch(() => {});
                     }
                     await axios.delete(`${registrationApiUrl}/resource/receivers/${node.receiverId}`, { headers }).catch(() => {});
                     await axios.delete(`${registrationApiUrl}/resource/devices/${node.deviceId}`, { headers }).catch(() => {});
