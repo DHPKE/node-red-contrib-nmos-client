@@ -81,10 +81,12 @@ module.exports = function(RED) {
         /**
          * Get TAI timestamp (International Atomic Time)
          * Format: seconds:nanoseconds
+         * Note: TAI offset was 37 seconds as of January 2017. This may need updating
+         * when new leap seconds are added. See: https://www.ietf.org/timezones/data/leap-seconds.list
          */
         const getTAITimestamp = () => {
             const now = Date.now() / 1000;
-            const taiSeconds = Math.floor(now) + 37; // TAI = UTC + 37 seconds
+            const taiSeconds = Math.floor(now) + 37; // TAI = UTC + 37 seconds (as of 2017)
             const taiNanoseconds = Math.floor((now % 1) * 1e9);
             return `${taiSeconds}:${String(taiNanoseconds).padStart(9, '0')}`;
         };
@@ -124,38 +126,48 @@ module.exports = function(RED) {
 
                 // Parse GPIO/GPI
                 if (path.match(/^gpi?o?\/(input|in)\/(\d+)$/i)) {
-                    const gpioNum = path.match(/(\d+)$/)[1];
-                    command.type = 'gpio';
-                    command.gpio = parseInt(gpioNum);
-                    command.state = !!value;
+                    const match = path.match(/(\d+)$/);
+                    if (match) {
+                        command.type = 'gpio';
+                        command.gpio = parseInt(match[1]);
+                        command.state = !!value;
+                    }
                 }
                 // Parse button
                 else if (path.match(/^(button|key|switch)\/(\d+)$/i)) {
                     const match = path.match(/(\d+)$/);
-                    command.type = 'button';
-                    command.button = parseInt(match[1]);
-                    command.pressed = !!value;
+                    if (match) {
+                        command.type = 'button';
+                        command.button = parseInt(match[1]);
+                        command.pressed = !!value;
+                    }
                 }
                 // Parse tally
                 else if (path.match(/^tally\/(red|green|amber|yellow|program|preview)$/i)) {
-                    const color = path.match(/\/(red|green|amber|yellow|program|preview)$/i)[1].toLowerCase();
-                    command.type = 'tally';
-                    command.color = color;
-                    command.state = !!value;
+                    const match = path.match(/\/(red|green|amber|yellow|program|preview)$/i);
+                    if (match) {
+                        command.type = 'tally';
+                        command.color = match[1].toLowerCase();
+                        command.state = !!value;
+                    }
                 }
                 // Parse fader/level
                 else if (path.match(/^(fader|level|gain)\/(\d+)$/i)) {
                     const match = path.match(/(\d+)$/);
-                    command.type = 'fader';
-                    command.fader = parseInt(match[1]);
-                    command.value = parseFloat(value) || 0;
+                    if (match) {
+                        command.type = 'fader';
+                        command.fader = parseInt(match[1]);
+                        command.value = parseFloat(value) || 0;
+                    }
                 }
                 // Parse encoder/rotary
                 else if (path.match(/^(encoder|rotary)\/(\d+)$/i)) {
                     const match = path.match(/(\d+)$/);
-                    command.type = 'encoder';
-                    command.encoder = parseInt(match[1]);
-                    command.value = parseFloat(value) || 0;
+                    if (match) {
+                        command.type = 'encoder';
+                        command.encoder = parseInt(match[1]);
+                        command.value = parseFloat(value) || 0;
+                    }
                 }
                 // Generic property
                 else {
