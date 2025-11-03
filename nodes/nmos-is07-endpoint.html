@@ -1,0 +1,306 @@
+<script type="text/javascript">
+RED.nodes.registerType('nmos-is07-endpoint',{
+    category: 'NMOS',
+    color: '#C7E9C0',
+    defaults: {
+        name: {value:""},
+        registry: {value:"", type:"nmos-config", required:true},
+        mqttBroker: {value:"mqtt://localhost:1883", required:true},
+        deviceLabel: {value:"Node-RED IS-07 Endpoint"},
+        deviceDescription: {value:"IS-07 Endpoint receiver"},
+        receiverLabel: {value:"Endpoint Receiver"},
+        subscriptionFilter: {value:"x-nmos/events/1.0/+/+"},
+        mqttQos: {value:0},
+        sendStatusUpdates: {value:true},
+        parseSmartpanel: {value:true},
+        statusSourceId: {value:""},
+        nodeId: {value:""},
+        deviceId: {value:""},
+        receiverId: {value:""}
+    },
+    inputs:1,
+    outputs:1,
+    icon: "font-awesome/fa-download",
+    label: function() {
+        return this.name || this.deviceLabel || "IS-07 Endpoint";
+    },
+    oneditprepare: function() {
+        // Generate UUIDs if not present
+        if (!this.nodeId) this.nodeId = generateUUID();
+        if (!this.deviceId) this.deviceId = generateUUID();
+        if (!this.receiverId) this.receiverId = generateUUID();
+        if (!this.statusSourceId) this.statusSourceId = generateUUID();
+        
+        $("#node-input-nodeId").val(this.nodeId);
+        $("#node-input-deviceId").val(this.deviceId);
+        $("#node-input-receiverId").val(this.receiverId);
+        $("#node-input-statusSourceId").val(this.statusSourceId);
+        
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+        
+        $("#node-input-regenerate-ids").click(function() {
+            $("#node-input-nodeId").val(generateUUID());
+            $("#node-input-deviceId").val(generateUUID());
+            $("#node-input-receiverId").val(generateUUID());
+            $("#node-input-statusSourceId").val(generateUUID());
+        });
+    }
+});
+</script>
+
+<script type="text/html" data-template-name="nmos-is07-endpoint">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-registry"><i class="fa fa-server"></i> Registry</label>
+        <input type="text" id="node-input-registry">
+    </div>
+    <div class="form-row">
+        <label for="node-input-mqttBroker"><i class="fa fa-exchange"></i> MQTT Broker</label>
+        <input type="text" id="node-input-mqttBroker" placeholder="mqtt://localhost:1883">
+    </div>
+    
+    <hr/>
+    <h4>Device Configuration</h4>
+    
+    <div class="form-row">
+        <label for="node-input-deviceLabel"><i class="fa fa-tag"></i> Device Label</label>
+        <input type="text" id="node-input-deviceLabel">
+    </div>
+    <div class="form-row">
+        <label for="node-input-deviceDescription"><i class="fa fa-info"></i> Description</label>
+        <input type="text" id="node-input-deviceDescription">
+    </div>
+    <div class="form-row">
+        <label for="node-input-receiverLabel"><i class="fa fa-tag"></i> Receiver Label</label>
+        <input type="text" id="node-input-receiverLabel">
+    </div>
+    
+    <hr/>
+    <h4>Subscription Configuration</h4>
+    
+    <div class="form-row">
+        <label for="node-input-subscriptionFilter"><i class="fa fa-filter"></i> Subscribe Filter</label>
+        <input type="text" id="node-input-subscriptionFilter" placeholder="x-nmos/events/1.0/+/+">
+    </div>
+    <div class="form-tip">
+        <strong>Tip:</strong> Use MQTT wildcards: <code>+</code> for single level, <code>#</code> for multi-level.<br/>
+        Default subscribes to all IS-07 events. For specific source: <code>x-nmos/events/1.0/{source-id}/+</code>
+    </div>
+    
+    <hr/>
+    <h4>MQTT Settings</h4>
+    
+    <div class="form-row">
+        <label for="node-input-mqttQos"><i class="fa fa-certificate"></i> QoS Level</label>
+        <select id="node-input-mqttQos">
+            <option value="0">0 - At most once</option>
+            <option value="1">1 - At least once</option>
+            <option value="2">2 - Exactly once</option>
+        </select>
+    </div>
+    
+    <hr/>
+    <h4>Endpoint Features</h4>
+    
+    <div class="form-row">
+        <label>&nbsp;</label>
+        <input type="checkbox" id="node-input-sendStatusUpdates" style="display: inline-block; width: auto; vertical-align: top;">
+        <label for="node-input-sendStatusUpdates" style="width: 70%;">Send Status Updates</label>
+    </div>
+    <div class="form-tip">
+        Enable bidirectional communication - publish status back to sources
+    </div>
+    
+    <div class="form-row">
+        <label>&nbsp;</label>
+        <input type="checkbox" id="node-input-parseSmartpanel" style="display: inline-block; width: auto; vertical-align: top;">
+        <label for="node-input-parseSmartpanel" style="width: 70%;">Parse RIEDEL Smartpanel Commands</label>
+    </div>
+    <div class="form-tip">
+        Automatically parse and identify Smartpanel GPIO, button, tally, and fader commands
+    </div>
+    
+    <hr/>
+    <h4>Resource IDs</h4>
+    
+    <div class="form-row">
+        <label for="node-input-nodeId"><i class="fa fa-fingerprint"></i> Node ID</label>
+        <input type="text" id="node-input-nodeId">
+    </div>
+    <div class="form-row">
+        <label for="node-input-deviceId"><i class="fa fa-fingerprint"></i> Device ID</label>
+        <input type="text" id="node-input-deviceId">
+    </div>
+    <div class="form-row">
+        <label for="node-input-receiverId"><i class="fa fa-fingerprint"></i> Receiver ID</label>
+        <input type="text" id="node-input-receiverId">
+    </div>
+    <div class="form-row">
+        <label for="node-input-statusSourceId"><i class="fa fa-fingerprint"></i> Status Source ID</label>
+        <input type="text" id="node-input-statusSourceId">
+    </div>
+    <div class="form-row">
+        <label>&nbsp;</label>
+        <button type="button" id="node-input-regenerate-ids" class="red-ui-button">
+            <i class="fa fa-refresh"></i> Regenerate All IDs
+        </button>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="nmos-is07-endpoint">
+    <p>NMOS IS-07 Endpoint node - Receives control commands and tally from IS-07 sources including RIEDEL Smartpanel.</p>
+    
+    <h3>Overview</h3>
+    <p>This node acts as an NMOS endpoint that subscribes to IS-07 events via MQTT and processes incoming control commands. 
+    It supports bidirectional communication by optionally sending status updates back to control sources.</p>
+    
+    <h3>Features</h3>
+    <ul>
+        <li><strong>IS-07 Event Subscription:</strong> Receives events from any IS-07 source</li>
+        <li><strong>RIEDEL Smartpanel Support:</strong> Automatic parsing of Smartpanel commands (GPIO, buttons, tally, faders)</li>
+        <li><strong>Bidirectional Communication:</strong> Send status updates back to sources</li>
+        <li><strong>Command History:</strong> Tracks received commands for monitoring and debugging</li>
+        <li><strong>State Management:</strong> Maintains state from multiple sources</li>
+        <li><strong>IS-04 Registration:</strong> Registers as receiver in NMOS registry</li>
+    </ul>
+    
+    <h3>Configuration</h3>
+    
+    <h4>Device Settings</h4>
+    <ul>
+        <li><strong>Device Label:</strong> Display name for this endpoint</li>
+        <li><strong>Receiver Label:</strong> Label for the IS-07 receiver</li>
+        <li><strong>Subscription Filter:</strong> MQTT topic filter (default: all IS-07 events)</li>
+    </ul>
+    
+    <h4>Endpoint Features</h4>
+    <ul>
+        <li><strong>Send Status Updates:</strong> Enable/disable publishing status back to sources</li>
+        <li><strong>Parse RIEDEL Smartpanel:</strong> Automatically identify Smartpanel command patterns</li>
+    </ul>
+    
+    <h3>Input Actions</h3>
+    
+    <p><strong>Get Current State:</strong></p>
+    <pre>msg.payload = { action: "get_state" };</pre>
+    <p>Returns endpoint configuration, connection status, and statistics.</p>
+    
+    <p><strong>Get Received States:</strong></p>
+    <pre>msg.payload = { action: "get_received_states" };</pre>
+    <p>Returns all received property states from subscribed sources.</p>
+    
+    <p><strong>Get Command History:</strong></p>
+    <pre>msg.payload = { 
+    action: "get_command_history",
+    limit: 10  // optional, default 10
+};</pre>
+    <p>Returns recent command history with parsed Smartpanel commands.</p>
+    
+    <p><strong>Send Status Update:</strong></p>
+    <pre>msg.payload = {
+    action: "send_status",
+    path: "status/ready",
+    value: true
+};</pre>
+    <p>Publish status update back to sources (requires "Send Status Updates" enabled).</p>
+    
+    <p><strong>Clear History:</strong></p>
+    <pre>msg.payload = { action: "clear_history" };</pre>
+    
+    <p><strong>Clear States:</strong></p>
+    <pre>msg.payload = { action: "clear_states" };</pre>
+    
+    <h3>Output Message</h3>
+    <p>Outputs received IS-07 grain messages with optional Smartpanel command parsing:</p>
+    <pre>{
+    "topic": "x-nmos/events/1.0/{source_id}/{type}",
+    "payload": {
+        // IS-07 grain message
+        "grain_type": "event",
+        "source_id": "source-uuid",
+        "flow_id": "flow-uuid",
+        "grain": {
+            "type": "urn:x-nmos:format:data.event",
+            "topic": "event|state",
+            "data": [
+                {
+                    "path": "property/path",
+                    "pre": previous_value,
+                    "post": new_value
+                }
+            ]
+        }
+    },
+    "source_id": "source-uuid",
+    "flow_id": "flow-uuid",
+    "endpoint": {
+        "device_id": "endpoint-device-uuid",
+        "receiver_id": "endpoint-receiver-uuid"
+    },
+    "smartpanel": {  // Only present if Smartpanel parsing is enabled
+        "commands": [
+            {
+                "type": "gpio|button|tally|fader|encoder|property",
+                "gpio": 1,           // For GPIO commands
+                "state": true,       // For GPIO/button/tally
+                "button": 1,         // For button commands
+                "pressed": true,     // For button commands
+                "color": "red",      // For tally commands
+                "fader": 1,          // For fader commands
+                "value": 0.5,        // For fader/encoder
+                "raw_path": "original/path",
+                "raw_value": "original_value"
+            }
+        ]
+    }
+}</pre>
+    
+    <h3>RIEDEL Smartpanel Command Patterns</h3>
+    <p>When "Parse RIEDEL Smartpanel" is enabled, the node automatically recognizes these patterns:</p>
+    <ul>
+        <li><strong>GPIO:</strong> <code>gpio/input/N</code> or <code>gpi/N</code></li>
+        <li><strong>Buttons:</strong> <code>button/N</code>, <code>key/N</code>, <code>switch/N</code></li>
+        <li><strong>Tally:</strong> <code>tally/red</code>, <code>tally/green</code>, <code>tally/amber</code>, <code>tally/program</code>, <code>tally/preview</code></li>
+        <li><strong>Faders:</strong> <code>fader/N</code>, <code>level/N</code>, <code>gain/N</code></li>
+        <li><strong>Encoders:</strong> <code>encoder/N</code>, <code>rotary/N</code></li>
+    </ul>
+    
+    <h3>MQTT Topics</h3>
+    <ul>
+        <li><strong>Subscribe:</strong> Configurable filter (default: <code>x-nmos/events/1.0/+/+</code>)</li>
+        <li><strong>Publish Status:</strong> <code>x-nmos/events/1.0/{status_source_id}/object</code></li>
+    </ul>
+    
+    <h3>Integration with RIEDEL Smartpanel</h3>
+    <p>To integrate with RIEDEL Smartpanel:</p>
+    <ol>
+        <li>Configure Smartpanel to publish IS-07 events via MQTT</li>
+        <li>Set the MQTT broker URL to match your broker</li>
+        <li>Map Smartpanel buttons/GPIs to IS-07 event paths</li>
+        <li>Enable "Parse RIEDEL Smartpanel Commands" for automatic command identification</li>
+        <li>Use the output messages to trigger Node-RED flows based on Smartpanel controls</li>
+    </ol>
+    
+    <h3>Example Use Cases</h3>
+    <ul>
+        <li>Camera tally control in broadcast studios</li>
+        <li>Production automation triggered by panel buttons</li>
+        <li>Status feedback to operators via tally lights</li>
+        <li>Remote control of broadcast equipment</li>
+        <li>Integration with production switchers and routers</li>
+    </ul>
+    
+    <h3>Reference</h3>
+    <ul>
+        <li>NMOS IS-07: <a href="https://specs.amwa.tv/is-07/" target="_blank">specs.amwa.tv/is-07/</a></li>
+        <li>RIEDEL Smartpanel: <a href="https://www.riedel.net/products/smartpanels/" target="_blank">riedel.net/products/smartpanels/</a></li>
+    </ul>
+</script>
