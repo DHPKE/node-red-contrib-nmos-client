@@ -308,9 +308,10 @@ module.exports = function(RED) {
 
             if (node.registry.queryApiVersion >= 'v1.1') {
                 const httpPort = node.registry.httpPort || 1880;
-                const connectionAPIBase = `http://${localIP}:${httpPort}/x-nmos/connection/${node.registry.connectionApiVersion}`;
+                const connectionApiVersion = node.registry.connectionApiVersion || 'v1.0';
+                const connectionAPIBase = `http://${localIP}:${httpPort}/x-nmos/connection/${connectionApiVersion}`;
                 resource.controls = [{
-                    type: `urn:x-nmos:control:sr-ctrl/${node.registry.connectionApiVersion}`,
+                    type: `urn:x-nmos:control:sr-ctrl/${connectionApiVersion}`,
                     href: connectionAPIBase + '/'
                 }];
             }
