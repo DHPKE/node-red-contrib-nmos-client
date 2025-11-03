@@ -186,6 +186,53 @@ msg.payload = {
 };
 ```
 
+#### nmos-is07-endpoint
+Receive control commands and tally from IS-07 sources including RIEDEL Smartpanel.
+
+**Configuration:**
+- Device and receiver labels
+- Subscription filter (MQTT topic pattern)
+- MQTT broker URL and QoS
+- Optional Smartpanel command parsing
+- Optional status update publishing
+
+**Features:**
+- Subscribe to IS-07 events from any source
+- Automatic RIEDEL Smartpanel command parsing (GPIO, buttons, tally, faders)
+- Bidirectional communication (receive commands, send status)
+- Command history tracking
+- State management from multiple sources
+- IS-04 receiver registration
+
+**Input Actions:**
+- `get_state`: Get endpoint configuration and status
+- `get_received_states`: Query all received property states
+- `get_command_history`: Get recent command history
+- `send_status`: Publish status update back to sources
+- `clear_history`: Clear command history
+- `clear_states`: Clear received states
+
+**Output:**
+Outputs received IS-07 grain messages with optional parsed Smartpanel commands.
+
+**Example:**
+```javascript
+// Output message with parsed Smartpanel command
+{
+    "payload": { /* IS-07 grain */ },
+    "smartpanel": {
+        "commands": [{
+            "type": "button",
+            "button": 1,
+            "pressed": true
+        }]
+    }
+}
+```
+
+**Documentation:**
+See [IS-07 Endpoint & Smartpanel Guide](docs/is07-endpoint-smartpanel.md) for complete setup and integration instructions.
+
 #### nmos-is12-control
 Implement IS-12 controllable device with WebSocket transport.
 
@@ -296,6 +343,7 @@ Both approaches support the same NMOS IS-04/IS-05 workflows and can be switched 
 Example flows are available in the `examples` directory:
 - **dynamic-matrix-flow.json**: Complete modular matrix with Vue UI
 - **is12-control-example.json**: IS-12 device control demonstration
+- **is07-endpoint-smartpanel-example.json**: IS-07 endpoint with RIEDEL Smartpanel integration examples
 
 ## License
 

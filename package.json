@@ -25,7 +25,11 @@
     "routing",
     "snapshot",
     "backup",
-    "vue"
+    "vue",
+    "riedel",
+    "smartpanel",
+    "endpoint",
+    "gpio"
   ],
   "node-red": {
     "nodes": {
@@ -37,6 +41,7 @@
       "nmos-node": "nodes/nmos-node.js",
       "nmos-is12-control": "nodes/nmos-is12-control.js",
       "nmos-is07-events": "nodes/nmos-is07-events.js",
+      "nmos-is07-endpoint": "nodes/nmos-is07-endpoint.js",
       "nmos-matrix": "nodes/nmos-matrix.js"
     }
   },
