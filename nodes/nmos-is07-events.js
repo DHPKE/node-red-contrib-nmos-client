@@ -4,6 +4,7 @@
  */
 
 const mqtt = require('mqtt');
+const WebSocket = require('ws');
 const axios = require('axios');
 const os = require('os');
 const { v4: uuidv4 } = require('uuid');
@@ -25,6 +26,10 @@ module.exports = function(RED) {
         node.mqttQos = parseInt(config.mqttQos) || 0;
         node.mqttCleanSession = config.mqttCleanSession !== false;
         
+        // Transport configuration
+        node.transportMode = config.transportMode || 'mqtt'; // 'mqtt', 'websocket', or 'both'
+        node.wsPort = parseInt(config.wsPort) || (node.registry.httpPort || 1880) + 1;
+        
         // Resource IDs
         node.nodeId = config.nodeId || uuidv4();
         node.deviceId = config.deviceId || uuidv4();
@@ -33,6 +38,8 @@ module.exports = function(RED) {
         node.senderId = config.senderId || uuidv4();
 
         let mqttClient = null;
+        let wsServer = null;
+        let wsClients = new Set();
         let registrationComplete = false;
         let heartbeatInterval = null;
 
@@ -263,11 +270,12 @@ module.exports = function(RED) {
                 },
                 tags: {
                     'urn:x-nmos:tag:is07/event_type': [node.eventType],
-                    'urn:x-nmos:tag:is07/transport': ['mqtt']
+                    'urn:x-nmos:tag:is07/transport': node.transportMode === 'both' ? ['mqtt', 'websocket'] : 
+                                                       node.transportMode === 'websocket' ? ['websocket'] : ['mqtt']
                 },
                 flow_id: node.flowId,
                 device_id: node.deviceId,
-                transport: 'urn:x-nmos:transport:mqtt',
+                transport: node.transportMode === 'websocket' ? 'urn:x-nmos:transport:websocket' : 'urn:x-nmos:transport:mqtt',
                 interface_bindings: [ifaceName],
                 manifest_href: manifestUrl,
                 subscription: {
@@ -519,49 +527,74 @@ module.exports = function(RED) {
         }
 
         function publishState() {
-            if (!mqttClient || !mqttClient.connected) {
-                node.warn('Cannot publish state: MQTT not connected');
-                return false;
+            const grain = buildStateMessage();
+            let published = false;
+
+            // Publish via MQTT if enabled and connected
+            if ((node.transportMode === 'mqtt' || node.transportMode === 'both') && 
+                mqttClient && mqttClient.connected) {
+                const topic = getPublishTopic();
+                mqttClient.publish(topic, JSON.stringify(grain), {
+                    qos: node.mqttQos,
+                    retain: true
+                }, (err) => {
+                    if (err) {
+                        node.error(`MQTT publish state error: ${err.message}`);
+                    } else {
+                        node.log(`► MQTT Published state (${propertyState.size} properties)`);
+                    }
+                });
+                published = true;
             }
 
-            const grain = buildStateMessage();
-            const topic = getPublishTopic();
-
-            mqttClient.publish(topic, JSON.stringify(grain), {
-                qos: node.mqttQos,
-                retain: true
-            }, (err) => {
-                if (err) {
-                    node.error(`Publish state error: ${err.message}`);
-                } else {
-                    node.log(`► Published state (${propertyState.size} properties)`);
+            // Publish via WebSocket if enabled
+            if (node.transportMode === 'websocket' || node.transportMode === 'both') {
+                if (publishWebSocket(grain)) {
+                    published = true;
                 }
-            });
+            }
 
-            return true;
+            if (!published) {
+                node.warn('Cannot publish state: No transport connected');
+            }
+
+            return published;
         }
 
         function publishEvent(path, preValue, postValue) {
-            if (!mqttClient || !mqttClient.connected) {
-                node.warn('Cannot publish event: MQTT not connected');
-                return false;
+            const grain = buildEventMessage(path, preValue, postValue);
+            let published = false;
+
+            // Publish via MQTT if enabled and connected
+            if ((node.transportMode === 'mqtt' || node.transportMode === 'both') && 
+                mqttClient && mqttClient.connected) {
+                const topic = getPublishTopic();
+                mqttClient.publish(topic, JSON.stringify(grain), {
+                    qos: node.mqttQos,
+                    retain: false
+                }, (err) => {
+                    if (err) {
+                        node.error(`MQTT publish event error: ${err.message}`);
+                    } else {
+                        node.log(`► MQTT Event: ${path} ${preValue} → ${postValue}`);
+                    }
+                });
+                published = true;
             }
 
-            const grain = buildEventMessage(path, preValue, postValue);
-            const topic = getPublishTopic();
-
-            mqttClient.publish(topic, JSON.stringify(grain), {
-                qos: node.mqttQos,
-                retain: false
-            }, (err) => {
-                if (err) {
-                    node.error(`Publish event error: ${err.message}`);
-                } else {
-                    node.log(`► Event: ${path} ${preValue} → ${postValue}`);
+            // Publish via WebSocket if enabled
+            if (node.transportMode === 'websocket' || node.transportMode === 'both') {
+                if (publishWebSocket(grain)) {
+                    node.log(`► WebSocket Event: ${path} ${preValue} → ${postValue}`);
+                    published = true;
                 }
-            });
+            }
 
-            return true;
+            if (!published) {
+                node.warn('Cannot publish event: No transport connected');
+            }
+
+            return published;
         }
 
         function setProperty(path, value) {
@@ -781,11 +814,79 @@ module.exports = function(RED) {
         setupConnectionAPI();
 
         // ============================================================================
+        // WebSocket Transport
+        // ============================================================================
+
+        function setupWebSocketServer() {
+            try {
+                node.log(`Starting WebSocket server on port ${node.wsPort}`);
+                
+                wsServer = new WebSocket.Server({ 
+                    port: node.wsPort,
+                    perMessageDeflate: false
+                });
+
+                wsServer.on('listening', () => {
+                    node.log(`✓ WebSocket server listening on port ${node.wsPort}`);
+                    node.log(`✓ WebSocket endpoint: ws://${localIP}:${node.wsPort}/`);
+                });
+
+                wsServer.on('connection', (ws) => {
+                    wsClients.add(ws);
+                    node.log('✓ WebSocket client connected');
+
+                    ws.on('close', () => {
+                        wsClients.delete(ws);
+                        node.log('WebSocket client disconnected');
+                    });
+
+                    ws.on('error', (error) => {
+                        node.error(`WebSocket client error: ${error.message}`);
+                        wsClients.delete(ws);
+                    });
+                });
+
+                wsServer.on('error', (error) => {
+                    node.error(`WebSocket server error: ${error.message}`);
+                });
+
+            } catch (error) {
+                node.error(`WebSocket setup failed: ${error.message}`);
+            }
+        }
+
+        function publishWebSocket(grain) {
+            if (!wsServer || wsClients.size === 0) {
+                return false;
+            }
+
+            const message = JSON.stringify(grain);
+            let sent = 0;
+            wsClients.forEach(ws => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(message);
+                    sent++;
+                }
+            });
+
+            if (sent > 0) {
+                node.log(`► WebSocket event sent (${sent} clients)`);
+                return true;
+            }
+            return false;
+        }
+
+        // ============================================================================
         // Lifecycle
         // ============================================================================
 
-        // Start MQTT first
-        setupMQTTClient();
+        // Start transport(s)
+        if (node.transportMode === 'mqtt' || node.transportMode === 'both') {
+            setupMQTTClient();
+        }
+        if (node.transportMode === 'websocket' || node.transportMode === 'both') {
+            setupWebSocketServer();
+        }
 
         // Then register with IS-04
         registerAll().then(ok => {
@@ -807,6 +908,23 @@ module.exports = function(RED) {
             
             if (mqttClient) {
                 mqttClient.end(true);
+            }
+
+            if (wsServer) {
+                wsClients.forEach(ws => {
+                    try {
+                        ws.close();
+                    } catch (e) {
+                        // Ignore errors on close
+                    }
+                });
+                wsClients.clear();
+                
+                try {
+                    wsServer.close();
+                } catch (e) {
+                    // Ignore errors on close
+                }
             }
 
             (async () => {

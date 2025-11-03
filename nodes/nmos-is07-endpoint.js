@@ -5,6 +5,7 @@
  */
 
 const mqtt = require('mqtt');
+const WebSocket = require('ws');
 const axios = require('axios');
 const os = require('os');
 const { v4: uuidv4 } = require('uuid');
@@ -31,6 +32,10 @@ module.exports = function(RED) {
         node.senderLabel = config.senderLabel || 'Endpoint Sender';
         node.flowLabel = config.flowLabel || 'Endpoint Flow';
         
+        // Transport configuration
+        node.transportMode = config.transportMode || 'mqtt'; // 'mqtt', 'websocket', or 'both'
+        node.wsPort = parseInt(config.wsPort) || (node.registry.httpPort || 1880) + 1;
+        
         // Resource IDs
         node.nodeId = config.nodeId || uuidv4();
         node.deviceId = config.deviceId || uuidv4();
@@ -39,6 +44,8 @@ module.exports = function(RED) {
         node.flowId = config.flowId || uuidv4();
 
         let mqttClient = null;
+        let wsServer = null;
+        let wsClients = new Set();
         let registrationComplete = false;
         let heartbeatInterval = null;
 
@@ -323,10 +330,11 @@ module.exports = function(RED) {
                 },
                 tags: {
                     'urn:x-nmos:tag:is07/event_types': ['boolean', 'string', 'number', 'object'],
-                    'urn:x-nmos:tag:is07/transport': ['mqtt']
+                    'urn:x-nmos:tag:is07/transport': node.transportMode === 'both' ? ['mqtt', 'websocket'] : 
+                                                       node.transportMode === 'websocket' ? ['websocket'] : ['mqtt']
                 },
                 device_id: node.deviceId,
-                transport: 'urn:x-nmos:transport:mqtt',
+                transport: node.transportMode === 'websocket' ? 'urn:x-nmos:transport:websocket' : 'urn:x-nmos:transport:mqtt',
                 interface_bindings: [ifaceName],
                 subscription: {
                     sender_id: receiverConnectionState.active.sender_id,
@@ -398,11 +406,12 @@ module.exports = function(RED) {
                 },
                 tags: {
                     'urn:x-nmos:tag:is07/event_types': ['boolean', 'string', 'number', 'object'],
-                    'urn:x-nmos:tag:is07/transport': ['mqtt']
+                    'urn:x-nmos:tag:is07/transport': node.transportMode === 'both' ? ['mqtt', 'websocket'] : 
+                                                       node.transportMode === 'websocket' ? ['websocket'] : ['mqtt']
                 },
                 flow_id: node.flowId,
                 device_id: node.deviceId,
-                transport: 'urn:x-nmos:transport:mqtt',
+                transport: node.transportMode === 'websocket' ? 'urn:x-nmos:transport:websocket' : 'urn:x-nmos:transport:mqtt',
                 interface_bindings: [ifaceName],
                 manifest_href: manifestUrl,
                 subscription: {
@@ -559,26 +568,40 @@ module.exports = function(RED) {
         };
 
         function publishStatus(path, value) {
-            if (!node.sendStatusUpdates || !mqttClient || !mqttClient.connected) {
+            if (!node.sendStatusUpdates) {
                 return false;
             }
 
-            localState.set(path, value);
-            const grain = buildStatusGrain(path, value);
-            const topic = `x-nmos/events/1.0/${node.statusSourceId}/object`;
+            let published = false;
 
-            mqttClient.publish(topic, JSON.stringify(grain), {
-                qos: node.mqttQos,
-                retain: false
-            }, (err) => {
-                if (err) {
-                    node.error(`Status publish error: ${err.message}`);
-                } else {
-                    node.log(`► Status: ${path} = ${value}`);
+            // Publish via MQTT if enabled and connected
+            if ((node.transportMode === 'mqtt' || node.transportMode === 'both') && 
+                mqttClient && mqttClient.connected) {
+                localState.set(path, value);
+                const grain = buildStatusGrain(path, value);
+                const topic = `x-nmos/events/1.0/${node.statusSourceId}/object`;
+
+                mqttClient.publish(topic, JSON.stringify(grain), {
+                    qos: node.mqttQos,
+                    retain: false
+                }, (err) => {
+                    if (err) {
+                        node.error(`MQTT publish error: ${err.message}`);
+                    } else {
+                        node.log(`► MQTT Status: ${path} = ${value}`);
+                    }
+                });
+                published = true;
+            }
+
+            // Publish via WebSocket if enabled
+            if (node.transportMode === 'websocket' || node.transportMode === 'both') {
+                if (publishStatusWebSocket(path, value)) {
+                    published = true;
                 }
-            });
+            }
 
-            return true;
+            return published;
         }
 
         // ============================================================================
@@ -1026,11 +1049,157 @@ module.exports = function(RED) {
         setupConnectionAPI();
 
         // ============================================================================
+        // WebSocket Transport
+        // ============================================================================
+
+        function setupWebSocketServer() {
+            try {
+                node.log(`Starting WebSocket server on port ${node.wsPort}`);
+                
+                wsServer = new WebSocket.Server({ 
+                    port: node.wsPort,
+                    perMessageDeflate: false
+                });
+
+                wsServer.on('listening', () => {
+                    node.log(`✓ WebSocket server listening on port ${node.wsPort}`);
+                    node.log(`✓ WebSocket endpoint: ws://${localIP}:${node.wsPort}/`);
+                    if (registrationComplete) {
+                        node.status({fill: "green", shape: "dot", text: "WebSocket ready"});
+                    }
+                });
+
+                wsServer.on('connection', (ws, req) => {
+                    const clientId = req.socket.remoteAddress + ':' + req.socket.remotePort;
+                    node.log(`✓ WebSocket client connected: ${clientId}`);
+                    wsClients.add(ws);
+
+                    ws.on('message', (data) => {
+                        try {
+                            const grain = JSON.parse(data.toString());
+                            
+                            // Don't process our own status updates
+                            if (grain.source_id === node.statusSourceId) {
+                                return;
+                            }
+
+                            node.log(`◄ WebSocket event from ${grain.source_id}`);
+
+                            // Store received state
+                            if (grain.grain && grain.grain.data) {
+                                for (const item of grain.grain.data) {
+                                    const key = `${grain.source_id}/${item.path}`;
+                                    receivedStates.set(key, {
+                                        source_id: grain.source_id,
+                                        path: item.path,
+                                        value: item.post,
+                                        pre_value: item.pre,
+                                        timestamp: grain.origin_timestamp
+                                    });
+                                }
+                            }
+
+                            // Parse Smartpanel commands if enabled
+                            const smartpanelCommands = parseSmartpanelCommand(grain);
+
+                            // Add to command history
+                            const historyEntry = {
+                                timestamp: new Date().toISOString(),
+                                source_id: grain.source_id,
+                                transport: 'websocket',
+                                grain_type: grain.grain_type,
+                                commands: smartpanelCommands
+                            };
+                            commandHistory.unshift(historyEntry);
+                            if (commandHistory.length > MAX_HISTORY) {
+                                commandHistory.pop();
+                            }
+
+                            // Output message
+                            const outputMsg = {
+                                topic: 'websocket',
+                                payload: grain,
+                                source_id: grain.source_id,
+                                flow_id: grain.flow_id,
+                                transport: 'websocket',
+                                endpoint: {
+                                    device_id: node.deviceId,
+                                    receiver_id: node.receiverId
+                                }
+                            };
+
+                            if (smartpanelCommands && smartpanelCommands.length > 0) {
+                                outputMsg.smartpanel = {
+                                    commands: smartpanelCommands,
+                                    raw_grain: grain
+                                };
+                            }
+
+                            node.send(outputMsg);
+
+                        } catch (e) {
+                            node.warn(`Invalid WebSocket message: ${e.message}`);
+                        }
+                    });
+
+                    ws.on('close', () => {
+                        node.log(`WebSocket client disconnected: ${clientId}`);
+                        wsClients.delete(ws);
+                    });
+
+                    ws.on('error', (error) => {
+                        node.error(`WebSocket client error: ${error.message}`);
+                        wsClients.delete(ws);
+                    });
+                });
+
+                wsServer.on('error', (error) => {
+                    node.error(`WebSocket server error: ${error.message}`);
+                    node.status({fill: "red", shape: "ring", text: "WebSocket error"});
+                });
+
+            } catch (error) {
+                node.error(`WebSocket setup failed: ${error.message}`);
+                node.status({fill: "red", shape: "ring", text: "WebSocket failed"});
+            }
+        }
+
+        // Publish status via WebSocket
+        function publishStatusWebSocket(path, value) {
+            if (!node.enableSender || !wsServer || wsClients.size === 0) {
+                return false;
+            }
+
+            localState.set(path, value);
+            const grain = buildStatusGrain(path, value);
+            const message = JSON.stringify(grain);
+
+            let sent = 0;
+            wsClients.forEach(ws => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(message);
+                    sent++;
+                }
+            });
+
+            if (sent > 0) {
+                node.log(`► WebSocket Status: ${path} = ${value} (${sent} clients)`);
+                return true;
+            }
+            return false;
+        }
+
+        // ============================================================================
         // Lifecycle
         // ============================================================================
 
-        // Start MQTT first
-        setupMQTTClient();
+        // Start transport(s)
+        if (node.transportMode === 'mqtt' || node.transportMode === 'both') {
+            setupMQTTClient();
+        }
+        if (node.transportMode === 'websocket' || node.transportMode === 'both') {
+            setupWebSocketServer();
+        }
 
         // Then register with IS-04
         registerAll().then(ok => {
@@ -1052,6 +1221,23 @@ module.exports = function(RED) {
             
             if (mqttClient) {
                 mqttClient.end(true);
+            }
+
+            if (wsServer) {
+                wsClients.forEach(ws => {
+                    try {
+                        ws.close();
+                    } catch (e) {
+                        // Ignore errors on close
+                    }
+                });
+                wsClients.clear();
+                
+                try {
+                    wsServer.close();
+                } catch (e) {
+                    // Ignore errors on close
+                }
             }
 
             (async () => {
