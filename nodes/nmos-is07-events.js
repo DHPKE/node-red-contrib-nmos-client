@@ -20,6 +20,7 @@ module.exports = function(RED) {
         node.deviceDescription = config.deviceDescription || 'IS-07 Events source';
         node.sourceLabel = config.sourceLabel || 'Event Source';
         node.flowLabel = config.flowLabel || 'Event Flow';
+        node.senderLabel = config.senderLabel || 'Event Sender';
         node.eventType = config.eventType || 'boolean';
         node.mqttQos = parseInt(config.mqttQos) || 0;
         node.mqttCleanSession = config.mqttCleanSession !== false;
@@ -29,6 +30,7 @@ module.exports = function(RED) {
         node.deviceId = config.deviceId || uuidv4();
         node.sourceId = config.sourceId || uuidv4();
         node.flowId = config.flowId || uuidv4();
+        node.senderId = config.senderId || uuidv4();
 
         let mqttClient = null;
         let registrationComplete = false;
@@ -150,9 +152,11 @@ module.exports = function(RED) {
                 description: node.deviceDescription,
                 type: 'urn:x-nmos:device:generic',
                 node_id: node.nodeId,
-                senders: [],
+                senders: [node.senderId],
                 receivers: [],
-                tags: {}
+                tags: {
+                    'urn:x-nmos:tag:is07/role': ['sender']
+                }
             };
 
             // Add controls array for v1.1+
@@ -209,6 +213,37 @@ module.exports = function(RED) {
 
             // Add event_type to tags
             resource.tags['urn:x-nmos:tag:is07/event_type'] = [node.eventType];
+
+            return resource;
+        };
+
+        const buildSenderResource = () => {
+            const httpPort = node.registry.httpPort || 1880;
+            const manifestUrl = `http://${localIP}:${httpPort}/x-nmos/events/manifest/${node.senderId}`;
+            
+            const resource = {
+                id: node.senderId,
+                version: getTAITimestamp(),
+                label: node.senderLabel,
+                description: `IS-07 Event Sender (${node.eventType})`,
+                format: 'urn:x-nmos:format:data',
+                caps: {
+                    media_types: ['application/json']
+                },
+                tags: {
+                    'urn:x-nmos:tag:is07/event_type': [node.eventType],
+                    'urn:x-nmos:tag:is07/transport': ['mqtt']
+                },
+                flow_id: node.flowId,
+                device_id: node.deviceId,
+                transport: 'urn:x-nmos:transport:mqtt',
+                interface_bindings: [ifaceName],
+                manifest_href: manifestUrl,
+                subscription: {
+                    receiver_id: null,
+                    active: true
+                }
+            };
 
             return resource;
         };
@@ -290,6 +325,13 @@ module.exports = function(RED) {
                 const ok4 = await registerResource('flow', buildFlowResource());
                 if (!ok4) {
                     throw new Error('Flow registration failed');
+                }
+                await new Promise(r => setTimeout(r, 300));
+
+                // Step 5: Register Sender
+                const ok5 = await registerResource('sender', buildSenderResource());
+                if (!ok5) {
+                    throw new Error('Sender registration failed');
                 }
 
                 registrationComplete = true;
@@ -572,6 +614,39 @@ module.exports = function(RED) {
         });
 
         // ============================================================================
+        // ============================================================================
+        // HTTP Manifest Endpoint
+        // ============================================================================
+
+        const manifestPath = `/x-nmos/events/manifest/${node.senderId}`;
+        
+        RED.httpNode.get(manifestPath, (req, res) => {
+            const manifest = {
+                id: node.senderId,
+                version: getTAITimestamp(),
+                label: node.senderLabel,
+                description: `IS-07 Event Sender Manifest (${node.eventType})`,
+                format: 'urn:x-nmos:format:data',
+                event_types: [
+                    {
+                        name: node.eventType,
+                        description: `${node.eventType.charAt(0).toUpperCase() + node.eventType.slice(1)} event type`,
+                        type: node.eventType
+                    }
+                ],
+                source_id: node.sourceId,
+                flow_id: node.flowId,
+                device_id: node.deviceId
+            };
+
+            res.setHeader('Content-Type', 'application/json');
+            res.status(200).json(manifest);
+            node.log(`◄ Manifest requested: ${manifestPath}`);
+        });
+
+        node.log(`✓ Manifest endpoint: http://${localIP}:${node.registry.httpPort || 1880}${manifestPath}`);
+
+        // ============================================================================
         // Lifecycle
         // ============================================================================
 
@@ -604,6 +679,8 @@ module.exports = function(RED) {
                 const registrationApiUrl = getRegistrationApiUrl();
                 const headers = node.registry.getAuthHeaders();
                 try {
+                    // Delete in reverse order: Sender → Flow → Source → Device → Node
+                    await axios.delete(`${registrationApiUrl}/resource/senders/${node.senderId}`, { headers }).catch(() => {});
                     await axios.delete(`${registrationApiUrl}/resource/flows/${node.flowId}`, { headers }).catch(() => {});
                     await axios.delete(`${registrationApiUrl}/resource/sources/${node.sourceId}`, { headers }).catch(() => {});
                     await axios.delete(`${registrationApiUrl}/resource/devices/${node.deviceId}`, { headers }).catch(() => {});
