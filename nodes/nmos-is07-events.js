@@ -39,6 +39,32 @@ module.exports = function(RED) {
         // State management
         const propertyState = new Map();
 
+        // IS-05 Connection API state for sender
+        const senderConnectionState = {
+            staged: {
+                receiver_id: null,
+                master_enable: true,
+                activation: {
+                    mode: null,
+                    requested_time: null,
+                    activation_time: null
+                },
+                transport_params: []
+            },
+            active: {
+                receiver_id: null,
+                master_enable: true,
+                activation: {
+                    mode: null,
+                    requested_time: null,
+                    activation_time: null
+                },
+                transport_params: []
+            },
+            constraints: [],
+            transporttype: 'urn:x-nmos:transport:mqtt'
+        };
+
         if (!node.registry) {
             node.error('No NMOS registry configured');
             node.status({ fill: 'red', shape: 'ring', text: 'no config' });
@@ -161,7 +187,12 @@ module.exports = function(RED) {
 
             // Add controls array for v1.1+
             if (node.registry.queryApiVersion >= 'v1.1') {
-                resource.controls = [];
+                const httpPort = node.registry.httpPort || 1880;
+                const connectionAPIBase = `http://${localIP}:${httpPort}/x-nmos/connection/${node.registry.connectionApiVersion}`;
+                resource.controls = [{
+                    type: `urn:x-nmos:control:sr-ctrl/${node.registry.connectionApiVersion}`,
+                    href: connectionAPIBase + '/'
+                }];
             }
 
             return resource;
@@ -240,8 +271,8 @@ module.exports = function(RED) {
                 interface_bindings: [ifaceName],
                 manifest_href: manifestUrl,
                 subscription: {
-                    receiver_id: null,
-                    active: true
+                    receiver_id: senderConnectionState.active.receiver_id,
+                    active: senderConnectionState.active.master_enable
                 }
             };
 
@@ -645,6 +676,109 @@ module.exports = function(RED) {
         });
 
         node.log(`✓ Manifest endpoint: http://${localIP}:${node.registry.httpPort || 1880}${manifestPath}`);
+
+        // ============================================================================
+        // IS-05 Connection API Endpoints
+        // ============================================================================
+
+        const updateSenderInRegistry = async () => {
+            if (!registrationComplete) return;
+            try {
+                await registerResource('sender', buildSenderResource());
+                node.log('✓ Sender updated in registry');
+            } catch (err) {
+                node.warn(`Failed to update sender: ${err.message}`);
+            }
+        };
+
+        const setupConnectionAPI = () => {
+            const connectionApiVersion = node.registry.connectionApiVersion || 'v1.0';
+            const senderBasePath = `/x-nmos/connection/${connectionApiVersion}/single/senders/${node.senderId}`;
+            
+            const middleware = (req, res, next) => {
+                res.setHeader('Content-Type', 'application/json');
+                res.setHeader('Access-Control-Allow-Origin', '*');
+                res.setHeader('Access-Control-Allow-Methods', 'GET, PATCH, OPTIONS');
+                res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+                
+                if (req.method === 'OPTIONS') {
+                    res.sendStatus(200);
+                    return;
+                }
+                next();
+            };
+            
+            // Sender endpoints
+            RED.httpNode.get(`${senderBasePath}/staged`, middleware, (req, res) => {
+                res.json(senderConnectionState.staged);
+            });
+            
+            RED.httpNode.patch(`${senderBasePath}/staged`, middleware, (req, res) => {
+                try {
+                    const patch = req.body;
+                    
+                    if (patch.receiver_id !== undefined) {
+                        senderConnectionState.staged.receiver_id = patch.receiver_id;
+                    }
+                    if (patch.master_enable !== undefined) {
+                        senderConnectionState.staged.master_enable = patch.master_enable;
+                    }
+                    if (patch.activation !== undefined) {
+                        senderConnectionState.staged.activation = {
+                            ...senderConnectionState.staged.activation,
+                            ...patch.activation
+                        };
+                    }
+                    if (patch.transport_params !== undefined) {
+                        senderConnectionState.staged.transport_params = patch.transport_params;
+                    }
+                    
+                    if (patch.activation && patch.activation.mode === 'activate_immediate') {
+                        senderConnectionState.active = JSON.parse(JSON.stringify(senderConnectionState.staged));
+                        senderConnectionState.active.activation.activation_time = getTAITimestamp();
+                        
+                        node.log(`✓ Sender connection activated: ${senderConnectionState.active.receiver_id}`);
+                        updateSenderInRegistry();
+                        
+                        const msg = {
+                            payload: {
+                                event: 'sender_connection_activated',
+                                receiver_id: senderConnectionState.active.receiver_id,
+                                master_enable: senderConnectionState.active.master_enable,
+                                activation_time: senderConnectionState.active.activation.activation_time
+                            },
+                            senderId: node.senderId,
+                            topic: 'connection'
+                        };
+                        node.send(msg);
+                    }
+                    
+                    res.json(senderConnectionState.staged);
+                } catch (error) {
+                    res.status(400).json({
+                        code: 400,
+                        error: error.message,
+                        debug: error.stack
+                    });
+                }
+            });
+            
+            RED.httpNode.get(`${senderBasePath}/active`, middleware, (req, res) => {
+                res.json(senderConnectionState.active);
+            });
+            
+            RED.httpNode.get(`${senderBasePath}/constraints`, middleware, (req, res) => {
+                res.json(senderConnectionState.constraints);
+            });
+            
+            RED.httpNode.get(`${senderBasePath}/transporttype`, middleware, (req, res) => {
+                res.json(senderConnectionState.transporttype);
+            });
+            
+            node.log(`✓ IS-05 Sender API: http://${localIP}:${node.registry.httpPort || 1880}${senderBasePath}`);
+        };
+
+        setupConnectionAPI();
 
         // ============================================================================
         // Lifecycle
