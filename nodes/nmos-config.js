@@ -7,6 +7,7 @@ module.exports = function(RED) {
         this.registryUrl = config.registryUrl || 'http://localhost:8870';
         this.queryApiVersion = config.queryApiVersion || 'v1.3';
         this.connectionApiVersion = config.connectionApiVersion || 'v1.1';
+        this.httpPort = parseInt(config.httpPort) || 1880;
         this.useRql = config.useRql !== false;
         this.pagingLimit = parseInt(config.pagingLimit) || 10;
         
