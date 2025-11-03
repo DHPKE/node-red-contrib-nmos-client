@@ -789,7 +789,7 @@ module.exports = function(RED) {
                 const registrationApiUrl = getRegistrationApiUrl();
                 const headers = node.registry.getAuthHeaders();
                 try {
-                    // Delete in reverse order: Sender → Flow → Receiver → Device → Node
+                    // Delete in reverse order: (Sender → Flow if enabled) → Receiver → Device → Node
                     if (node.enableSender) {
                         await axios.delete(`${registrationApiUrl}/resource/senders/${node.senderId}`, { headers }).catch(() => {});
                         await axios.delete(`${registrationApiUrl}/resource/flows/${node.flowId}`, { headers }).catch(() => {});
