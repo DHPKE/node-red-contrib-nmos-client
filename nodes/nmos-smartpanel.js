@@ -141,7 +141,8 @@ module.exports = function(RED) {
             if (!grain.source_id) return false;
             if (!grain.flow_id) return false;
             if (!grain.origin_timestamp) return false;
-            if (!grain.data || !Array.isArray(grain.data)) return false;
+            // Data is nested inside grain.grain.data
+            if (!grain.grain || !grain.grain.data || !Array.isArray(grain.grain.data)) return false;
             return true;
         };
 
@@ -158,7 +159,8 @@ module.exports = function(RED) {
             }
 
             const commands = [];
-            const data = grain.data;
+            // Access data from the nested grain property
+            const data = grain.grain.data;
 
             for (const item of data) {
                 const path = item.path || '';
