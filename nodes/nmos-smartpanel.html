@@ -1,0 +1,350 @@
+<script type="text/javascript">
+RED.nodes.registerType('nmos-smartpanel',{
+    category: 'NMOS',
+    color: '#B8E0D2',
+    defaults: {
+        name: {value:""},
+        registry: {value:"", type:"nmos-config", required:true},
+        mqttBroker: {value:"mqtt://localhost:1883", required:true},
+        mqttQos: {value:0},
+        deviceLabel: {value:"Riedel Smartpanel"},
+        deviceDescription: {value:"NMOS IS-07 Smartpanel Interface"},
+        subscriptionFilter: {value:"x-nmos/events/1.0/+/+"},
+        enableButtonDisplay: {value:true},
+        autoParseCommands: {value:true},
+        nodeId: {value:""},
+        deviceId: {value:""},
+        sourceId: {value:""},
+        receiverId: {value:""}
+    },
+    inputs:1,
+    outputs:1,
+    icon: "font-awesome/fa-th",
+    label: function() {
+        return this.name || this.deviceLabel || "Smartpanel";
+    },
+    oneditprepare: function() {
+        // Generate UUIDs if not present
+        if (!this.nodeId) this.nodeId = generateUUID();
+        if (!this.deviceId) this.deviceId = generateUUID();
+        if (!this.sourceId) this.sourceId = generateUUID();
+        if (!this.receiverId) this.receiverId = generateUUID();
+        
+        $("#node-input-nodeId").val(this.nodeId);
+        $("#node-input-deviceId").val(this.deviceId);
+        $("#node-input-sourceId").val(this.sourceId);
+        $("#node-input-receiverId").val(this.receiverId);
+        
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+        
+        $("#node-input-regenerate-ids").click(function() {
+            $("#node-input-nodeId").val(generateUUID());
+            $("#node-input-deviceId").val(generateUUID());
+            $("#node-input-sourceId").val(generateUUID());
+            $("#node-input-receiverId").val(generateUUID());
+        });
+    }
+});
+</script>
+
+<script type="text/html" data-template-name="nmos-smartpanel">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Smartpanel">
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-registry"><i class="fa fa-server"></i> Registry</label>
+        <input type="text" id="node-input-registry">
+    </div>
+    
+    <hr/>
+    <h4>MQTT Configuration</h4>
+    
+    <div class="form-row">
+        <label for="node-input-mqttBroker"><i class="fa fa-exchange"></i> MQTT Broker</label>
+        <input type="text" id="node-input-mqttBroker" placeholder="mqtt://localhost:1883">
+    </div>
+    <div class="form-tip">
+        Supported protocols: <code>mqtt://</code>, <code>mqtts://</code>, <code>ws://</code>, <code>wss://</code>
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-mqttQos"><i class="fa fa-cog"></i> QoS</label>
+        <select id="node-input-mqttQos">
+            <option value="0">0 - At most once</option>
+            <option value="1">1 - At least once</option>
+            <option value="2">2 - Exactly once</option>
+        </select>
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-subscriptionFilter"><i class="fa fa-filter"></i> Subscription Filter</label>
+        <input type="text" id="node-input-subscriptionFilter" placeholder="x-nmos/events/1.0/+/+">
+    </div>
+    <div class="form-tip">
+        <strong>MQTT Topic Pattern:</strong><br/>
+        Default: <code>x-nmos/events/1.0/+/+</code> (all sources, all types)<br/>
+        Single source: <code>x-nmos/events/1.0/{source-id}/+</code><br/>
+        Specific type: <code>x-nmos/events/1.0/+/boolean</code>
+    </div>
+    
+    <hr/>
+    <h4>Device Configuration</h4>
+    
+    <div class="form-row">
+        <label for="node-input-deviceLabel"><i class="fa fa-tag"></i> Device Label</label>
+        <input type="text" id="node-input-deviceLabel">
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-deviceDescription"><i class="fa fa-info"></i> Description</label>
+        <input type="text" id="node-input-deviceDescription">
+    </div>
+    
+    <hr/>
+    <h4>Features</h4>
+    
+    <div class="form-row">
+        <label>&nbsp;</label>
+        <input type="checkbox" id="node-input-enableButtonDisplay" style="display:inline-block; width:auto; vertical-align:baseline;">
+        <label for="node-input-enableButtonDisplay" style="width:auto; margin-left:5px;">Enable Button Display Writing</label>
+    </div>
+    <div class="form-tip" style="margin-left:110px;">
+        When enabled, allows sending text to Smartpanel button displays via input messages.
+    </div>
+    
+    <div class="form-row">
+        <label>&nbsp;</label>
+        <input type="checkbox" id="node-input-autoParseCommands" style="display:inline-block; width:auto; vertical-align:baseline;">
+        <label for="node-input-autoParseCommands" style="width:auto; margin-left:5px;">Auto-parse Smartpanel Commands</label>
+    </div>
+    <div class="form-tip" style="margin-left:110px;">
+        Automatically parse and interpret Smartpanel button, rotary, GPIO, tally, and fader commands.
+    </div>
+    
+    <hr/>
+    <h4>Resource IDs</h4>
+    <div class="form-tip">
+        These UUIDs identify this device in the NMOS registry. Auto-generated on first use.
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-nodeId"><i class="fa fa-server"></i> Node ID</label>
+        <input type="text" id="node-input-nodeId" readonly style="width:60%;">
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-deviceId"><i class="fa fa-microchip"></i> Device ID</label>
+        <input type="text" id="node-input-deviceId" readonly style="width:60%;">
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-sourceId"><i class="fa fa-upload"></i> Source ID</label>
+        <input type="text" id="node-input-sourceId" readonly style="width:60%;">
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-receiverId"><i class="fa fa-download"></i> Receiver ID</label>
+        <input type="text" id="node-input-receiverId" readonly style="width:60%;">
+    </div>
+    
+    <div class="form-row">
+        <label>&nbsp;</label>
+        <button type="button" id="node-input-regenerate-ids" class="red-ui-button">
+            <i class="fa fa-refresh"></i> Regenerate All IDs
+        </button>
+    </div>
+    <div class="form-tip" style="margin-left:110px;">
+        ⚠️ Only regenerate IDs if you want to register as a new device. This will break existing connections.
+    </div>
+</script>
+
+<script type="text/html" data-help-name="nmos-smartpanel">
+    <p>NMOS IS-07 Smartpanel node with full AMWA specification compliance.</p>
+    
+    <h3>Overview</h3>
+    <p>This node provides bidirectional communication with Riedel Smartpanel control surfaces via NMOS IS-07 Events & Tally specification over MQTT. It automatically registers as an NMOS device with IS-04 registry and handles all Smartpanel command types.</p>
+    
+    <h3>Features</h3>
+    <ul>
+        <li><strong>Full IS-07 Compliance:</strong> Proper grain structure, TAI timestamps, and MQTT topic formatting</li>
+        <li><strong>IS-04 Registration:</strong> Automatic device registration with heartbeat maintenance</li>
+        <li><strong>Command Parsing:</strong> Automatic interpretation of buttons, rotary encoders, GPIO, tally, and faders</li>
+        <li><strong>Button Display:</strong> Write text and colors to Smartpanel button displays</li>
+        <li><strong>Command History:</strong> Track last 100 commands for debugging and monitoring</li>
+        <li><strong>State Management:</strong> Maintain button display states and track multiple sources</li>
+    </ul>
+    
+    <h3>Configuration</h3>
+    <dl class="message-properties">
+        <dt>Registry <span class="property-type">nmos-config</span></dt>
+        <dd>NMOS IS-04 registry configuration node</dd>
+        
+        <dt>MQTT Broker <span class="property-type">string</span></dt>
+        <dd>Full MQTT broker URL (mqtt://, mqtts://, ws://, or wss://)</dd>
+        
+        <dt>QoS <span class="property-type">number</span></dt>
+        <dd>MQTT Quality of Service level (0, 1, or 2)</dd>
+        
+        <dt>Subscription Filter <span class="property-type">string</span></dt>
+        <dd>MQTT topic pattern for subscribing to commands</dd>
+        
+        <dt>Device Label <span class="property-type">string</span></dt>
+        <dd>Human-readable device name shown in NMOS registry</dd>
+        
+        <dt>Enable Button Display <span class="property-type">boolean</span></dt>
+        <dd>Enable capability to write text to Smartpanel button displays</dd>
+        
+        <dt>Auto-parse Commands <span class="property-type">boolean</span></dt>
+        <dd>Automatically parse and interpret Smartpanel command patterns</dd>
+    </dl>
+    
+    <h3>Supported Command Types</h3>
+    
+    <h4>Button Commands</h4>
+    <p>Paths: <code>button/{index}</code>, <code>key/{index}</code>, <code>switch/{index}</code></p>
+    <p>Example output:</p>
+    <pre>{
+  "type": "button",
+  "button": 1,
+  "pressed": true,
+  "index": 1
+}</pre>
+    
+    <h4>Rotary Encoder Commands</h4>
+    <p>Paths: <code>rotary/{index}</code>, <code>encoder/{index}</code>, <code>knob/{index}</code></p>
+    <p>Example output:</p>
+    <pre>{
+  "type": "rotary",
+  "encoder": 1,
+  "value": 0.75,
+  "delta": 0.05,
+  "direction": "clockwise",
+  "position": 0.75
+}</pre>
+    
+    <h4>GPIO Commands</h4>
+    <p>Paths: <code>gpio/input/{index}</code>, <code>gpi/{index}</code></p>
+    <p>Example output:</p>
+    <pre>{
+  "type": "gpio",
+  "gpio": 1,
+  "state": true
+}</pre>
+    
+    <h4>Tally Commands</h4>
+    <p>Paths: <code>tally/red</code>, <code>tally/green</code>, <code>tally/amber</code>, etc.</p>
+    <p>Example output:</p>
+    <pre>{
+  "type": "tally",
+  "color": "red",
+  "state": true
+}</pre>
+    
+    <h4>Fader Commands</h4>
+    <p>Paths: <code>fader/{index}</code>, <code>level/{index}</code>, <code>gain/{index}</code></p>
+    <p>Example output:</p>
+    <pre>{
+  "type": "fader",
+  "fader": 1,
+  "value": 0.65,
+  "normalized": 0.65
+}</pre>
+    
+    <h3>Input Actions</h3>
+    
+    <h4>Get State</h4>
+    <pre>msg.action = "get_state";</pre>
+    <p>Returns current node state including connection status, resource IDs, and button states.</p>
+    
+    <h4>Get Command History</h4>
+    <pre>msg.action = "get_command_history";</pre>
+    <p>Returns array of last 100 received commands with timestamps.</p>
+    
+    <h4>Clear History</h4>
+    <pre>msg.action = "clear_history";</pre>
+    <p>Clears the command history.</p>
+    
+    <h4>Set Button Text</h4>
+    <pre>msg = {
+  action: "set_button_text",
+  button: 1,
+  text: "REC",
+  color: "red"  // optional
+};</pre>
+    <p>Writes text to a single button display. Color can be: red, green, amber, or white.</p>
+    
+    <h4>Set Multiple Buttons</h4>
+    <pre>msg = {
+  action: "set_multiple_buttons",
+  buttons: [
+    { button: 1, text: "CAM 1", color: "green" },
+    { button: 2, text: "CAM 2", color: "white" },
+    { button: 3, text: "REC", color: "red" }
+  ]
+};</pre>
+    <p>Updates multiple button displays in a single operation.</p>
+    
+    <h4>Send Status</h4>
+    <pre>msg = {
+  action: "send_status",
+  grain: { /* custom IS-07 grain */ }
+};</pre>
+    <p>Sends a custom IS-07 event grain.</p>
+    
+    <h3>Output Message</h3>
+    <p>The node outputs messages with the following structure:</p>
+    <pre>{
+  "topic": "x-nmos/events/1.0/{source_id}/{type}",
+  "payload": {
+    // Full IS-07 grain
+    "grain_type": "event",
+    "source_id": "...",
+    "flow_id": "...",
+    "origin_timestamp": "...",
+    "grain": {
+      "type": "urn:x-nmos:format:data.event",
+      "data": [...]
+    }
+  },
+  "smartpanel": {
+    "commands": [
+      {
+        "type": "button",
+        "button": 1,
+        "pressed": true,
+        "timestamp": "...",
+        "raw_path": "button/1",
+        "raw_value": true
+      }
+    ]
+  },
+  "source_id": "...",
+  "grain_timestamp": "..."
+}</pre>
+    
+    <h3>Status Indicators</h3>
+    <ul>
+        <li><strong>Red ring:</strong> Configuration error or disconnected</li>
+        <li><strong>Yellow dot:</strong> MQTT connected, registration pending</li>
+        <li><strong>Green dot:</strong> Fully operational (MQTT + Registry)</li>
+        <li><strong>Blue ring:</strong> Processing message</li>
+    </ul>
+    
+    <h3>References</h3>
+    <ul>
+        <li><a href="https://specs.amwa.tv/is-07/" target="_blank">AMWA NMOS IS-07 Specification</a></li>
+        <li><a href="https://specs.amwa.tv/is-04/" target="_blank">AMWA NMOS IS-04 Specification</a></li>
+        <li><a href="https://www.riedel.net/products/smartpanels/" target="_blank">Riedel Smartpanel</a></li>
+    </ul>
+    
+    <h3>See Also</h3>
+    <p>Complete documentation: <code>docs/smartpanel-node.md</code></p>
+    <p>Example flows: <code>examples/smartpanel-example.json</code></p>
+</script>

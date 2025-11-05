@@ -42,6 +42,7 @@
       "nmos-is12-control": "nodes/nmos-is12-control.js",
       "nmos-is07-events": "nodes/nmos-is07-events.js",
       "nmos-is07-endpoint": "nodes/nmos-is07-endpoint.js",
+      "nmos-smartpanel": "nodes/nmos-smartpanel.js",
       "nmos-matrix": "nodes/nmos-matrix.js"
     }
   },

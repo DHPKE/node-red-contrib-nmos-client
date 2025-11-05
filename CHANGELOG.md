@@ -5,6 +5,68 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+
+- **nmos-smartpanel node** - Complete rewrite of IS-07 Smartpanel integration
+  - Full AMWA NMOS IS-07 specification compliance
+  - Proper IS-07 grain structure parsing and generation
+  - TAI (International Atomic Time) timestamp format with proper offset
+  - Correct MQTT topic structure: `x-nmos/events/1.0/{source_id}/{event_type}`
+  - Complete IS-04 device registration (Node, Device, Source, Receiver resources)
+  - 5-second heartbeat maintenance with auto re-registration
+  - Comprehensive Smartpanel command parsing:
+    - **Buttons**: `button/{n}`, `key/{n}`, `switch/{n}` - Press/release events
+    - **Rotary Encoders**: `rotary/{n}`, `encoder/{n}`, `knob/{n}` - Position, delta, direction
+    - **GPIO**: `gpio/input/{n}`, `gpi/{n}` - Digital input states
+    - **Tally**: `tally/red`, `tally/green`, `tally/amber`, etc. - Tally light control
+    - **Faders**: `fader/{n}`, `level/{n}`, `gain/{n}` - Normalized values
+  - Button display text writing capability:
+    - Single and multiple button updates
+    - Text content with optional color (red, green, amber, white)
+    - Proper IS-07 grain structure for display updates
+    - Button state tracking
+  - Command history tracking (last 100 commands)
+  - State management for multiple sources
+  - Bidirectional communication (receive commands, send button updates)
+  - Comprehensive input actions API:
+    - `get_state` - Return node state and configuration
+    - `get_command_history` - Last 100 commands
+    - `clear_history` - Clear command history
+    - `set_button_text` - Update single button display
+    - `set_multiple_buttons` - Batch button updates
+    - `send_status` - Send custom IS-07 event
+  - Robust error handling and validation
+  - Node status indicators (red/yellow/green/blue)
+
+- **Documentation**
+  - `docs/smartpanel-node.md` - Complete documentation (1,200+ lines)
+    - Comprehensive overview and features
+    - Architecture diagrams
+    - Installation and quick start guide
+    - Complete configuration reference
+    - IS-07 compliance details (grain structure, TAI timestamps, MQTT topics)
+    - Command types reference with examples
+    - Input actions API documentation
+    - Output message structure
+    - Button display writing guide
+    - Riedel Smartpanel integration instructions
+    - Example flows and use cases
+    - Troubleshooting guide with common issues
+    - MQTT testing commands
+    - Best practices and advanced topics
+
+- **Examples**
+  - `examples/smartpanel-example.json` - 6 comprehensive example flows
+    - Basic setup with state management
+    - Button press handler (camera selection, recording control)
+    - Rotary encoder for audio level control
+    - Button display writing (single and multiple)
+    - Feedback loop (button press updates labels)
+    - Multi-camera production workflow (complete switcher)
+
+- **Package Updates**
+  - Registered nmos-smartpanel in package.json
+  - Updated README.md with smartpanel node section
+  - Updated CHANGELOG.md with complete rewrite details
 - **nmos-is07-endpoint node** - New NMOS endpoint node for receiving IS-07 events and control commands
   - Subscribe to IS-07 events via MQTT
   - Automatic RIEDEL Smartpanel command parsing

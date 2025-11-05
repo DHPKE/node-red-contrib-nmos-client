@@ -233,6 +233,91 @@ Outputs received IS-07 grain messages with optional parsed Smartpanel commands.
 **Documentation:**
 See [IS-07 Endpoint & Smartpanel Guide](docs/is07-endpoint-smartpanel.md) for complete setup and integration instructions.
 
+#### nmos-smartpanel
+Complete rewrite of the NMOS IS-07 Smartpanel node with full AMWA specification compliance.
+
+**Features:**
+- Full IS-07 grain structure parsing and generation
+- IS-04 device registration with 5-second heartbeat
+- Comprehensive Smartpanel command parsing (buttons, rotary encoders, GPIO, tally, faders)
+- Button display text writing capability
+- Command history tracking (last 100 commands)
+- Multi-source event support
+- Bidirectional communication
+
+**Configuration:**
+- NMOS registry and MQTT broker
+- Device labels and descriptions
+- Subscription filters (MQTT topic patterns)
+- Enable/disable button display writing
+- Enable/disable automatic command parsing
+- Auto-generated resource IDs (Node, Device, Source, Receiver)
+
+**Supported Command Types:**
+- **Buttons**: `button/{n}`, `key/{n}`, `switch/{n}` - Press/release detection
+- **Rotary Encoders**: `rotary/{n}`, `encoder/{n}`, `knob/{n}` - Position and delta tracking
+- **GPIO**: `gpio/input/{n}`, `gpi/{n}` - Digital inputs
+- **Tally**: `tally/red`, `tally/green`, `tally/amber`, etc. - Tally light states
+- **Faders**: `fader/{n}`, `level/{n}`, `gain/{n}` - Normalized values
+
+**Input Actions:**
+```javascript
+// Get node state
+msg.action = "get_state";
+
+// Get command history
+msg.action = "get_command_history";
+
+// Set single button text
+msg = {
+    action: "set_button_text",
+    button: 1,
+    text: "REC",
+    color: "red"
+};
+
+// Set multiple buttons
+msg = {
+    action: "set_multiple_buttons",
+    buttons: [
+        { button: 1, text: "CAM 1", color: "green" },
+        { button: 2, text: "CAM 2", color: "white" }
+    ]
+};
+```
+
+**Output Message:**
+```javascript
+{
+    "topic": "x-nmos/events/1.0/{source_id}/{type}",
+    "payload": { /* Full IS-07 grain */ },
+    "smartpanel": {
+        "commands": [
+            {
+                "type": "button",
+                "button": 1,
+                "pressed": true,
+                "timestamp": "...",
+                "raw_path": "button/1",
+                "raw_value": true
+            }
+        ]
+    },
+    "source_id": "...",
+    "grain_timestamp": "..."
+}
+```
+
+**Documentation:**
+- Complete guide: [docs/smartpanel-node.md](docs/smartpanel-node.md)
+- Example flows: [examples/smartpanel-example.json](examples/smartpanel-example.json)
+
+**Status Indicators:**
+- 🔴 Red ring: Configuration error or disconnected
+- 🟡 Yellow dot: MQTT connected, registration pending
+- 🟢 Green dot: Fully operational
+- 🔵 Blue ring: Processing message
+
 #### nmos-is12-control
 Implement IS-12 controllable device with WebSocket transport.
 
