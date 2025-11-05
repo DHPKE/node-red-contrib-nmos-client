@@ -432,11 +432,6 @@ module.exports = function(RED) {
                 return false;
             }
 
-            if (!text && text !== '') {
-                node.warn('Cannot write LCD: text is required');
-                return false;
-            }
-
             // Determine the LCD path based on whether a line number is specified
             let path;
             if (line !== null && line !== undefined) {
@@ -669,8 +664,8 @@ module.exports = function(RED) {
                     case 'write_lcd':
                         const lcdText = msg.payload.text !== undefined ? msg.payload.text : msg.text;
                         const lcdLine = msg.payload.line !== undefined ? msg.payload.line : msg.line;
-                        if (lcdText === undefined && lcdText !== '') {
-                            throw new Error('write_lcd requires text');
+                        if (lcdText === undefined) {
+                            throw new Error('write_lcd requires text parameter');
                         }
                         const lcdOk = writeLCD(lcdText, lcdLine);
                         msg.payload = { 
