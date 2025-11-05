@@ -207,8 +207,8 @@ module.exports = function(RED) {
                 }
                 
                 // ========== GPIO/GPI Commands ==========
-                // Patterns: gpio/input/{index}, gpi/{index}
-                else if (path.match(/^gpi?o?\/(input|in)\/(\d+)$/i)) {
+                // Patterns: gpio/input/{index}, gpio/in/{index}, gpi/{index}, gpio/{index}
+                else if (path.match(/^(gpio\/(input|in)\/\d+|gpi\/\d+|gpio\/\d+)$/i)) {
                     const match = path.match(/(\d+)$/);
                     if (match) {
                         command.type = 'gpio';
