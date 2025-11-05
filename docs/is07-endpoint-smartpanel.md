@@ -326,6 +326,49 @@ msg.payload = {
 };
 ```
 
+### Write to Smartpanel LCD Display
+Write text to the Smartpanel LCD screen:
+```javascript
+// Write text to general LCD display
+msg.payload = {
+  action: "write_lcd",
+  text: "Camera 1 - LIVE"
+};
+
+// Write text to specific LCD line
+msg.payload = {
+  action: "write_lcd",
+  text: "Program Feed",
+  line: 1  // Line number (1, 2, 3, etc.)
+};
+
+// Clear LCD display
+msg.payload = {
+  action: "write_lcd",
+  text: ""
+};
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "action": "write_lcd",
+  "text": "Camera 1 - LIVE",
+  "line": "all"
+}
+```
+
+**LCD Path Patterns:**
+- General LCD: `lcd/text` - Writes to the main LCD display
+- Specific Line: `lcd/line/N` - Writes to LCD line N (1, 2, 3, etc.)
+
+**Notes:**
+- LCD text is published with `retain: true` so new connections see the current display
+- The Smartpanel must be subscribed to `x-nmos/events/1.0/{status-source-id}/string`
+- Text length may be limited by the Smartpanel hardware (typically 16-20 characters per line)
+- Empty text string clears the display
+
 ### Clear History/States
 Clear tracking data:
 ```javascript
@@ -465,6 +508,170 @@ if (msg.smartpanel && msg.smartpanel.commands) {
             return msg;
         }
     }
+}
+```
+
+### LCD Display Update
+
+```javascript
+// Function node to update Smartpanel LCD based on system state
+// Connect this to your system state changes
+
+// Display camera status
+msg.payload = {
+    action: "write_lcd",
+    text: "CAM1 - LIVE",
+    line: 1
+};
+
+// Display additional info on line 2
+msg.payload = {
+    action: "write_lcd",
+    text: "Program Feed",
+    line: 2
+};
+
+return msg;
+```
+
+### Dynamic LCD Updates
+
+```javascript
+// Function node to show dynamic information
+// For example, displaying time remaining or current scene
+
+const timeRemaining = flow.get('time_remaining') || "00:00";
+const currentScene = flow.get('current_scene') || "Idle";
+
+// Update line 1 with scene name
+msg.payload = {
+    action: "write_lcd",
+    text: currentScene.substring(0, 16), // Limit to 16 chars
+    line: 1
+};
+
+// Send first message
+node.send(msg);
+
+// Update line 2 with time
+msg.payload = {
+    action: "write_lcd",
+    text: `Time: ${timeRemaining}`,
+    line: 2
+};
+
+return msg;
+```
+
+## LCD Display Writing
+
+### Overview
+
+The `write_lcd` action enables writing custom text to the Riedel Smartpanel LCD display. This is particularly useful for Smartpanels that are not routable via IS-05 controls, as it provides a way to communicate status information, program names, and other relevant details directly to panel users.
+
+### Use Cases
+
+1. **Camera Status Display**
+   - Show "LIVE", "STANDBY", "RECORDING" status
+   - Display current program or scene name
+   - Show operator instructions or notes
+
+2. **Production Information**
+   - Display time remaining in segment
+   - Show current rundown item
+   - Display countdown timers
+
+3. **Equipment Status**
+   - Show device states (e.g., "Audio OK", "Video Loss")
+   - Display error messages or alerts
+   - Show connection status
+
+4. **User Guidance**
+   - Display instructions for operators
+   - Show button mappings or shortcuts
+   - Display context-sensitive help
+
+### Technical Details
+
+**MQTT Topic:** The LCD text is published to `x-nmos/events/1.0/{status-source-id}/string`
+
+**IS-07 Grain Structure:**
+```json
+{
+  "grain_type": "event",
+  "source_id": "{endpoint-status-source-id}",
+  "flow_id": "{receiver-id}",
+  "origin_timestamp": "TAI-timestamp",
+  "sync_timestamp": "TAI-timestamp",
+  "creation_timestamp": "TAI-timestamp",
+  "rate": { "numerator": 0, "denominator": 1 },
+  "duration": { "numerator": 0, "denominator": 1 },
+  "grain": {
+    "type": "urn:x-nmos:format:data.event",
+    "topic": "lcd",
+    "data": [{
+      "path": "lcd/text",  // or "lcd/line/N"
+      "pre": null,
+      "post": "Your display text"
+    }]
+  }
+}
+```
+
+**Smartpanel Configuration:**
+1. Configure Smartpanel to subscribe to LCD events
+2. Set subscription topic: `x-nmos/events/1.0/{endpoint-status-source-id}/string`
+3. Map LCD display to the `lcd/text` or `lcd/line/N` paths
+4. The Smartpanel will automatically update the LCD when events are received
+
+### Character Limitations
+
+Most Riedel Smartpanel LCD displays have the following limitations:
+- **16-20 characters per line** (varies by model)
+- **2-4 lines** (varies by model)
+- **ASCII character set** (some models support limited special characters)
+
+**Best Practices:**
+- Keep text concise and clear
+- Use abbreviations when necessary (e.g., "REC" instead of "Recording")
+- Test with your specific Smartpanel model to verify character limits
+- Use uppercase for better visibility on small displays
+
+### Example Integration Flow
+
+```javascript
+// Monitor system state and update Smartpanel LCD
+// This could be triggered by various system events
+
+if (msg.topic === "camera/status") {
+    let lcdText = "";
+    let line = 1;
+    
+    switch(msg.payload.state) {
+        case "live":
+            lcdText = "◉ LIVE ◉";
+            break;
+        case "preview":
+            lcdText = "PREVIEW";
+            break;
+        case "standby":
+            lcdText = "Standby";
+            break;
+        case "recording":
+            lcdText = "● REC";
+            break;
+        default:
+            lcdText = "Ready";
+    }
+    
+    // Send to endpoint
+    msg.payload = {
+        action: "write_lcd",
+        text: lcdText,
+        line: line
+    };
+    
+    return msg;
 }
 ```
 

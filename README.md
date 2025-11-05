@@ -209,6 +209,7 @@ Receive control commands and tally from IS-07 sources including RIEDEL Smartpane
 - `get_received_states`: Query all received property states
 - `get_command_history`: Get recent command history
 - `send_status`: Publish status update back to sources
+- `write_lcd`: Write text to Smartpanel LCD display
 - `clear_history`: Clear command history
 - `clear_states`: Clear received states
 
@@ -228,6 +229,13 @@ Outputs received IS-07 grain messages with optional parsed Smartpanel commands.
         }]
     }
 }
+
+// Write text to Smartpanel LCD
+msg.payload = {
+    action: "write_lcd",
+    text: "Camera 1 - LIVE",
+    line: 1  // optional, omit to write to general LCD
+};
 ```
 
 **Documentation:**

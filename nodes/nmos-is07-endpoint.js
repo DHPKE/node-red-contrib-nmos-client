@@ -422,6 +422,73 @@ module.exports = function(RED) {
             return true;
         }
 
+        /**
+         * Write text to Smartpanel LCD display
+         * Supports multiple LCD path formats for compatibility
+         */
+        function writeLCD(text, line = null) {
+            if (!mqttClient || !mqttClient.connected) {
+                node.warn('Cannot write LCD: MQTT not connected');
+                return false;
+            }
+
+            if (!text && text !== '') {
+                node.warn('Cannot write LCD: text is required');
+                return false;
+            }
+
+            // Determine the LCD path based on whether a line number is specified
+            let path;
+            if (line !== null && line !== undefined) {
+                // Write to specific line (e.g., lcd/line/1, lcd/line/2)
+                path = `lcd/line/${line}`;
+            } else {
+                // Write to general LCD text path
+                path = 'lcd/text';
+            }
+
+            // Build the IS-07 grain for LCD text
+            const timestamp = getTAITimestamp();
+            const grain = {
+                grain_type: 'event',
+                source_id: node.statusSourceId,
+                flow_id: node.receiverId,
+                origin_timestamp: timestamp,
+                sync_timestamp: timestamp,
+                creation_timestamp: timestamp,
+                rate: { numerator: 0, denominator: 1 },
+                duration: { numerator: 0, denominator: 1 },
+                grain: {
+                    type: 'urn:x-nmos:format:data.event',
+                    topic: 'lcd',
+                    data: [{
+                        path: path,
+                        pre: localState.get(path) || null,
+                        post: text
+                    }]
+                }
+            };
+
+            // Update local state
+            localState.set(path, text);
+
+            // Publish to MQTT
+            const topic = `x-nmos/events/1.0/${node.statusSourceId}/string`;
+
+            mqttClient.publish(topic, JSON.stringify(grain), {
+                qos: node.mqttQos,
+                retain: true  // Retain LCD text so new connections see it
+            }, (err) => {
+                if (err) {
+                    node.error(`LCD write error: ${err.message}`);
+                } else {
+                    node.log(`► LCD: ${path} = "${text}"`);
+                }
+            });
+
+            return true;
+        }
+
         // ============================================================================
         // MQTT Functions
         // ============================================================================
@@ -596,6 +663,22 @@ module.exports = function(RED) {
                         }
                         const statusOk = publishStatus(statusPath, statusValue);
                         msg.payload = { success: statusOk, action: 'send_status', path: statusPath, value: statusValue };
+                        node.send(msg);
+                        break;
+
+                    case 'write_lcd':
+                        const lcdText = msg.payload.text !== undefined ? msg.payload.text : msg.text;
+                        const lcdLine = msg.payload.line !== undefined ? msg.payload.line : msg.line;
+                        if (lcdText === undefined && lcdText !== '') {
+                            throw new Error('write_lcd requires text');
+                        }
+                        const lcdOk = writeLCD(lcdText, lcdLine);
+                        msg.payload = { 
+                            success: lcdOk, 
+                            action: 'write_lcd', 
+                            text: lcdText,
+                            line: lcdLine !== null && lcdLine !== undefined ? lcdLine : 'all'
+                        };
                         node.send(msg);
                         break;
 
