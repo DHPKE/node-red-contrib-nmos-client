@@ -425,6 +425,12 @@ module.exports = function(RED) {
         /**
          * Write text to Smartpanel LCD display
          * Supports multiple LCD path formats for compatibility
+         * 
+         * Note: This function intentionally mirrors the structure of buildStatusGrain()
+         * and publishStatus() but uses different MQTT topic (/string vs /object) and
+         * grain topic ('lcd' vs 'status') as required by the IS-07 specification for
+         * LCD display control. Keeping them separate maintains clarity and allows for
+         * future LCD-specific enhancements without affecting status publishing.
          */
         function writeLCD(text, line = null) {
             if (!mqttClient || !mqttClient.connected) {
@@ -443,6 +449,7 @@ module.exports = function(RED) {
             }
 
             // Build the IS-07 grain for LCD text
+            // Similar to buildStatusGrain() but with lcd-specific topic
             const timestamp = getTAITimestamp();
             const grain = {
                 grain_type: 'event',
@@ -468,6 +475,7 @@ module.exports = function(RED) {
             localState.set(path, text);
 
             // Publish to MQTT
+            // Note: Uses /string suffix for LCD text data type (vs /object for status)
             const topic = `x-nmos/events/1.0/${node.statusSourceId}/string`;
 
             mqttClient.publish(topic, JSON.stringify(grain), {
