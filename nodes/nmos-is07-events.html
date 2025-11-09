@@ -13,10 +13,12 @@ RED.nodes.registerType('nmos-is07-events',{
         eventType: {value:"boolean"},
         mqttQos: {value:0},
         mqttCleanSession: {value:true},
+        httpPort: {value:1880, validate:RED.validators.number()},
         nodeId: {value:""},
         deviceId: {value:""},
         sourceId: {value:""},
-        flowId: {value:""}
+        flowId: {value:""},
+        senderId: {value:""}
     },
     inputs:1,
     outputs:1,
@@ -29,11 +31,13 @@ RED.nodes.registerType('nmos-is07-events',{
         if (!this.deviceId) this.deviceId = generateUUID();
         if (!this.sourceId) this.sourceId = generateUUID();
         if (!this.flowId) this.flowId = generateUUID();
+        if (!this.senderId) this.senderId = generateUUID();
         
         $("#node-input-nodeId").val(this.nodeId);
         $("#node-input-deviceId").val(this.deviceId);
         $("#node-input-sourceId").val(this.sourceId);
         $("#node-input-flowId").val(this.flowId);
+        $("#node-input-senderId").val(this.senderId);
         
         function generateUUID() {
             return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -47,6 +51,7 @@ RED.nodes.registerType('nmos-is07-events',{
             $("#node-input-deviceId").val(generateUUID());
             $("#node-input-sourceId").val(generateUUID());
             $("#node-input-flowId").val(generateUUID());
+            $("#node-input-senderId").val(generateUUID());
         });
     }
 });
@@ -64,6 +69,11 @@ RED.nodes.registerType('nmos-is07-events',{
     <div class="form-row">
         <label for="node-input-mqttBroker"><i class="fa fa-exchange"></i> MQTT Broker</label>
         <input type="text" id="node-input-mqttBroker" placeholder="mqtt://localhost:1883">
+    </div>
+    <div class="form-row">
+        <label for="node-input-httpPort"><i class="fa fa-globe"></i> HTTP Port</label>
+        <input type="number" id="node-input-httpPort" placeholder="1880">
+        <span class="form-tips">Port for IS-05 Connection API endpoints</span>
     </div>
     
     <hr/>
@@ -137,6 +147,10 @@ RED.nodes.registerType('nmos-is07-events',{
         <input type="text" id="node-input-flowId">
     </div>
     <div class="form-row">
+        <label for="node-input-senderId"><i class="fa fa-fingerprint"></i> Sender ID</label>
+        <input type="text" id="node-input-senderId">
+    </div>
+    <div class="form-row">
         <label>&nbsp;</label>
         <button type="button" id="node-input-regenerate-ids" class="red-ui-button">
             <i class="fa fa-refresh"></i> Regenerate All IDs
@@ -152,9 +166,20 @@ RED.nodes.registerType('nmos-is07-events',{
         <li>Publishes to: <code>x-nmos/events/1.0/{source_id}/{event_type}</code></li>
         <li>State messages (rebootstrap) with retained flag</li>
         <li>Event messages (deltas) with pre/post values</li>
-        <li>IS-04 registration (node, device, source, flow)</li>
+        <li>IS-04 registration (node, device, source, flow, sender)</li>
+        <li>IS-05 Connection API for routing</li>
         <li>Grain message format with TAI timestamps</li>
         <li>Property state tracking</li>
+    </ul>
+    
+    <h3>IS-05 Connection API</h3>
+    <p>The sender exposes IS-05 Connection API endpoints for routing:</p>
+    <ul>
+        <li><code>GET /x-nmos/connection/v1.1/single/senders/{senderId}/staged</code></li>
+        <li><code>PATCH /x-nmos/connection/v1.1/single/senders/{senderId}/staged</code></li>
+        <li><code>GET /x-nmos/connection/v1.1/single/senders/{senderId}/active</code></li>
+        <li><code>GET /x-nmos/connection/v1.1/single/senders/{senderId}/constraints</code></li>
+        <li><code>GET /x-nmos/connection/v1.1/single/senders/{senderId}/transporttype</code></li>
     </ul>
     
     <h3>Input Actions</h3>

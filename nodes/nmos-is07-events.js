@@ -23,12 +23,14 @@ module.exports = function(RED) {
         node.eventType = config.eventType || 'boolean';
         node.mqttQos = parseInt(config.mqttQos) || 0;
         node.mqttCleanSession = config.mqttCleanSession !== false;
+        node.httpPort = parseInt(config.httpPort) || 1880;
         
         // Resource IDs
         node.nodeId = config.nodeId || uuidv4();
         node.deviceId = config.deviceId || uuidv4();
         node.sourceId = config.sourceId || uuidv4();
         node.flowId = config.flowId || uuidv4();
+        node.senderId = config.senderId || uuidv4();
 
         let mqttClient = null;
         let registrationComplete = false;
@@ -143,6 +145,8 @@ module.exports = function(RED) {
         };
 
         const buildDeviceResource = () => {
+            const { ip } = getNetworkInfo();
+            const connectionApiVersion = 'v1.1';
             const resource = {
                 id: node.deviceId,
                 version: getTAITimestamp(),
@@ -150,14 +154,17 @@ module.exports = function(RED) {
                 description: node.deviceDescription,
                 type: 'urn:x-nmos:device:generic',
                 node_id: node.nodeId,
-                senders: [],
+                senders: [node.senderId],
                 receivers: [],
                 tags: {}
             };
 
             // Add controls array for v1.1+
             if (node.registry.queryApiVersion >= 'v1.1') {
-                resource.controls = [];
+                resource.controls = [{
+                    type: 'urn:x-nmos:control:sr-ctrl/v1.1',
+                    href: `http://${ip}:${node.httpPort}/x-nmos/connection/${connectionApiVersion}/single/`
+                }];
             }
 
             return resource;
@@ -209,6 +216,32 @@ module.exports = function(RED) {
 
             // Add event_type to tags
             resource.tags['urn:x-nmos:tag:is07/event_type'] = [node.eventType];
+
+            return resource;
+        };
+
+        const buildSenderResource = () => {
+            const { ip } = getNetworkInfo();
+            const resource = {
+                id: node.senderId,
+                version: getTAITimestamp(),
+                label: `${node.sourceLabel} Sender`,
+                description: `IS-07 Event Sender (${node.eventType})`,
+                flow_id: node.flowId,
+                transport: 'urn:x-nmos:transport:mqtt',
+                tags: {},
+                device_id: node.deviceId,
+                manifest_href: `http://${ip}:${node.httpPort}/x-nmos/connection/v1.1/single/senders/${node.senderId}/transportfile/`
+            };
+
+            // Add interface_bindings
+            resource.interface_bindings = [localMAC];
+
+            // Add subscription object for IS-07
+            resource.subscription = {
+                receiver_id: null,
+                active: false
+            };
 
             return resource;
         };
@@ -291,6 +324,13 @@ module.exports = function(RED) {
                 if (!ok4) {
                     throw new Error('Flow registration failed');
                 }
+                await new Promise(r => setTimeout(r, 300));
+
+                // Step 5: Register Sender
+                const ok5 = await registerResource('sender', buildSenderResource());
+                if (!ok5) {
+                    throw new Error('Sender registration failed');
+                }
 
                 registrationComplete = true;
                 node.status({ fill: 'green', shape: 'dot', text: 'registered' });
@@ -332,6 +372,135 @@ module.exports = function(RED) {
             } catch (err) {
                 node.warn(`Heartbeat error: ${err.message}`);
             }
+        }
+
+        // ============================================================================
+        // IS-05 Connection API
+        // ============================================================================
+
+        const connectionApiVersion = 'v1.1';
+        
+        // Connection API state
+        const connectionState = {
+            staged: {
+                transport_params: [{
+                    broker_topic: getPublishTopic(),
+                    connection_uri: node.mqttBroker,
+                    connection_authorization: false
+                }],
+                activation: {
+                    mode: 'activate_immediate',
+                    requested_time: null
+                }
+            },
+            active: {
+                transport_params: [{
+                    broker_topic: getPublishTopic(),
+                    connection_uri: node.mqttBroker,
+                    connection_authorization: false
+                }],
+                activation: {
+                    mode: null,
+                    requested_time: null
+                }
+            },
+            constraints: [{
+                transport_params: {
+                    broker_topic: {
+                        enum: [getPublishTopic()]
+                    }
+                }
+            }],
+            transporttype: 'urn:x-nmos:transport:mqtt'
+        };
+
+        function setupConnectionAPI() {
+            // API root
+            RED.httpNode.get(`/x-nmos/connection/${connectionApiVersion}/`, (req, res) => {
+                res.json([
+                    `single/`
+                ]);
+            });
+
+            // Single resource mode
+            RED.httpNode.get(`/x-nmos/connection/${connectionApiVersion}/single/`, (req, res) => {
+                res.json([
+                    `senders/`
+                ]);
+            });
+
+            // Senders list
+            RED.httpNode.get(`/x-nmos/connection/${connectionApiVersion}/single/senders/`, (req, res) => {
+                res.json([
+                    `${node.senderId}/`
+                ]);
+            });
+
+            // Sender root
+            RED.httpNode.get(`/x-nmos/connection/${connectionApiVersion}/single/senders/${node.senderId}/`, (req, res) => {
+                res.json([
+                    'constraints/',
+                    'staged/',
+                    'active/',
+                    'transporttype/'
+                ]);
+            });
+
+            // GET staged parameters
+            RED.httpNode.get(`/x-nmos/connection/${connectionApiVersion}/single/senders/${node.senderId}/staged`, (req, res) => {
+                res.json(connectionState.staged);
+            });
+
+            // PATCH staged parameters
+            RED.httpNode.patch(`/x-nmos/connection/${connectionApiVersion}/single/senders/${node.senderId}/staged`, (req, res) => {
+                try {
+                    const updates = req.body;
+                    
+                    // Update transport params if provided
+                    if (updates.transport_params) {
+                        connectionState.staged.transport_params = updates.transport_params;
+                    }
+                    
+                    // Update activation if provided
+                    if (updates.activation) {
+                        connectionState.staged.activation = {
+                            ...connectionState.staged.activation,
+                            ...updates.activation
+                        };
+                        
+                        // Handle immediate activation
+                        if (updates.activation.mode === 'activate_immediate') {
+                            connectionState.active = JSON.parse(JSON.stringify(connectionState.staged));
+                            connectionState.active.activation.mode = null;
+                        }
+                    }
+                    
+                    res.status(200).json(connectionState.staged);
+                } catch (err) {
+                    res.status(400).json({
+                        code: 400,
+                        error: err.message,
+                        debug: null
+                    });
+                }
+            });
+
+            // GET active parameters
+            RED.httpNode.get(`/x-nmos/connection/${connectionApiVersion}/single/senders/${node.senderId}/active`, (req, res) => {
+                res.json(connectionState.active);
+            });
+
+            // GET constraints
+            RED.httpNode.get(`/x-nmos/connection/${connectionApiVersion}/single/senders/${node.senderId}/constraints`, (req, res) => {
+                res.json(connectionState.constraints);
+            });
+
+            // GET transport type
+            RED.httpNode.get(`/x-nmos/connection/${connectionApiVersion}/single/senders/${node.senderId}/transporttype`, (req, res) => {
+                res.json(connectionState.transporttype);
+            });
+
+            node.log(`✓ IS-05 Connection API registered at http://localhost:${node.httpPort}/x-nmos/connection/${connectionApiVersion}/`);
         }
 
         // ============================================================================
@@ -575,7 +744,10 @@ module.exports = function(RED) {
         // Lifecycle
         // ============================================================================
 
-        // Start MQTT first
+        // Setup Connection API endpoints
+        setupConnectionAPI();
+
+        // Start MQTT
         setupMQTTClient();
 
         // Then register with IS-04
@@ -600,10 +772,29 @@ module.exports = function(RED) {
                 mqttClient.end(true);
             }
 
+            // Remove HTTP endpoints
+            const routes = [
+                `/x-nmos/connection/${connectionApiVersion}/`,
+                `/x-nmos/connection/${connectionApiVersion}/single/`,
+                `/x-nmos/connection/${connectionApiVersion}/single/senders/`,
+                `/x-nmos/connection/${connectionApiVersion}/single/senders/${node.senderId}/`,
+                `/x-nmos/connection/${connectionApiVersion}/single/senders/${node.senderId}/staged`,
+                `/x-nmos/connection/${connectionApiVersion}/single/senders/${node.senderId}/active`,
+                `/x-nmos/connection/${connectionApiVersion}/single/senders/${node.senderId}/constraints`,
+                `/x-nmos/connection/${connectionApiVersion}/single/senders/${node.senderId}/transporttype`
+            ];
+            
+            routes.forEach(route => {
+                RED.httpNode._router.stack = RED.httpNode._router.stack.filter(
+                    r => !(r.route && r.route.path === route)
+                );
+            });
+
             (async () => {
                 const registrationApiUrl = getRegistrationApiUrl();
                 const headers = node.registry.getAuthHeaders();
                 try {
+                    await axios.delete(`${registrationApiUrl}/resource/senders/${node.senderId}`, { headers }).catch(() => {});
                     await axios.delete(`${registrationApiUrl}/resource/flows/${node.flowId}`, { headers }).catch(() => {});
                     await axios.delete(`${registrationApiUrl}/resource/sources/${node.sourceId}`, { headers }).catch(() => {});
                     await axios.delete(`${registrationApiUrl}/resource/devices/${node.deviceId}`, { headers }).catch(() => {});
