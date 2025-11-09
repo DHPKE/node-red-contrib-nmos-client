@@ -205,37 +205,44 @@ module.exports = function(RED) {
         };
 
         const buildReceiverResource = () => {
-    const { name: ifaceName } = getNetworkInfo();
-    
-    let transport;
-    if (node.transportType === 'mqtt') {
-        transport = 'urn:x-nmos:transport:mqtt';
-    } else if (node.transportType === 'websocket') {
-        transport = 'urn:x-nmos:transport:websocket';
-    } else {
-        transport = 'urn:x-nmos:transport:mqtt';
-    }
-    
-    const resource = {
-        id: node.receiverId,
-        version: getTAITimestamp(),
-        label: node.receiverLabel,
-        description: `IS-07 Event Receiver`,
-        format: 'urn:x-nmos:format:data',
-        caps: {
-            media_types: ['application/json']
-        },
-        tags: {},
-        device_id: node.deviceId,
-        transport: transport,  // ← CRITICAL: Must be present!
-        interface_bindings: [ifaceName],
-        subscription: {
-            sender_id: null,
-            active: false
-        }
-    };
-    return resource;
-};
+            const { name: ifaceName } = getNetworkInfo();
+            
+            // Ensure transport is never null or undefined
+            let transport = getTransportUrn();
+            if (!transport) {
+                node.warn('Transport URN is null, using default mqtt');
+                transport = 'urn:x-nmos:transport:mqtt';
+            }
+            
+            // If transport is an array (for 'both' mode), use the first one for registration
+            if (Array.isArray(transport)) {
+                transport = transport[0];
+            }
+            
+            const resource = {
+                id: node.receiverId,
+                version: getTAITimestamp(),
+                label: node.receiverLabel || 'IS-07 Receiver',
+                description: `IS-07 Event Receiver`,
+                format: 'urn:x-nmos:format:data',
+                caps: {
+                    media_types: ['application/json']
+                },
+                tags: {},
+                device_id: node.deviceId,
+                transport: transport,  // Guaranteed to have a value
+                interface_bindings: [ifaceName],
+                subscription: {
+                    sender_id: connectionState.active.sender_id || null,
+                    active: connectionState.active.master_enable || false
+                }
+            };
+            
+            // Log for debugging
+            node.log(`Receiver resource built with transport: ${resource.transport}`);
+            
+            return resource;
+        };
 
         // ============================================================================
         // IS-04 Registration
