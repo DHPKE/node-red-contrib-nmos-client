@@ -12,6 +12,8 @@ RED.nodes.registerType('nmos-is07-sender',{
         sourceLabel: {value:"Event Source"},
         flowLabel: {value:"Event Flow"},
         eventType: {value:"boolean"},
+        transportType: {value:"mqtt"},
+        wsPort: {value:3002, validate:RED.validators.number()},
         mqttQos: {value:0},
         httpPort: {value:1880},
         targetReceiverId: {value:""},
@@ -54,6 +56,19 @@ RED.nodes.registerType('nmos-is07-sender',{
             $("#node-input-flowId").val(generateUUID());
             $("#node-input-senderId").val(generateUUID());
         });
+        
+        // Show/hide WebSocket port based on transport type
+        function updateTransportFields() {
+            var transportType = $("#node-input-transportType").val();
+            if (transportType === 'websocket' || transportType === 'both') {
+                $("#ws-port-row").show();
+            } else {
+                $("#ws-port-row").hide();
+            }
+        }
+        
+        $("#node-input-transportType").change(updateTransportFields);
+        updateTransportFields();
     }
 });
 </script>
@@ -113,6 +128,20 @@ RED.nodes.registerType('nmos-is07-sender',{
     <h4>Transport Settings</h4>
     
     <div class="form-row">
+        <label for="node-input-transportType"><i class="fa fa-exchange"></i> Transport Type</label>
+        <select id="node-input-transportType">
+            <option value="mqtt">MQTT</option>
+            <option value="websocket">WebSocket</option>
+            <option value="both">Both (MQTT + WebSocket)</option>
+        </select>
+    </div>
+    <div class="form-row" id="ws-port-row">
+        <label for="node-input-wsPort"><i class="fa fa-plug"></i> WebSocket Port</label>
+        <input type="number" id="node-input-wsPort" placeholder="3002">
+        <span class="form-tips">Port for WebSocket event distribution (when WebSocket transport enabled)</span>
+    </div>
+    
+    <div class="form-row">
         <label for="node-input-mqttQos"><i class="fa fa-certificate"></i> QoS Level</label>
         <select id="node-input-mqttQos">
             <option value="0">0 - At most once</option>
@@ -170,6 +199,7 @@ RED.nodes.registerType('nmos-is07-sender',{
         <li>HTTP manifest endpoint at <code>/x-nmos/events/sources/{source_id}/manifest</code></li>
         <li>Sender resource with manifest_href pointing to HTTP endpoint</li>
         <li>Grain message format with TAI timestamps</li>
+        <li>Selectable transport types: MQTT, WebSocket, or Both</li>
         <li>Configurable QoS levels (0, 1, 2)</li>
         <li>Optional target receiver ID for directed routing</li>
     </ul>
@@ -180,6 +210,14 @@ RED.nodes.registerType('nmos-is07-sender',{
     <p><strong>Device Label/Description:</strong> Identifies the device in the NMOS registry</p>
     <p><strong>Sender/Source/Flow Labels:</strong> Labels for respective NMOS resources</p>
     <p><strong>Event Type:</strong> Type of events (boolean, string, number, object)</p>
+    
+    <h4>Transport Configuration</h4>
+    <ul>
+        <li><strong>MQTT:</strong> Events published via MQTT broker</li>
+        <li><strong>WebSocket:</strong> Events published via WebSocket server</li>
+        <li><strong>Both:</strong> Dual transport - events sent via MQTT and WebSocket simultaneously</li>
+    </ul>
+    <p><strong>WebSocket Port:</strong> Port for WebSocket server (default: 3002, shown when WebSocket transport enabled)</p>
     <p><strong>QoS Level:</strong> MQTT Quality of Service (0=at most once, 1=at least once, 2=exactly once)</p>
     <p><strong>HTTP Port:</strong> Port for serving the manifest endpoint (default: 1880)</p>
     <p><strong>Target Receiver ID:</strong> Optional - specify a receiver ID for directed routing</p>

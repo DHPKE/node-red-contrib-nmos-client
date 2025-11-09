@@ -7,6 +7,7 @@ const mqtt = require('mqtt');
 const axios = require('axios');
 const os = require('os');
 const http = require('http');
+const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
 
 module.exports = function(RED) {
@@ -23,6 +24,8 @@ module.exports = function(RED) {
         node.sourceLabel = config.sourceLabel || 'Event Source';
         node.flowLabel = config.flowLabel || 'Event Flow';
         node.eventType = config.eventType || 'boolean';
+        node.transportType = config.transportType || 'mqtt';
+        node.wsPort = parseInt(config.wsPort) || 3002;
         node.mqttQos = parseInt(config.mqttQos) || 0;
         node.httpPort = parseInt(config.httpPort) || 1880;
         node.targetReceiverId = config.targetReceiverId || null;
@@ -38,6 +41,8 @@ module.exports = function(RED) {
         let registrationComplete = false;
         let heartbeatInterval = null;
         let httpServer = null;
+        let wss = null;
+        let wsConnections = new Set();
 
         if (!node.registry) {
             node.error('No NMOS registry configured');
@@ -278,15 +283,31 @@ module.exports = function(RED) {
         };
 
         const buildSenderResource = () => {
+            // Determine transport URN based on configuration
+            let transport;
+            let transportTags = [];
+            
+            if (node.transportType === 'mqtt') {
+                transport = 'urn:x-nmos:transport:mqtt';
+                transportTags = ['mqtt'];
+            } else if (node.transportType === 'websocket') {
+                transport = 'urn:x-nmos:transport:websocket';
+                transportTags = ['websocket'];
+            } else if (node.transportType === 'both') {
+                transport = 'urn:x-nmos:transport:mqtt'; // Primary transport
+                transportTags = ['mqtt', 'websocket'];
+            }
+            
             const resource = {
                 id: node.senderId,
                 version: getTAITimestamp(),
                 label: node.senderLabel,
                 description: `IS-07 Event Sender - ${node.senderLabel}`,
                 flow_id: node.flowId,
-                transport: 'urn:x-nmos:transport:mqtt',
+                transport: transport,
                 tags: {
-                    'urn:x-nmos:tag:is07/event_type': [node.eventType]
+                    'urn:x-nmos:tag:is07/event_type': [node.eventType],
+                    'urn:x-nmos:tag:is07/transport': transportTags
                 },
                 device_id: node.deviceId,
                 manifest_href: getManifestUrl(),
@@ -471,9 +492,10 @@ module.exports = function(RED) {
             });
 
             mqttClient.on('connect', () => {
+                const statusText = node.transportType === 'both' ? 'mqtt ready' : 'connected';
                 node.log('✓ MQTT connected');
                 const statusColor = registrationComplete ? 'green' : 'yellow';
-                node.status({ fill: statusColor, shape: 'dot', text: 'mqtt connected' });
+                node.status({ fill: statusColor, shape: 'dot', text: statusText });
             });
 
             mqttClient.on('error', (err) => {
@@ -491,27 +513,77 @@ module.exports = function(RED) {
             });
         }
 
-        function publishEvent(payload) {
-            if (!mqttClient || !mqttClient.connected) {
-                node.warn('Cannot publish event: MQTT not connected');
-                return false;
+        function setupWebSocketServer() {
+            if (node.transportType === 'websocket' || node.transportType === 'both') {
+                try {
+                    wss = new WebSocket.Server({
+                        port: node.wsPort,
+                        path: `/x-nmos/events/1.0/${node.sourceId}`
+                    });
+
+                    wss.on('connection', (ws) => {
+                        wsConnections.add(ws);
+                        node.log(`✓ WebSocket client connected (${wsConnections.size} total)`);
+
+                        ws.on('close', () => {
+                            wsConnections.delete(ws);
+                            node.log(`WebSocket client disconnected (${wsConnections.size} remaining)`);
+                        });
+
+                        ws.on('error', (err) => {
+                            node.error(`WebSocket client error: ${err.message}`);
+                        });
+                    });
+
+                    wss.on('error', (err) => {
+                        node.error(`WebSocket server error: ${err.message}`);
+                    });
+
+                    node.log(`✓ WebSocket server listening on port ${node.wsPort}`);
+                } catch (err) {
+                    node.error(`Failed to start WebSocket server: ${err.message}`);
+                }
             }
+        }
+
+        function publishEvent(payload) {
+            let mqttSuccess = false;
+            let wsSuccess = false;
 
             const grain = buildGrainMessage(payload);
-            const topic = getPublishTopic();
+            const message = JSON.stringify(grain);
 
-            mqttClient.publish(topic, JSON.stringify(grain), {
-                qos: node.mqttQos,
-                retain: false
-            }, (err) => {
-                if (err) {
-                    node.error(`Publish error: ${err.message}`);
-                } else {
-                    node.log(`► Published event: ${JSON.stringify(payload)}`);
+            // Publish via MQTT if enabled
+            if ((node.transportType === 'mqtt' || node.transportType === 'both') && mqttClient && mqttClient.connected) {
+                const topic = getPublishTopic();
+                mqttClient.publish(topic, message, { qos: node.mqttQos }, (err) => {
+                    if (err) {
+                        node.error(`MQTT publish failed: ${err.message}`);
+                    } else {
+                        node.log(`► MQTT: Published to ${topic}`);
+                        mqttSuccess = true;
+                    }
+                });
+            }
+
+            // Publish via WebSocket if enabled
+            if ((node.transportType === 'websocket' || node.transportType === 'both') && wsConnections.size > 0) {
+                wsConnections.forEach(ws => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        try {
+                            ws.send(message);
+                            wsSuccess = true;
+                        } catch (err) {
+                            node.error(`WebSocket send failed: ${err.message}`);
+                        }
+                    }
+                });
+                if (wsSuccess) {
+                    node.log(`► WebSocket: Published to ${wsConnections.size} client(s)`);
                 }
-            });
+            }
 
-            return true;
+            return mqttSuccess || wsSuccess;
         }
 
         // ============================================================================
@@ -564,8 +636,13 @@ module.exports = function(RED) {
         // Start HTTP manifest endpoint
         setupManifestEndpoint();
 
-        // Start MQTT
-        setupMQTTClient();
+        // Start transports based on configuration
+        if (node.transportType === 'mqtt' || node.transportType === 'both') {
+            setupMQTTClient();
+        }
+        if (node.transportType === 'websocket' || node.transportType === 'both') {
+            setupWebSocketServer();
+        }
 
         // Register with IS-04
         registerAll().then(ok => {
@@ -585,8 +662,17 @@ module.exports = function(RED) {
                 clearInterval(heartbeatInterval);
             }
             
+            // Close MQTT
             if (mqttClient) {
                 mqttClient.end(true);
+            }
+
+            // Close WebSocket
+            if (wss) {
+                wsConnections.forEach(ws => ws.close());
+                wss.close(() => {
+                    node.log('✓ WebSocket server closed');
+                });
             }
 
             if (httpServer) {
@@ -602,13 +688,12 @@ module.exports = function(RED) {
                     await axios.delete(`${registrationApiUrl}/resource/sources/${node.sourceId}`, { headers }).catch(() => {});
                     await axios.delete(`${registrationApiUrl}/resource/devices/${node.deviceId}`, { headers }).catch(() => {});
                     await axios.delete(`${registrationApiUrl}/resource/nodes/${node.nodeId}`, { headers }).catch(() => {});
-                    node.log('✓ Unregistered from IS-04');
-                } catch (e) {
-                    node.warn('Unregister error (this is normal on shutdown)');
+                    node.log('Resources deregistered');
+                } catch (err) {
+                    node.warn(`Cleanup error: ${err.message}`);
                 }
-            })().finally(() => {
                 done();
-            });
+            })();
         });
     }
 
