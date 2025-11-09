@@ -1,0 +1,404 @@
+<script type="text/javascript">
+RED.nodes.registerType('nmos-is07-receiver',{
+    category: 'NMOS',
+    color: '#A6BBCF',
+    defaults: {
+        name: {value:""},
+        registry: {value:"", type:"nmos-config", required:true},
+        transportType: {value:"mqtt"},
+        mqttBroker: {value:"mqtt://localhost:1883"},
+        mqttQos: {value:0},
+        httpPort: {value:1880},
+        deviceLabel: {value:"Node-RED IS-07 Receiver"},
+        deviceDescription: {value:"IS-07 Receiver"},
+        receiverLabel: {value:"Event Receiver"},
+        subscriptionFilter: {value:"x-nmos/events/1.0/+/+"},
+        validateGrains: {value:true},
+        outputFormat: {value:"data_only"},
+        nodeId: {value:""},
+        deviceId: {value:""},
+        receiverId: {value:""}
+    },
+    inputs:1,
+    outputs:1,
+    icon: "font-awesome/fa-sign-in",
+    label: function() {
+        return this.name || this.deviceLabel || "IS-07 Receiver";
+    },
+    oneditprepare: function() {
+        // Generate UUIDs if not present
+        if (!this.nodeId) this.nodeId = generateUUID();
+        if (!this.deviceId) this.deviceId = generateUUID();
+        if (!this.receiverId) this.receiverId = generateUUID();
+        
+        $("#node-input-nodeId").val(this.nodeId);
+        $("#node-input-deviceId").val(this.deviceId);
+        $("#node-input-receiverId").val(this.receiverId);
+        
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+        
+        $("#node-input-regenerate-ids").click(function() {
+            $("#node-input-nodeId").val(generateUUID());
+            $("#node-input-deviceId").val(generateUUID());
+            $("#node-input-receiverId").val(generateUUID());
+        });
+        
+        // Show/hide transport-specific options
+        function updateTransportFields() {
+            var transportType = $("#node-input-transportType").val();
+            
+            if (transportType === 'mqtt' || transportType === 'both') {
+                $(".mqtt-fields").show();
+            } else {
+                $(".mqtt-fields").hide();
+            }
+            
+            if (transportType === 'websocket' || transportType === 'both') {
+                $(".websocket-fields").show();
+            } else {
+                $(".websocket-fields").hide();
+            }
+        }
+        
+        $("#node-input-transportType").change(updateTransportFields);
+        updateTransportFields();
+    }
+});
+</script>
+
+<script type="text/html" data-template-name="nmos-is07-receiver">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-registry"><i class="fa fa-server"></i> Registry</label>
+        <input type="text" id="node-input-registry">
+    </div>
+    
+    <hr/>
+    <h4>Transport Configuration</h4>
+    
+    <div class="form-row">
+        <label for="node-input-transportType"><i class="fa fa-exchange"></i> Transport Type</label>
+        <select id="node-input-transportType">
+            <option value="mqtt">MQTT only</option>
+            <option value="websocket">WebSocket only</option>
+            <option value="both">Both (MQTT + WebSocket)</option>
+        </select>
+    </div>
+    <div class="form-tip">
+        Select transport type for receiving IS-07 event grains. Use "Both" for dual transport support.
+    </div>
+    
+    <div class="mqtt-fields">
+        <div class="form-row">
+            <label for="node-input-mqttBroker"><i class="fa fa-exchange"></i> MQTT Broker</label>
+            <input type="text" id="node-input-mqttBroker" placeholder="mqtt://localhost:1883">
+        </div>
+        <div class="form-row">
+            <label for="node-input-mqttQos"><i class="fa fa-sliders"></i> MQTT QoS</label>
+            <select id="node-input-mqttQos">
+                <option value="0">0 - At most once</option>
+                <option value="1">1 - At least once</option>
+                <option value="2">2 - Exactly once</option>
+            </select>
+        </div>
+        <div class="form-row">
+            <label for="node-input-subscriptionFilter"><i class="fa fa-filter"></i> Subscribe Filter</label>
+            <input type="text" id="node-input-subscriptionFilter" placeholder="x-nmos/events/1.0/+/+">
+        </div>
+        <div class="form-tip">
+            <strong>MQTT Wildcards:</strong> Use <code>+</code> for single level, <code>#</code> for multi-level.<br/>
+            Default subscribes to all IS-07 events. For specific source: <code>x-nmos/events/1.0/{source-id}/+</code>
+        </div>
+    </div>
+    
+    <div class="websocket-fields">
+        <div class="form-tip">
+            <strong>WebSocket:</strong> Connection URIs are configured via IS-05 Connection API PATCH to /staged endpoint.<br/>
+            Example: <code>ws://sender-ip:port/x-nmos/events/1.0/{source_id}/{event_type}</code>
+        </div>
+    </div>
+    
+    <hr/>
+    <h4>IS-05 Connection API</h4>
+    
+    <div class="form-row">
+        <label for="node-input-httpPort"><i class="fa fa-globe"></i> HTTP Port</label>
+        <input type="number" id="node-input-httpPort" placeholder="1880">
+    </div>
+    <div class="form-tip">
+        Port for IS-05 Connection API endpoints. Default is Node-RED's HTTP port (1880).
+    </div>
+    
+    <hr/>
+    <h4>Device Configuration</h4>
+    
+    <div class="form-row">
+        <label for="node-input-deviceLabel"><i class="fa fa-tag"></i> Device Label</label>
+        <input type="text" id="node-input-deviceLabel">
+    </div>
+    <div class="form-row">
+        <label for="node-input-deviceDescription"><i class="fa fa-info"></i> Description</label>
+        <input type="text" id="node-input-deviceDescription">
+    </div>
+    <div class="form-row">
+        <label for="node-input-receiverLabel"><i class="fa fa-tag"></i> Receiver Label</label>
+        <input type="text" id="node-input-receiverLabel">
+    </div>
+    
+    <hr/>
+    <h4>Output Configuration</h4>
+    
+    <div class="form-row">
+        <label for="node-input-outputFormat"><i class="fa fa-file-code-o"></i> Output Format</label>
+        <select id="node-input-outputFormat">
+            <option value="data_only">Data only (extracted event data)</option>
+            <option value="full_grain">Full grain (complete IS-07 grain)</option>
+            <option value="both">Both (data + grain)</option>
+        </select>
+    </div>
+    <div class="form-row">
+        <label for="node-input-validateGrains"><i class="fa fa-check"></i> Validate Grains</label>
+        <input type="checkbox" id="node-input-validateGrains" style="width:auto">
+        <span>Validate IS-07 grain structure</span>
+    </div>
+    
+    <hr/>
+    <h4>Resource IDs</h4>
+    
+    <div class="form-row">
+        <label for="node-input-nodeId"><i class="fa fa-hashtag"></i> Node ID</label>
+        <input type="text" id="node-input-nodeId" readonly>
+    </div>
+    <div class="form-row">
+        <label for="node-input-deviceId"><i class="fa fa-hashtag"></i> Device ID</label>
+        <input type="text" id="node-input-deviceId" readonly>
+    </div>
+    <div class="form-row">
+        <label for="node-input-receiverId"><i class="fa fa-hashtag"></i> Receiver ID</label>
+        <input type="text" id="node-input-receiverId" readonly>
+    </div>
+    <div class="form-row">
+        <button type="button" id="node-input-regenerate-ids" class="red-ui-button">
+            <i class="fa fa-refresh"></i> Regenerate IDs
+        </button>
+    </div>
+    <div class="form-tip">
+        <strong>Warning:</strong> Regenerating IDs will create new NMOS resources. 
+        Only do this if you want to register as a different receiver.
+    </div>
+</script>
+
+<script type="text/html" data-help-name="nmos-is07-receiver">
+    <p>NMOS IS-07 Receiver node for receiving event grains via MQTT and/or WebSocket transports.</p>
+    
+    <h3>Overview</h3>
+    <p>This node receives IS-07 event grains from IS-07 Sender nodes or other IS-07 sources. 
+    It supports MQTT and WebSocket transports, registers with NMOS registry (IS-04), 
+    and provides IS-05 Connection API for routing.</p>
+    
+    <h3>Transport Types</h3>
+    <dl class="message-properties">
+        <dt>MQTT only</dt>
+        <dd>Connects to MQTT broker and subscribes to event topics</dd>
+        
+        <dt>WebSocket only</dt>
+        <dd>Connects to WebSocket endpoints (configured via IS-05)</dd>
+        
+        <dt>Both</dt>
+        <dd>Supports both MQTT and WebSocket simultaneously</dd>
+    </dl>
+    
+    <h3>Configuration</h3>
+    <dl class="message-properties">
+        <dt>Registry</dt>
+        <dd>NMOS registry configuration node (required)</dd>
+        
+        <dt>Transport Type</dt>
+        <dd>Select MQTT, WebSocket, or both</dd>
+        
+        <dt>MQTT Broker</dt>
+        <dd>MQTT broker URL (e.g., mqtt://localhost:1883)</dd>
+        
+        <dt>Subscribe Filter</dt>
+        <dd>MQTT topic pattern. Default: <code>x-nmos/events/1.0/+/+</code> (all events)</dd>
+        
+        <dt>HTTP Port</dt>
+        <dd>Port for IS-05 Connection API endpoints</dd>
+        
+        <dt>Output Format</dt>
+        <dd>Choose how to format output messages: data only, full grain, or both</dd>
+    </dl>
+    
+    <h3>IS-05 Connection API</h3>
+    <p>The node exposes IS-05 Connection API endpoints for routing:</p>
+    <pre>
+GET  /x-nmos/connection/v1.1/
+GET  /x-nmos/connection/v1.1/single/receivers/
+GET  /x-nmos/connection/v1.1/single/receivers/{receiverId}/staged
+PATCH /x-nmos/connection/v1.1/single/receivers/{receiverId}/staged
+GET  /x-nmos/connection/v1.1/single/receivers/{receiverId}/active
+GET  /x-nmos/connection/v1.1/single/receivers/{receiverId}/constraints
+GET  /x-nmos/connection/v1.1/single/receivers/{receiverId}/transporttype
+    </pre>
+    
+    <h3>Routing via IS-05</h3>
+    <p>Route receiver to sender using PATCH to /staged endpoint:</p>
+    <pre>
+curl -X PATCH http://localhost:1880/x-nmos/connection/v1.1/single/receivers/{receiverId}/staged \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sender_id": "sender-uuid",
+    "master_enable": true,
+    "activation": { "mode": "activate_immediate" },
+    "transport_params": [{
+      "broker_topic": "x-nmos/events/1.0/{source_id}/boolean",
+      "connection_uri": "mqtt://localhost:1883"
+    }]
+  }'
+    </pre>
+    
+    <h3>Input Messages</h3>
+    <p>The node accepts input messages with actions:</p>
+    
+    <dl class="message-properties">
+        <dt>subscribe</dt>
+        <dd>Subscribe to specific sender
+            <pre>
+{
+  "action": "subscribe",
+  "sender_id": "sender-uuid",
+  "connection_uri": "mqtt://broker:1883",
+  "broker_topic": "x-nmos/events/1.0/{source_id}/boolean"
+}
+            </pre>
+        </dd>
+        
+        <dt>unsubscribe</dt>
+        <dd>Unsubscribe from sender
+            <pre>{ "action": "unsubscribe" }</pre>
+        </dd>
+        
+        <dt>get_state</dt>
+        <dd>Get node state and connection info
+            <pre>{ "action": "get_state" }</pre>
+        </dd>
+        
+        <dt>re-register</dt>
+        <dd>Re-register with NMOS registry
+            <pre>{ "action": "re-register" }</pre>
+        </dd>
+        
+        <dt>get_subscriptions</dt>
+        <dd>Get active and staged subscriptions
+            <pre>{ "action": "get_subscriptions" }</pre>
+        </dd>
+    </dl>
+    
+    <h3>Output Messages</h3>
+    <p>The node outputs messages when events are received:</p>
+    
+    <h4>Data Only format (default)</h4>
+    <pre>
+{
+  "topic": "x-nmos/events/1.0/{source_id}/{event_type}",
+  "payload": /* extracted event data */,
+  "source_id": "{source_id}",
+  "sender_id": "{sender_id}",
+  "event_type": "boolean"
+}
+    </pre>
+    
+    <h4>Full Grain format</h4>
+    <pre>
+{
+  "topic": "x-nmos/events/1.0/{source_id}/{event_type}",
+  "payload": { /* complete IS-07 grain */ },
+  "source_id": "{source_id}",
+  "sender_id": "{sender_id}",
+  "event_type": "boolean"
+}
+    </pre>
+    
+    <h4>Both format</h4>
+    <pre>
+{
+  "topic": "x-nmos/events/1.0/{source_id}/{event_type}",
+  "payload": /* extracted event data */,
+  "grain": { /* complete IS-07 grain */ },
+  "source_id": "{source_id}",
+  "sender_id": "{sender_id}",
+  "event_type": "boolean"
+}
+    </pre>
+    
+    <h3>Status Indicators</h3>
+    <dl class="message-properties">
+        <dt>Red ring</dt>
+        <dd>Configuration error or disconnected from all transports</dd>
+        
+        <dt>Yellow dot</dt>
+        <dd>Not registered or partial transport connectivity</dd>
+        
+        <dt>Green dot - "ready"</dt>
+        <dd>Registered and connected, no active subscription</dd>
+        
+        <dt>Green dot - "subscribed"</dt>
+        <dd>Registered, connected, and actively subscribed to sender</dd>
+        
+        <dt>Blue dot - "receiving"</dt>
+        <dd>Actively receiving event grains (temporary during event reception)</dd>
+    </dl>
+    
+    <h3>IS-07 Grain Structure</h3>
+    <p>The node parses IS-07 grain format:</p>
+    <pre>
+{
+  "grain_type": "event",
+  "source_id": "{source_id}",
+  "flow_id": "{flow_id}",
+  "origin_timestamp": "1234567890:000000000",
+  "sync_timestamp": "1234567890:000000000",
+  "creation_timestamp": "1234567890:000000000",
+  "rate": { "numerator": 0, "denominator": 1 },
+  "duration": { "numerator": 0, "denominator": 1 },
+  "grain": {
+    "type": "urn:x-nmos:format:data.event",
+    "topic": "x-nmos/events/1.0/{source_id}/{event_type}",
+    "data": [
+      { "path": "property/path", "pre": null, "post": true }
+    ]
+  }
+}
+    </pre>
+    
+    <h3>Example Flow</h3>
+    <p>Basic receiver setup:</p>
+    <pre>
+[IS-07 Receiver] --> [Debug]
+    </pre>
+    
+    <p>With subscription control:</p>
+    <pre>
+[Inject: subscribe] --> [IS-07 Receiver] --> [Debug]
+    </pre>
+    
+    <p>Integration with IS-07 Sender:</p>
+    <pre>
+[Inject] --> [IS-07 Sender] --MQTT--> [IS-07 Receiver] --> [Debug]
+    </pre>
+    
+    <h3>References</h3>
+    <ul>
+        <li><a href="https://specs.amwa.tv/is-04/" target="_blank">AMWA IS-04: Discovery and Registration</a></li>
+        <li><a href="https://specs.amwa.tv/is-05/" target="_blank">AMWA IS-05: Device Connection Management</a></li>
+        <li><a href="https://specs.amwa.tv/is-07/" target="_blank">AMWA IS-07: Event & Tally</a></li>
+    </ul>
+</script>
