@@ -1,0 +1,325 @@
+<script type="text/javascript">
+RED.nodes.registerType('nmos-is07-sender',{
+    category: 'NMOS',
+    color: '#FDD0A2',
+    defaults: {
+        name: {value:""},
+        registry: {value:"", type:"nmos-config", required:true},
+        mqttBroker: {value:"mqtt://localhost:1883", required:true},
+        deviceLabel: {value:"Node-RED IS-07 Sender"},
+        deviceDescription: {value:"IS-07 Sender"},
+        sourceLabel: {value:"Sender Source"},
+        flowLabel: {value:"Sender Flow"},
+        senderLabel: {value:"IS-07 Sender"},
+        eventType: {value:"object"},
+        mqttQos: {value:0},
+        targetReceiverId: {value:""},
+        nodeId: {value:""},
+        deviceId: {value:""},
+        sourceId: {value:""},
+        flowId: {value:""},
+        senderId: {value:""}
+    },
+    inputs:1,
+    outputs:1,
+    icon: "font-awesome/fa-upload",
+    label: function() {
+        return this.name || this.senderLabel || "IS-07 Sender";
+    },
+    oneditprepare: function() {
+        if (!this.nodeId) this.nodeId = generateUUID();
+        if (!this.deviceId) this.deviceId = generateUUID();
+        if (!this.sourceId) this.sourceId = generateUUID();
+        if (!this.flowId) this.flowId = generateUUID();
+        if (!this.senderId) this.senderId = generateUUID();
+        
+        $("#node-input-nodeId").val(this.nodeId);
+        $("#node-input-deviceId").val(this.deviceId);
+        $("#node-input-sourceId").val(this.sourceId);
+        $("#node-input-flowId").val(this.flowId);
+        $("#node-input-senderId").val(this.senderId);
+        
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+        
+        $("#node-input-regenerate-ids").click(function() {
+            $("#node-input-nodeId").val(generateUUID());
+            $("#node-input-deviceId").val(generateUUID());
+            $("#node-input-sourceId").val(generateUUID());
+            $("#node-input-flowId").val(generateUUID());
+            $("#node-input-senderId").val(generateUUID());
+        });
+    }
+});
+</script>
+
+<script type="text/html" data-template-name="nmos-is07-sender">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-registry"><i class="fa fa-server"></i> Registry</label>
+        <input type="text" id="node-input-registry">
+    </div>
+    <div class="form-row">
+        <label for="node-input-mqttBroker"><i class="fa fa-exchange"></i> MQTT Broker</label>
+        <input type="text" id="node-input-mqttBroker" placeholder="mqtt://localhost:1883">
+    </div>
+    
+    <hr/>
+    <h4>Device Configuration</h4>
+    
+    <div class="form-row">
+        <label for="node-input-deviceLabel"><i class="fa fa-tag"></i> Device Label</label>
+        <input type="text" id="node-input-deviceLabel">
+    </div>
+    <div class="form-row">
+        <label for="node-input-deviceDescription"><i class="fa fa-info"></i> Description</label>
+        <input type="text" id="node-input-deviceDescription">
+    </div>
+    <div class="form-row">
+        <label for="node-input-sourceLabel"><i class="fa fa-tag"></i> Source Label</label>
+        <input type="text" id="node-input-sourceLabel">
+    </div>
+    <div class="form-row">
+        <label for="node-input-flowLabel"><i class="fa fa-tag"></i> Flow Label</label>
+        <input type="text" id="node-input-flowLabel">
+    </div>
+    <div class="form-row">
+        <label for="node-input-senderLabel"><i class="fa fa-tag"></i> Sender Label</label>
+        <input type="text" id="node-input-senderLabel">
+    </div>
+    
+    <hr/>
+    <h4>Sender Configuration</h4>
+    
+    <div class="form-row">
+        <label for="node-input-eventType"><i class="fa fa-tag"></i> Event Type</label>
+        <select id="node-input-eventType">
+            <option value="boolean">Boolean</option>
+            <option value="string">String</option>
+            <option value="number">Number</option>
+            <option value="object">Object</option>
+        </select>
+    </div>
+    <div class="form-row">
+        <label for="node-input-targetReceiverId"><i class="fa fa-bullseye"></i> Target Receiver ID</label>
+        <input type="text" id="node-input-targetReceiverId" placeholder="Optional - UUID of target receiver">
+    </div>
+    <div class="form-tip">
+        <strong>Tip:</strong> Leave Target Receiver ID empty to broadcast to all receivers, or specify a receiver UUID to route to a specific receiver.
+    </div>
+    
+    <hr/>
+    <h4>MQTT Settings</h4>
+    
+    <div class="form-row">
+        <label for="node-input-mqttQos"><i class="fa fa-certificate"></i> QoS Level</label>
+        <select id="node-input-mqttQos">
+            <option value="0">0 - At most once</option>
+            <option value="1">1 - At least once</option>
+            <option value="2">2 - Exactly once</option>
+        </select>
+    </div>
+    
+    <hr/>
+    <h4>Resource IDs</h4>
+    
+    <div class="form-row">
+        <label for="node-input-nodeId"><i class="fa fa-fingerprint"></i> Node ID</label>
+        <input type="text" id="node-input-nodeId">
+    </div>
+    <div class="form-row">
+        <label for="node-input-deviceId"><i class="fa fa-fingerprint"></i> Device ID</label>
+        <input type="text" id="node-input-deviceId">
+    </div>
+    <div class="form-row">
+        <label for="node-input-sourceId"><i class="fa fa-fingerprint"></i> Source ID</label>
+        <input type="text" id="node-input-sourceId">
+    </div>
+    <div class="form-row">
+        <label for="node-input-flowId"><i class="fa fa-fingerprint"></i> Flow ID</label>
+        <input type="text" id="node-input-flowId">
+    </div>
+    <div class="form-row">
+        <label for="node-input-senderId"><i class="fa fa-fingerprint"></i> Sender ID</label>
+        <input type="text" id="node-input-senderId">
+    </div>
+    <div class="form-row">
+        <label>&nbsp;</label>
+        <button type="button" id="node-input-regenerate-ids" class="red-ui-button">
+            <i class="fa fa-refresh"></i> Regenerate All IDs
+        </button>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="nmos-is07-sender">
+    <p>NMOS IS-07 Sender - Route input payloads to IS-07 receivers via MQTT.</p>
+    
+    <h3>Overview</h3>
+    <p>This node acts as an IS-07 sender that wraps input payloads in proper IS-07 grain structure and publishes them via MQTT. 
+    It registers as a complete sender with the NMOS registry (IS-04) and supports routing to specific receivers.</p>
+    
+    <h3>Features</h3>
+    <ul>
+        <li><strong>IS-04 Registration:</strong> Registers node, device, source, flow, and sender resources</li>
+        <li><strong>MQTT Publishing:</strong> Publishes to <code>x-nmos/events/1.0/{source_id}/{event_type}</code></li>
+        <li><strong>Grain Wrapping:</strong> Automatically wraps input payloads in IS-07 grain format with TAI timestamps</li>
+        <li><strong>Targeted Routing:</strong> Optional targetReceiverId for routing to specific receivers</li>
+        <li><strong>Heartbeat Maintenance:</strong> Automatic heartbeats to keep registration active</li>
+        <li><strong>Configurable Event Types:</strong> Support for boolean, string, number, and object types</li>
+        <li><strong>QoS Support:</strong> MQTT QoS levels 0, 1, and 2</li>
+    </ul>
+    
+    <h3>Configuration</h3>
+    
+    <h4>Device Settings</h4>
+    <ul>
+        <li><strong>Device Label:</strong> Display name for the device</li>
+        <li><strong>Source Label:</strong> Label for the source resource</li>
+        <li><strong>Flow Label:</strong> Label for the flow resource</li>
+        <li><strong>Sender Label:</strong> Label for the sender resource</li>
+    </ul>
+    
+    <h4>Sender Settings</h4>
+    <ul>
+        <li><strong>Event Type:</strong> Type of events being sent (boolean, string, number, object)</li>
+        <li><strong>Target Receiver ID:</strong> Optional UUID of specific receiver to route to (leave empty to broadcast)</li>
+        <li><strong>QoS Level:</strong> MQTT Quality of Service level (0, 1, or 2)</li>
+    </ul>
+    
+    <h3>Input</h3>
+    
+    <p><strong>Publish Payload:</strong></p>
+    <p>Send any payload to publish it as an IS-07 event. The payload will be automatically wrapped in a grain structure.</p>
+    <pre>// Simple value
+msg.payload = true;
+
+// Path/value object
+msg.payload = {
+    path: "control/button1",
+    value: true
+};
+
+// Full grain data array
+msg.payload = [
+    { path: "tally/red", pre: false, post: true },
+    { path: "tally/green", pre: true, post: false }
+];</pre>
+    
+    <p><strong>Get State:</strong></p>
+    <pre>msg.payload = { action: "get_state" };</pre>
+    <p>Returns sender configuration, connection status, and resource IDs.</p>
+    
+    <p><strong>Force Re-registration:</strong></p>
+    <pre>msg.payload = { action: "re-register" };</pre>
+    <p>Forces re-registration with the NMOS registry.</p>
+    
+    <h3>Output</h3>
+    <p>Outputs the input message with added metadata after successful publication:</p>
+    <pre>{
+    "payload": /* original payload */,
+    "sender_id": "uuid",
+    "source_id": "uuid",
+    "flow_id": "uuid",
+    "published": true
+}</pre>
+    
+    <h3>IS-07 Grain Format</h3>
+    <p>Input payloads are wrapped in the IS-07 grain structure:</p>
+    <pre>{
+    "grain_type": "event",
+    "source_id": "sender-source-uuid",
+    "flow_id": "sender-flow-uuid",
+    "origin_timestamp": "TAI timestamp",
+    "sync_timestamp": "TAI timestamp",
+    "creation_timestamp": "TAI timestamp",
+    "rate": { "numerator": 0, "denominator": 1 },
+    "duration": { "numerator": 0, "denominator": 1 },
+    "grain": {
+        "type": "urn:x-nmos:format:data.event",
+        "topic": "event",
+        "data": [
+            {
+                "path": "property/path",
+                "pre": null,
+                "post": value
+            }
+        ]
+    }
+}</pre>
+    
+    <h3>MQTT Topics</h3>
+    <ul>
+        <li><strong>Publish:</strong> <code>x-nmos/events/1.0/{source_id}/{event_type}</code></li>
+    </ul>
+    
+    <h3>Example Use Cases</h3>
+    <ul>
+        <li>Route control commands from Node-RED to IS-07 endpoints</li>
+        <li>Send tally states to broadcast equipment</li>
+        <li>Publish sensor data in IS-07 format</li>
+        <li>Integrate non-NMOS systems with IS-07 infrastructure</li>
+        <li>Create custom event sources for monitoring and control</li>
+    </ul>
+    
+    <h3>Integration with IS-07 Receivers</h3>
+    <p>This sender node works with:</p>
+    <ul>
+        <li><strong>nmos-is07-endpoint:</strong> Node-RED IS-07 endpoint receiver</li>
+        <li><strong>nmos-is07-events:</strong> Node-RED IS-07 events node (can receive from other sources)</li>
+        <li><strong>RIEDEL Smartpanel:</strong> Professional broadcast control panels</li>
+        <li><strong>Any IS-07 compliant receiver:</strong> Standard NMOS IS-07 devices</li>
+    </ul>
+    
+    <h3>Example Flow</h3>
+    <pre>// Simple button press sender
+[Inject] → [Function: create payload] → [IS-07 Sender]
+
+// Function node:
+msg.payload = {
+    path: "button/1",
+    value: true
+};
+return msg;
+
+// Tally control
+[Dashboard Button] → [Change] → [IS-07 Sender]
+
+// Change node:
+msg.payload = {
+    path: "tally/red",
+    value: msg.payload
+};
+return msg;</pre>
+    
+    <h3>Targeted Routing</h3>
+    <p>To route to a specific receiver:</p>
+    <ol>
+        <li>Get the receiver UUID from your IS-07 endpoint node or NMOS registry</li>
+        <li>Enter it in the "Target Receiver ID" field</li>
+        <li>The sender will register with this receiver ID in its subscription metadata</li>
+        <li>This helps receivers identify which senders are intended for them</li>
+    </ol>
+    
+    <h3>Registration Process</h3>
+    <p>On startup, the node registers these resources in order:</p>
+    <ol>
+        <li><strong>Node:</strong> Represents the Node-RED instance</li>
+        <li><strong>Device:</strong> The sender device</li>
+        <li><strong>Source:</strong> The event source</li>
+        <li><strong>Flow:</strong> The event flow</li>
+        <li><strong>Sender:</strong> The MQTT sender with transport details</li>
+    </ol>
+    
+    <h3>Reference</h3>
+    <ul>
+        <li>NMOS IS-04: <a href="https://specs.amwa.tv/is-04/" target="_blank">specs.amwa.tv/is-04/</a></li>
+        <li>NMOS IS-07: <a href="https://specs.amwa.tv/is-07/" target="_blank">specs.amwa.tv/is-07/</a></li>
+    </ul>
+</script>
