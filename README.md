@@ -233,6 +233,55 @@ Outputs received IS-07 grain messages with optional parsed Smartpanel commands.
 **Documentation:**
 See [IS-07 Endpoint & Smartpanel Guide](docs/is07-endpoint-smartpanel.md) for complete setup and integration instructions.
 
+#### nmos-is07-sender
+Route input payloads to IS-07 receivers via MQTT.
+
+**Configuration:**
+- Device, source, flow, and sender labels
+- Event type: `boolean`, `string`, `number`, `object`
+- MQTT broker URL and QoS
+- Optional target receiver ID for directed routing
+
+**Features:**
+- IS-04 registration as complete sender (node, device, source, flow, sender)
+- Automatic payload wrapping in IS-07 grain format with TAI timestamps
+- Flexible input handling (simple values, path/value objects, grain data arrays)
+- Targeted routing to specific receivers via receiver ID
+- Heartbeat maintenance for active registration
+- MQTT QoS support (0, 1, 2)
+
+**Input:**
+Send any payload to publish as an IS-07 event, or use actions:
+- `get_state`: Get sender configuration and status
+- `re-register`: Force re-registration with NMOS registry
+
+**Example:**
+```javascript
+// Simple value
+msg.payload = true;
+
+// Path/value object
+msg.payload = {
+    path: "tally/red",
+    value: true
+};
+
+// Multi-property grain data
+msg.payload = [
+    { path: "tally/red", pre: false, post: true },
+    { path: "tally/green", pre: true, post: false }
+];
+```
+
+**Use Cases:**
+- Route control commands from Node-RED to IS-07 endpoints
+- Send tally states to broadcast equipment
+- Publish sensor data in IS-07 format
+- Integrate non-NMOS systems with IS-07 infrastructure
+
+**Example Flow:**
+See [examples/is07-sender-example.json](examples/is07-sender-example.json) for complete usage examples.
+
 #### nmos-is12-control
 Implement IS-12 controllable device with WebSocket transport.
 
@@ -344,6 +393,7 @@ Example flows are available in the `examples` directory:
 - **dynamic-matrix-flow.json**: Complete modular matrix with Vue UI
 - **is12-control-example.json**: IS-12 device control demonstration
 - **is07-endpoint-smartpanel-example.json**: IS-07 endpoint with RIEDEL Smartpanel integration examples
+- **is07-sender-example.json**: IS-07 sender with various payload formats and routing examples
 
 ## License
 
