@@ -247,21 +247,36 @@ module.exports = function(RED) {
         };
 
         const buildSenderResource = () => {
-            const resource = {
-                id: node.senderId,
-                version: getTAITimestamp(),
-                label: node.senderLabel,
-                description: `IS-07 Event Sender (${node.eventType})`,
-                flow_id: node.flowId,
-                transport: getTransportURN(),
-                device_id: node.deviceId,
-                tags: {},
-                interface_bindings: [ifaceName],
-                subscription: {
-                    receiver_id: node.targetReceiverId,
-                    active: node.targetReceiverId ? true : false
-                }
-            };
+    const { ip, name: ifaceName } = getNetworkInfo();
+    
+    // Set transport URN based on configuration
+    let transport;
+    if (node.transportType === 'mqtt') {
+        transport = 'urn:x-nmos:transport:mqtt';
+    } else if (node.transportType === 'websocket') {
+        transport = 'urn:x-nmos:transport:websocket';
+    } else {
+        transport = 'urn:x-nmos:transport:mqtt'; // Default for 'both'
+    }
+    
+    const resource = {
+        id: node.senderId,
+        version: getTAITimestamp(),
+        label: node.senderLabel,
+        description: `IS-07 Event Sender - ${node.senderLabel}`,
+        flow_id: node.flowId,
+        transport: transport,  // ← CRITICAL: Must be present!
+        tags: {},
+        device_id: node.deviceId,
+        manifest_href: `http://${ip}:${node.httpPort || 1880}/x-nmos/events/sources/${node.sourceId}/manifest`,
+        interface_bindings: [ifaceName],
+        subscription: {
+            receiver_id: null,
+            active: false
+        }
+    };
+    return resource;
+};
 
             // Build manifest_href
             resource.manifest_href = `http://${localIP}:${node.httpPort}/x-nmos/events/sources/${node.sourceId}/manifest`;
