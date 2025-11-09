@@ -1,0 +1,494 @@
+[
+    {
+        "id": "example-flow-tab",
+        "type": "tab",
+        "label": "IS-07 Sender Example",
+        "disabled": false,
+        "info": "# IS-07 Sender Example Flow\n\nThis example demonstrates the IS-07 Sender node capabilities:\n\n1. **Simple Value Sender** - Send simple boolean/number/string values\n2. **Path/Value Sender** - Send structured events with paths\n3. **Tally Control** - Send tally states to broadcast equipment\n4. **Get State** - Query sender state and configuration\n5. **Re-register** - Force re-registration with NMOS registry\n\n## Setup\n\n1. Configure the `nmos-config` node with your NMOS registry URL\n2. Update MQTT broker URL in sender nodes if needed\n3. Deploy the flow\n4. Use inject nodes to test sending events\n\n## Testing\n\n- Click inject buttons to send events\n- Watch debug output to see published messages\n- Use get_state to verify sender configuration\n- Monitor your NMOS registry to see registered sender"
+    },
+    {
+        "id": "nmos-registry-config",
+        "type": "nmos-config",
+        "name": "NMOS Registry",
+        "registryUrl": "http://localhost:8080",
+        "queryApiVersion": "v1.3",
+        "httpPort": "1880"
+    },
+    {
+        "id": "comment-1",
+        "type": "comment",
+        "z": "example-flow-tab",
+        "name": "IS-07 Sender - Simple Value Examples",
+        "info": "These examples send simple values wrapped in IS-07 grain format",
+        "x": 200,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "inject-boolean",
+        "type": "inject",
+        "z": "example-flow-tab",
+        "name": "Send Boolean (true)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "true",
+        "payloadType": "bool",
+        "x": 150,
+        "y": 80,
+        "wires": [
+            [
+                "sender-simple"
+            ]
+        ]
+    },
+    {
+        "id": "inject-number",
+        "type": "inject",
+        "z": "example-flow-tab",
+        "name": "Send Number (42)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "42",
+        "payloadType": "num",
+        "x": 140,
+        "y": 120,
+        "wires": [
+            [
+                "sender-simple"
+            ]
+        ]
+    },
+    {
+        "id": "inject-string",
+        "type": "inject",
+        "z": "example-flow-tab",
+        "name": "Send String",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "Hello IS-07",
+        "payloadType": "str",
+        "x": 130,
+        "y": 160,
+        "wires": [
+            [
+                "sender-simple"
+            ]
+        ]
+    },
+    {
+        "id": "sender-simple",
+        "type": "nmos-is07-sender",
+        "z": "example-flow-tab",
+        "name": "Simple Value Sender",
+        "registry": "nmos-registry-config",
+        "mqttBroker": "mqtt://localhost:1883",
+        "deviceLabel": "Node-RED Simple Sender",
+        "deviceDescription": "Simple value IS-07 sender",
+        "sourceLabel": "Simple Source",
+        "flowLabel": "Simple Flow",
+        "senderLabel": "Simple Sender",
+        "eventType": "object",
+        "mqttQos": "0",
+        "targetReceiverId": "",
+        "x": 390,
+        "y": 120,
+        "wires": [
+            [
+                "debug-simple"
+            ]
+        ]
+    },
+    {
+        "id": "debug-simple",
+        "type": "debug",
+        "z": "example-flow-tab",
+        "name": "Simple Output",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "x": 600,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "comment-2",
+        "type": "comment",
+        "z": "example-flow-tab",
+        "name": "IS-07 Sender - Path/Value Examples",
+        "info": "These examples send structured events with property paths",
+        "x": 200,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "inject-button",
+        "type": "inject",
+        "z": "example-flow-tab",
+        "name": "Button Press",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"path\":\"button/1\",\"value\":true}",
+        "payloadType": "json",
+        "x": 130,
+        "y": 260,
+        "wires": [
+            [
+                "sender-structured"
+            ]
+        ]
+    },
+    {
+        "id": "inject-gpio",
+        "type": "inject",
+        "z": "example-flow-tab",
+        "name": "GPIO State",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"path\":\"gpio/input/1\",\"pre\":false,\"post\":true}",
+        "payloadType": "json",
+        "x": 130,
+        "y": 300,
+        "wires": [
+            [
+                "sender-structured"
+            ]
+        ]
+    },
+    {
+        "id": "sender-structured",
+        "type": "nmos-is07-sender",
+        "z": "example-flow-tab",
+        "name": "Structured Event Sender",
+        "registry": "nmos-registry-config",
+        "mqttBroker": "mqtt://localhost:1883",
+        "deviceLabel": "Node-RED Structured Sender",
+        "deviceDescription": "Structured event IS-07 sender",
+        "sourceLabel": "Structured Source",
+        "flowLabel": "Structured Flow",
+        "senderLabel": "Structured Sender",
+        "eventType": "object",
+        "mqttQos": "1",
+        "targetReceiverId": "",
+        "x": 410,
+        "y": 280,
+        "wires": [
+            [
+                "debug-structured"
+            ]
+        ]
+    },
+    {
+        "id": "debug-structured",
+        "type": "debug",
+        "z": "example-flow-tab",
+        "name": "Structured Output",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "x": 620,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "comment-3",
+        "type": "comment",
+        "z": "example-flow-tab",
+        "name": "IS-07 Sender - Tally Control Example",
+        "info": "Broadcast tally control using IS-07 sender",
+        "x": 190,
+        "y": 360,
+        "wires": []
+    },
+    {
+        "id": "inject-tally-red-on",
+        "type": "inject",
+        "z": "example-flow-tab",
+        "name": "Red Tally ON",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"path\":\"tally/red\",\"value\":true}",
+        "payloadType": "json",
+        "x": 140,
+        "y": 400,
+        "wires": [
+            [
+                "sender-tally"
+            ]
+        ]
+    },
+    {
+        "id": "inject-tally-red-off",
+        "type": "inject",
+        "z": "example-flow-tab",
+        "name": "Red Tally OFF",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"path\":\"tally/red\",\"value\":false}",
+        "payloadType": "json",
+        "x": 140,
+        "y": 440,
+        "wires": [
+            [
+                "sender-tally"
+            ]
+        ]
+    },
+    {
+        "id": "inject-tally-green-on",
+        "type": "inject",
+        "z": "example-flow-tab",
+        "name": "Green Tally ON",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"path\":\"tally/green\",\"value\":true}",
+        "payloadType": "json",
+        "x": 150,
+        "y": 480,
+        "wires": [
+            [
+                "sender-tally"
+            ]
+        ]
+    },
+    {
+        "id": "sender-tally",
+        "type": "nmos-is07-sender",
+        "z": "example-flow-tab",
+        "name": "Tally Sender",
+        "registry": "nmos-registry-config",
+        "mqttBroker": "mqtt://localhost:1883",
+        "deviceLabel": "Node-RED Tally Sender",
+        "deviceDescription": "Broadcast tally IS-07 sender",
+        "sourceLabel": "Tally Source",
+        "flowLabel": "Tally Flow",
+        "senderLabel": "Tally Sender",
+        "eventType": "boolean",
+        "mqttQos": "2",
+        "targetReceiverId": "",
+        "x": 380,
+        "y": 440,
+        "wires": [
+            [
+                "debug-tally"
+            ]
+        ]
+    },
+    {
+        "id": "debug-tally",
+        "type": "debug",
+        "z": "example-flow-tab",
+        "name": "Tally Output",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "x": 590,
+        "y": 440,
+        "wires": []
+    },
+    {
+        "id": "comment-4",
+        "type": "comment",
+        "z": "example-flow-tab",
+        "name": "IS-07 Sender - Control Actions",
+        "info": "Management actions for the sender node",
+        "x": 180,
+        "y": 540,
+        "wires": []
+    },
+    {
+        "id": "inject-get-state",
+        "type": "inject",
+        "z": "example-flow-tab",
+        "name": "Get State",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"action\":\"get_state\"}",
+        "payloadType": "json",
+        "x": 120,
+        "y": 580,
+        "wires": [
+            [
+                "sender-simple"
+            ]
+        ]
+    },
+    {
+        "id": "inject-reregister",
+        "type": "inject",
+        "z": "example-flow-tab",
+        "name": "Re-register",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"action\":\"re-register\"}",
+        "payloadType": "json",
+        "x": 130,
+        "y": 620,
+        "wires": [
+            [
+                "sender-simple"
+            ]
+        ]
+    },
+    {
+        "id": "comment-5",
+        "type": "comment",
+        "z": "example-flow-tab",
+        "name": "IS-07 Sender - Multi-Property Example",
+        "info": "Send multiple properties in a single grain",
+        "x": 200,
+        "y": 680,
+        "wires": []
+    },
+    {
+        "id": "inject-multi",
+        "type": "inject",
+        "z": "example-flow-tab",
+        "name": "Multi-Property Event",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "[{\"path\":\"tally/red\",\"pre\":false,\"post\":true},{\"path\":\"tally/green\",\"pre\":true,\"post\":false},{\"path\":\"status/online\",\"pre\":null,\"post\":true}]",
+        "payloadType": "json",
+        "x": 160,
+        "y": 720,
+        "wires": [
+            [
+                "sender-multi"
+            ]
+        ]
+    },
+    {
+        "id": "sender-multi",
+        "type": "nmos-is07-sender",
+        "z": "example-flow-tab",
+        "name": "Multi-Property Sender",
+        "registry": "nmos-registry-config",
+        "mqttBroker": "mqtt://localhost:1883",
+        "deviceLabel": "Node-RED Multi Sender",
+        "deviceDescription": "Multi-property IS-07 sender",
+        "sourceLabel": "Multi Source",
+        "flowLabel": "Multi Flow",
+        "senderLabel": "Multi Sender",
+        "eventType": "object",
+        "mqttQos": "0",
+        "targetReceiverId": "",
+        "x": 410,
+        "y": 720,
+        "wires": [
+            [
+                "debug-multi"
+            ]
+        ]
+    },
+    {
+        "id": "debug-multi",
+        "type": "debug",
+        "z": "example-flow-tab",
+        "name": "Multi Output",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "x": 600,
+        "y": 720,
+        "wires": []
+    }
+]
