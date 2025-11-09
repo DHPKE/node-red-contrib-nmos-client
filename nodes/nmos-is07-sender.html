@@ -1,0 +1,365 @@
+<script type="text/javascript">
+RED.nodes.registerType('nmos-is07-sender',{
+    category: 'NMOS',
+    color: '#CBC3E3',
+    defaults: {
+        name: {value:""},
+        registry: {value:"", type:"nmos-config", required:true},
+        transportType: {value:"mqtt", required:true},
+        mqttBroker: {value:"mqtt://localhost:1883"},
+        mqttQos: {value:0},
+        wsPort: {value:3002},
+        httpPort: {value:1880},
+        deviceLabel: {value:"Node-RED IS-07 Sender"},
+        deviceDescription: {value:"IS-07 Event Sender"},
+        senderLabel: {value:"Event Sender"},
+        sourceLabel: {value:"Event Source"},
+        flowLabel: {value:"Event Flow"},
+        eventType: {value:"boolean"},
+        targetReceiverId: {value:""},
+        nodeId: {value:""},
+        deviceId: {value:""},
+        sourceId: {value:""},
+        flowId: {value:""},
+        senderId: {value:""}
+    },
+    inputs:1,
+    outputs:0,
+    icon: "font-awesome/fa-paper-plane",
+    label: function() {
+        return this.name || this.deviceLabel || "IS-07 Sender";
+    },
+    oneditprepare: function() {
+        // Generate UUIDs if not present
+        if (!this.nodeId) this.nodeId = generateUUID();
+        if (!this.deviceId) this.deviceId = generateUUID();
+        if (!this.sourceId) this.sourceId = generateUUID();
+        if (!this.flowId) this.flowId = generateUUID();
+        if (!this.senderId) this.senderId = generateUUID();
+        
+        $("#node-input-nodeId").val(this.nodeId);
+        $("#node-input-deviceId").val(this.deviceId);
+        $("#node-input-sourceId").val(this.sourceId);
+        $("#node-input-flowId").val(this.flowId);
+        $("#node-input-senderId").val(this.senderId);
+        
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+        
+        $("#node-input-regenerate-ids").click(function() {
+            $("#node-input-nodeId").val(generateUUID());
+            $("#node-input-deviceId").val(generateUUID());
+            $("#node-input-sourceId").val(generateUUID());
+            $("#node-input-flowId").val(generateUUID());
+            $("#node-input-senderId").val(generateUUID());
+        });
+
+        // Handle transport type visibility
+        function updateTransportFields() {
+            var transportType = $("#node-input-transportType").val();
+            
+            if (transportType === 'mqtt') {
+                $("#mqtt-config").show();
+                $("#ws-config").hide();
+            } else if (transportType === 'websocket') {
+                $("#mqtt-config").hide();
+                $("#ws-config").show();
+            } else if (transportType === 'both') {
+                $("#mqtt-config").show();
+                $("#ws-config").show();
+            }
+        }
+
+        $("#node-input-transportType").change(updateTransportFields);
+        updateTransportFields();
+    }
+});
+</script>
+
+<script type="text/html" data-template-name="nmos-is07-sender">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-registry"><i class="fa fa-server"></i> Registry</label>
+        <input type="text" id="node-input-registry">
+    </div>
+    
+    <hr/>
+    <h4>Transport Configuration</h4>
+    
+    <div class="form-row">
+        <label for="node-input-transportType"><i class="fa fa-exchange"></i> Transport Type</label>
+        <select id="node-input-transportType">
+            <option value="mqtt">MQTT Only</option>
+            <option value="websocket">WebSocket Only</option>
+            <option value="both">Both (MQTT + WebSocket)</option>
+        </select>
+    </div>
+
+    <div id="mqtt-config">
+        <div class="form-row">
+            <label for="node-input-mqttBroker"><i class="fa fa-exchange"></i> MQTT Broker</label>
+            <input type="text" id="node-input-mqttBroker" placeholder="mqtt://localhost:1883">
+        </div>
+        <div class="form-row">
+            <label for="node-input-mqttQos"><i class="fa fa-certificate"></i> MQTT QoS</label>
+            <select id="node-input-mqttQos">
+                <option value="0">0 - At most once</option>
+                <option value="1">1 - At least once</option>
+                <option value="2">2 - Exactly once</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="ws-config">
+        <div class="form-row">
+            <label for="node-input-wsPort"><i class="fa fa-plug"></i> WebSocket Port</label>
+            <input type="number" id="node-input-wsPort" placeholder="3002">
+        </div>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-httpPort"><i class="fa fa-globe"></i> HTTP Port</label>
+        <input type="number" id="node-input-httpPort" placeholder="1880">
+    </div>
+    
+    <hr/>
+    <h4>Device Configuration</h4>
+    
+    <div class="form-row">
+        <label for="node-input-deviceLabel"><i class="fa fa-tag"></i> Device Label</label>
+        <input type="text" id="node-input-deviceLabel">
+    </div>
+    <div class="form-row">
+        <label for="node-input-deviceDescription"><i class="fa fa-info"></i> Description</label>
+        <input type="text" id="node-input-deviceDescription">
+    </div>
+    <div class="form-row">
+        <label for="node-input-senderLabel"><i class="fa fa-tag"></i> Sender Label</label>
+        <input type="text" id="node-input-senderLabel">
+    </div>
+    <div class="form-row">
+        <label for="node-input-sourceLabel"><i class="fa fa-tag"></i> Source Label</label>
+        <input type="text" id="node-input-sourceLabel">
+    </div>
+    <div class="form-row">
+        <label for="node-input-flowLabel"><i class="fa fa-tag"></i> Flow Label</label>
+        <input type="text" id="node-input-flowLabel">
+    </div>
+    
+    <hr/>
+    <h4>Event Configuration</h4>
+    
+    <div class="form-row">
+        <label for="node-input-eventType"><i class="fa fa-tag"></i> Event Type</label>
+        <select id="node-input-eventType">
+            <option value="boolean">Boolean</option>
+            <option value="string">String</option>
+            <option value="number">Number</option>
+            <option value="object">Object</option>
+        </select>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-targetReceiverId"><i class="fa fa-bullseye"></i> Target Receiver ID</label>
+        <input type="text" id="node-input-targetReceiverId" placeholder="Optional receiver ID for routing">
+    </div>
+    
+    <hr/>
+    <h4>Resource IDs</h4>
+    
+    <div class="form-row">
+        <label for="node-input-nodeId"><i class="fa fa-fingerprint"></i> Node ID</label>
+        <input type="text" id="node-input-nodeId">
+    </div>
+    <div class="form-row">
+        <label for="node-input-deviceId"><i class="fa fa-fingerprint"></i> Device ID</label>
+        <input type="text" id="node-input-deviceId">
+    </div>
+    <div class="form-row">
+        <label for="node-input-sourceId"><i class="fa fa-fingerprint"></i> Source ID</label>
+        <input type="text" id="node-input-sourceId">
+    </div>
+    <div class="form-row">
+        <label for="node-input-flowId"><i class="fa fa-fingerprint"></i> Flow ID</label>
+        <input type="text" id="node-input-flowId">
+    </div>
+    <div class="form-row">
+        <label for="node-input-senderId"><i class="fa fa-fingerprint"></i> Sender ID</label>
+        <input type="text" id="node-input-senderId">
+    </div>
+    <div class="form-row">
+        <label>&nbsp;</label>
+        <button type="button" id="node-input-regenerate-ids" class="red-ui-button">
+            <i class="fa fa-refresh"></i> Regenerate All IDs
+        </button>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="nmos-is07-sender">
+    <p>NMOS IS-07 Event & Tally Sender with full MQTT and WebSocket transport support.</p>
+    
+    <h3>Features</h3>
+    <ul>
+        <li>Complete IS-04 registration (Node, Device, Source, Flow, Sender)</li>
+        <li>Selectable transport: MQTT, WebSocket, or both simultaneously</li>
+        <li>Full IS-05 Connection API v1.1 support</li>
+        <li>IS-07 manifest endpoint</li>
+        <li>Publishes events as proper IS-07 grains</li>
+        <li>Automatic heartbeat and re-registration</li>
+    </ul>
+
+    <h3>Transport Types</h3>
+    
+    <h4>MQTT Transport</h4>
+    <p>Publishes events to configurable MQTT broker:</p>
+    <ul>
+        <li>Topic: <code>x-nmos/events/1.0/{source_id}/{event_type}</code></li>
+        <li>Configurable QoS (0, 1, or 2)</li>
+        <li>Automatic reconnection</li>
+    </ul>
+
+    <h4>WebSocket Transport</h4>
+    <p>Built-in WebSocket server for direct client connections:</p>
+    <ul>
+        <li>Endpoint: <code>ws://{ip}:{port}/x-nmos/events/1.0/{source_id}/{event_type}</code></li>
+        <li>Broadcasts to all connected clients</li>
+        <li>Configurable port (default: 3002)</li>
+    </ul>
+
+    <h4>Both Transports</h4>
+    <p>Enables both MQTT and WebSocket simultaneously for maximum compatibility.</p>
+
+    <h3>IS-05 Connection API</h3>
+    <p>Provides complete IS-05 Connection API v1.1 endpoints:</p>
+    <ul>
+        <li><code>GET /x-nmos/connection/v1.1/single/senders/{senderId}/staged</code></li>
+        <li><code>PATCH /x-nmos/connection/v1.1/single/senders/{senderId}/staged</code></li>
+        <li><code>GET /x-nmos/connection/v1.1/single/senders/{senderId}/active</code></li>
+        <li><code>GET /x-nmos/connection/v1.1/single/senders/{senderId}/constraints</code></li>
+        <li><code>GET /x-nmos/connection/v1.1/single/senders/{senderId}/transporttype</code></li>
+    </ul>
+
+    <h3>IS-07 Manifest</h3>
+    <p>Serves manifest at: <code>/x-nmos/events/sources/{source_id}/manifest</code></p>
+    <p>The manifest describes available event types and state structure.</p>
+
+    <h3>Input Messages</h3>
+    
+    <h4>Publish Event (Default)</h4>
+    <p>Send any payload to publish it as an IS-07 grain:</p>
+    <pre>msg.payload = { command: "start", value: true };</pre>
+
+    <h4>Get State</h4>
+    <p>Retrieve node state and connection information:</p>
+    <pre>msg.payload = { action: "get_state" };</pre>
+    <p>Returns:</p>
+    <ul>
+        <li>Resource IDs (node, device, source, flow, sender)</li>
+        <li>Registration status</li>
+        <li>Transport connection status</li>
+        <li>MQTT/WebSocket details</li>
+        <li>Endpoint URLs</li>
+    </ul>
+
+    <h4>Re-register</h4>
+    <p>Force re-registration with NMOS registry:</p>
+    <pre>msg.payload = { action: "re-register" };</pre>
+
+    <h3>Event Types</h3>
+    <ul>
+        <li><strong>boolean</strong> - Boolean values (true/false)</li>
+        <li><strong>string</strong> - Text values</li>
+        <li><strong>number</strong> - Numeric values</li>
+        <li><strong>object</strong> - Complex JSON objects</li>
+    </ul>
+
+    <h3>IS-07 Grain Structure</h3>
+    <p>All events are wrapped in proper IS-07 grain format:</p>
+    <pre>{
+  "grain_type": "event",
+  "source_id": "{source_id}",
+  "flow_id": "{flow_id}",
+  "origin_timestamp": "1234567890:000000000",
+  "sync_timestamp": "1234567890:000000000",
+  "creation_timestamp": "1234567890:000000000",
+  "rate": { "numerator": 0, "denominator": 1 },
+  "duration": { "numerator": 0, "denominator": 1 },
+  "grain": {
+    "type": "urn:x-nmos:format:data.event",
+    "topic": "x-nmos/events/1.0/{source_id}/{event_type}",
+    "data": [ /* your payload */ ]
+  }
+}</pre>
+
+    <h3>Configuration</h3>
+    
+    <h4>Required Fields</h4>
+    <ul>
+        <li><strong>Registry</strong> - NMOS config node for registry connection</li>
+        <li><strong>Transport Type</strong> - Select mqtt, websocket, or both</li>
+        <li><strong>MQTT Broker</strong> - Required when MQTT transport is selected</li>
+        <li><strong>WebSocket Port</strong> - Required when WebSocket transport is selected</li>
+    </ul>
+
+    <h4>Optional Fields</h4>
+    <ul>
+        <li><strong>HTTP Port</strong> - Port for Connection API and manifest (default: 1880)</li>
+        <li><strong>Target Receiver ID</strong> - Optional receiver for directed routing</li>
+        <li><strong>Device/Source/Flow Labels</strong> - Human-readable labels</li>
+        <li><strong>Resource IDs</strong> - Auto-generated UUIDs (can regenerate)</li>
+    </ul>
+
+    <h3>Status Indicators</h3>
+    <ul>
+        <li><strong>Red ring</strong> - Configuration error or disconnected</li>
+        <li><strong>Yellow dot</strong> - Partial transport ready or not registered</li>
+        <li><strong>Green dot</strong> - Fully operational</li>
+        <li><strong>Blue dot</strong> - Publishing event</li>
+    </ul>
+
+    <h3>Examples</h3>
+    
+    <h4>Simple Event Publishing</h4>
+    <pre>// Inject node with payload
+msg.payload = { state: "active", level: 75 };
+return msg;</pre>
+
+    <h4>Boolean Tally</h4>
+    <pre>// Red tally on
+msg.payload = { path: "tally/red", value: true };
+return msg;</pre>
+
+    <h4>Integration with Receivers</h4>
+    <p>This sender is compatible with:</p>
+    <ul>
+        <li>NMOS IS-07 Endpoint node (MQTT)</li>
+        <li>NMOS IS-07 Events node (MQTT)</li>
+        <li>Any WebSocket client connecting to the WebSocket endpoint</li>
+        <li>RIEDEL Smartpanel and other broadcast control systems</li>
+    </ul>
+
+    <h3>Troubleshooting</h3>
+    
+    <h4>Port Already in Use</h4>
+    <p>Change the WebSocket or HTTP port if already in use by another application.</p>
+
+    <h4>MQTT Connection Failed</h4>
+    <p>Verify MQTT broker URL and ensure broker is running and accessible.</p>
+
+    <h4>Registration Failed</h4>
+    <p>Check registry configuration and ensure registry is accessible. Use "re-register" action to retry.</p>
+
+    <h3>References</h3>
+    <ul>
+        <li><a href="https://specs.amwa.tv/is-04/">AMWA IS-04: Discovery and Registration</a></li>
+        <li><a href="https://specs.amwa.tv/is-05/">AMWA IS-05: Connection Management</a></li>
+        <li><a href="https://specs.amwa.tv/is-07/">AMWA IS-07: Event & Tally</a></li>
+    </ul>
+</script>
