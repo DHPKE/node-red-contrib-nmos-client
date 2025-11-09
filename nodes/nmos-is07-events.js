@@ -29,10 +29,12 @@ module.exports = function(RED) {
         node.deviceId = config.deviceId || uuidv4();
         node.sourceId = config.sourceId || uuidv4();
         node.flowId = config.flowId || uuidv4();
+        node.senderId = config.senderId || uuidv4();
 
         let mqttClient = null;
         let registrationComplete = false;
         let heartbeatInterval = null;
+        let httpEndpoint = null;
 
         // State management
         const propertyState = new Map();
@@ -102,6 +104,36 @@ module.exports = function(RED) {
         };
 
         // ============================================================================
+        // IS-07 Manifest Builder
+        // ============================================================================
+
+        /**
+         * Build IS-07 manifest according to NMOS IS-07 specification
+         * Returns manifest describing event types and data schemas
+         */
+        const buildManifest = () => {
+            // Map event type to proper NMOS URN
+            const eventTypeURN = `urn:x-nmos:event_type:${node.eventType}/v1.0`;
+            
+            return {
+                id: node.sourceId,
+                label: node.sourceLabel,
+                description: `IS-07 Event Source (${node.eventType})`,
+                tags: {},
+                state: {
+                    event_type: eventTypeURN,
+                    description: `State type for ${node.eventType} events`
+                },
+                events: [
+                    {
+                        event_type: eventTypeURN,
+                        description: `Event type for ${node.eventType} events`
+                    }
+                ]
+            };
+        };
+
+        // ============================================================================
         // IS-04 Resource Builders (FIXED)
         // ============================================================================
 
@@ -150,7 +182,7 @@ module.exports = function(RED) {
                 description: node.deviceDescription,
                 type: 'urn:x-nmos:device:generic',
                 node_id: node.nodeId,
-                senders: [],
+                senders: [node.senderId],
                 receivers: [],
                 tags: {}
             };
@@ -209,6 +241,30 @@ module.exports = function(RED) {
 
             // Add event_type to tags
             resource.tags['urn:x-nmos:tag:is07/event_type'] = [node.eventType];
+
+            return resource;
+        };
+
+        const buildSenderResource = () => {
+            const httpPort = node.registry.httpPort || 1880;
+            const manifestPath = `/x-nmos/events/sources/${node.sourceId}/manifest`;
+            const manifestHref = `http://${localIP}:${httpPort}${manifestPath}`;
+
+            const resource = {
+                id: node.senderId,
+                version: getTAITimestamp(),
+                label: `${node.sourceLabel} Sender`,
+                description: `IS-07 Event Sender (${node.eventType})`,
+                flow_id: node.flowId,
+                transport: 'urn:x-nmos:transport:mqtt',
+                device_id: node.deviceId,
+                manifest_href: manifestHref,
+                interface_bindings: [ifaceName],
+                subscription: {
+                    receiver_id: null,
+                    active: false
+                }
+            };
 
             return resource;
         };
@@ -290,6 +346,13 @@ module.exports = function(RED) {
                 const ok4 = await registerResource('flow', buildFlowResource());
                 if (!ok4) {
                     throw new Error('Flow registration failed');
+                }
+                await new Promise(r => setTimeout(r, 300));
+
+                // Step 5: Register Sender
+                const ok5 = await registerResource('sender', buildSenderResource());
+                if (!ok5) {
+                    throw new Error('Sender registration failed');
                 }
 
                 registrationComplete = true;
@@ -517,6 +580,7 @@ module.exports = function(RED) {
                             deviceId: node.deviceId,
                             sourceId: node.sourceId,
                             flowId: node.flowId,
+                            senderId: node.senderId,
                             registered: registrationComplete,
                             mqttConnected: mqttClient && mqttClient.connected,
                             mqttBroker: node.mqttBroker,
@@ -524,7 +588,8 @@ module.exports = function(RED) {
                             subscribeTopic: getSubscribePattern(),
                             eventType: node.eventType,
                             properties: Object.fromEntries(propertyState),
-                            registrationUrl: getRegistrationApiUrl()
+                            registrationUrl: getRegistrationApiUrl(),
+                            manifestUrl: `http://${localIP}:${node.registry.httpPort || 1880}/x-nmos/events/sources/${node.sourceId}/manifest`
                         };
                         node.send(msg);
                         break;
@@ -572,8 +637,29 @@ module.exports = function(RED) {
         });
 
         // ============================================================================
+        // HTTP Manifest Endpoint
+        // ============================================================================
+
+        function setupManifestEndpoint() {
+            const manifestPath = `/x-nmos/events/sources/${node.sourceId}/manifest`;
+            
+            httpEndpoint = function(req, res) {
+                node.log(`◄ Manifest request from ${req.ip}`);
+                const manifest = buildManifest();
+                res.set('Content-Type', 'application/json');
+                res.status(200).json(manifest);
+            };
+
+            RED.httpNode.get(manifestPath, httpEndpoint);
+            node.log(`✓ Manifest endpoint registered: ${manifestPath}`);
+        }
+
+        // ============================================================================
         // Lifecycle
         // ============================================================================
+
+        // Setup HTTP manifest endpoint
+        setupManifestEndpoint();
 
         // Start MQTT first
         setupMQTTClient();
@@ -600,10 +686,24 @@ module.exports = function(RED) {
                 mqttClient.end(true);
             }
 
+            // Clean up HTTP endpoint
+            if (httpEndpoint) {
+                const manifestPath = `/x-nmos/events/sources/${node.sourceId}/manifest`;
+                const routes = RED.httpNode._router.stack;
+                for (let i = routes.length - 1; i >= 0; i--) {
+                    if (routes[i].route && routes[i].route.path === manifestPath) {
+                        routes.splice(i, 1);
+                        node.log(`✓ Manifest endpoint removed: ${manifestPath}`);
+                        break;
+                    }
+                }
+            }
+
             (async () => {
                 const registrationApiUrl = getRegistrationApiUrl();
                 const headers = node.registry.getAuthHeaders();
                 try {
+                    await axios.delete(`${registrationApiUrl}/resource/senders/${node.senderId}`, { headers }).catch(() => {});
                     await axios.delete(`${registrationApiUrl}/resource/flows/${node.flowId}`, { headers }).catch(() => {});
                     await axios.delete(`${registrationApiUrl}/resource/sources/${node.sourceId}`, { headers }).catch(() => {});
                     await axios.delete(`${registrationApiUrl}/resource/devices/${node.deviceId}`, { headers }).catch(() => {});
