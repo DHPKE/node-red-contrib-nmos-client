@@ -107,10 +107,12 @@ module.exports = function(RED) {
         /**
          * Get TAI timestamp (International Atomic Time)
          * Format: seconds:nanoseconds
+         * Note: TAI offset was 37 seconds as of January 2017. This may need updating
+         * when new leap seconds are added. See: https://www.ietf.org/timezones/data/leap-seconds.list
          */
         const getTAITimestamp = () => {
             const now = Date.now() / 1000;
-            const taiSeconds = Math.floor(now) + 37; // TAI = UTC + 37 seconds
+            const taiSeconds = Math.floor(now) + 37; // TAI = UTC + 37 seconds (as of 2017)
             const taiNanoseconds = Math.floor((now % 1) * 1e9);
             return `${taiSeconds}:${String(taiNanoseconds).padStart(9, '0')}`;
         };
