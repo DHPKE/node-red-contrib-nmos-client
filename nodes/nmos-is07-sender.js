@@ -288,24 +288,24 @@ module.exports = function(RED) {
         // IS-07 Manifest Builder
         // ============================================================================
 
-        const buildManifest = () => {
-            const eventTypeURN = getEventTypeURN();
-            
-            return {
-                id: node.sourceId,
-                label: node.sourceLabel,
-                description: `IS-07 Event Source (${node.eventType})`,
-                tags: {},
-                state: {
-                    event_type: eventTypeURN,
-                    description: `State type: ${node.eventType}`
-                },
-                events: [{
-                    event_type: eventTypeURN,
-                    description: `Event type: ${node.eventType}`
-                }]
-            };
-        };
+        function buildManifest() {
+    const eventTypeUrn = `urn:x-nmos:event_type:${node.eventType}/v1.0`;
+    
+    return {
+        id: node.sourceId,
+        label: node.sourceLabel,
+        description: `IS-07 Event Source - ${node.eventType}`,
+        tags: {},
+        state: {
+            event_type: eventTypeUrn,
+            description: `State type`
+        },
+        events: [{
+            event_type: eventTypeUrn,
+            description: `Event type`
+        }]
+    };
+}
 
         // ============================================================================
         // IS-05 Connection API State
