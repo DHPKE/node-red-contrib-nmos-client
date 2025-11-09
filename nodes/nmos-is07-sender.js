@@ -748,16 +748,26 @@ module.exports = function(RED) {
         // ============================================================================
 
         function setupManifestEndpoint() {
-            const manifestUrl = `/x-nmos/events/sources/${node.sourceId}/manifest`;
-
-            httpEndpoints.push(
-                RED.httpNode.get(manifestUrl, (req, res) => {
-                    res.json(buildManifest());
-                })
-            );
-
-            node.log(`✓ Manifest endpoint: http://${localIP}:${node.httpPort}${manifestUrl}`);
+    const manifestPath = `/x-nmos/events/sources/${node.sourceId}/manifest`;
+    
+    RED.httpNode.get(manifestPath, (req, res) => {
+        // Add CORS headers
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Content-Type', 'application/json');
+        
+        try {
+            const manifest = buildManifest();
+            res.status(200).json(manifest);
+        } catch (err) {
+            node.error(`Manifest error: ${err.message}`);
+            res.status(500).json({ error: err.message });
         }
+    });
+    
+    node.log(`✓ Manifest at http://localhost:${node.httpPort}${manifestPath}`);
+}
+
+    
 
         // ============================================================================
         // Event Publishing
