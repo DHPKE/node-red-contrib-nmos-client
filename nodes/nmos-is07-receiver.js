@@ -205,37 +205,46 @@ module.exports = function(RED) {
         };
 
         const buildReceiverResource = () => {
-    const { name: ifaceName } = getNetworkInfo();
-    
-    let transport;
-    if (node.transportType === 'mqtt') {
-        transport = 'urn:x-nmos:transport:mqtt';
-    } else if (node.transportType === 'websocket') {
-        transport = 'urn:x-nmos:transport:websocket';
-    } else {
-        transport = 'urn:x-nmos:transport:mqtt';
-    }
-    
-    const resource = {
-        id: node.receiverId,
-        version: getTAITimestamp(),
-        label: node.receiverLabel,
-        description: `IS-07 Event Receiver`,
-        format: 'urn:x-nmos:format:data',
-        caps: {
-            media_types: ['application/json']
-        },
-        tags: {},
-        device_id: node.deviceId,
-        transport: transport,  // ← CRITICAL: Must be present!
-        interface_bindings: [ifaceName],
-        subscription: {
-            sender_id: null,
-            active: false
-        }
-    };
-    return resource;
-};
+            const { name: ifaceName } = getNetworkInfo();
+            
+            // Determine transport URN based on configuration
+            let transport;
+            if (node.transportType === 'mqtt') {
+                transport = 'urn:x-nmos:transport:mqtt';
+            } else if (node.transportType === 'websocket') {
+                transport = 'urn:x-nmos:transport:websocket';
+            } else if (node.transportType === 'both') {
+                transport = 'urn:x-nmos:transport:mqtt'; // Primary transport for dual mode
+            } else {
+                transport = 'urn:x-nmos:transport:mqtt'; // Fallback default
+            }
+            
+            const resource = {
+                id: node.receiverId,
+                version: getTAITimestamp(),
+                label: node.receiverLabel || 'IS-07 Receiver',
+                description: `IS-07 Event Receiver - ${node.receiverLabel || 'Event Subscriber'}`,
+                format: 'urn:x-nmos:format:data',
+                caps: {
+                    media_types: ['application/json']
+                },
+                tags: {
+                    'urn:x-nmos:tag:grouphint/v1.0': [node.deviceLabel || 'IS-07 Device']
+                },
+                device_id: node.deviceId,
+                transport: transport,  // REQUIRED: Must be present for registry validation
+                interface_bindings: [ifaceName],
+                subscription: {
+                    sender_id: connectionState.active.sender_id || null,
+                    active: connectionState.active.master_enable || false
+                }
+            };
+            
+            // Validation logging
+            node.log(`✓ Receiver resource built with transport: ${transport}`);
+            
+            return resource;
+        };
 
         // ============================================================================
         // IS-04 Registration
@@ -889,21 +898,56 @@ module.exports = function(RED) {
         node.on('close', (done) => {
             node.log('Shutting down IS-07 Receiver...');
             
+            // Stop heartbeat
             if (heartbeatInterval) {
                 clearInterval(heartbeatInterval);
             }
             
-            // Unsubscribe
+            // Unsubscribe from sources
             unsubscribeFromSource();
             
+            // Close MQTT client
             if (mqttClient) {
                 mqttClient.end(true);
             }
             
-            // Note: HTTP routes are managed by Node-RED, cleanup handled automatically
+            // Remove HTTP endpoints (Connection API)
+            const connectionApiVersion = 'v1.1';
+            const routes = [
+                `/x-nmos/connection/${connectionApiVersion}/`,
+                `/x-nmos/connection/${connectionApiVersion}/single/`,
+                `/x-nmos/connection/${connectionApiVersion}/single/receivers/`,
+                `/x-nmos/connection/${connectionApiVersion}/single/receivers/${node.receiverId}/`,
+                `/x-nmos/connection/${connectionApiVersion}/single/receivers/${node.receiverId}/staged/`,
+                `/x-nmos/connection/${connectionApiVersion}/single/receivers/${node.receiverId}/active/`,
+                `/x-nmos/connection/${connectionApiVersion}/single/receivers/${node.receiverId}/constraints/`,
+                `/x-nmos/connection/${connectionApiVersion}/single/receivers/${node.receiverId}/transporttype/`
+            ];
             
-            node.log('✓ Shutdown complete');
-            done();
+            routes.forEach(route => {
+                try {
+                    RED.httpNode._router.stack = RED.httpNode._router.stack.filter(
+                        r => !(r.route && r.route.path === route)
+                    );
+                } catch (err) {
+                    // Ignore cleanup errors
+                }
+            });
+            
+            // Unregister IS-04 resources (reverse order)
+            (async () => {
+                const registrationApiUrl = getRegistrationApiUrl();
+                const headers = node.registry.getAuthHeaders();
+                try {
+                    await axios.delete(`${registrationApiUrl}/resource/receivers/${node.receiverId}`, { headers }).catch(() => {});
+                    await axios.delete(`${registrationApiUrl}/resource/devices/${node.deviceId}`, { headers }).catch(() => {});
+                    await axios.delete(`${registrationApiUrl}/resource/nodes/${node.nodeId}`, { headers }).catch(() => {});
+                    node.log('✓ Resources deregistered');
+                } catch (err) {
+                    node.warn(`Cleanup error: ${err.message}`);
+                }
+                done();
+            })();
         });
     }
 
