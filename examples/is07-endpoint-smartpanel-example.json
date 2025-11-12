@@ -553,5 +553,245 @@
         "info": "Multi-camera setup with centralized tally management and production state tracking.",
         "x": 190,
         "y": 40
+    },
+    {
+        "id": "example_flow_5",
+        "type": "tab",
+        "label": "IS-07 Endpoint - LCD Display Writing",
+        "disabled": false,
+        "info": "# Smartpanel LCD Display Writing Example\n\nDemonstrates writing text to the Riedel Smartpanel LCD display.\n\n## Features:\n- Write text to general LCD display\n- Write text to specific LCD lines\n- Dynamic LCD updates based on system state\n- Clear LCD display"
+    },
+    {
+        "id": "endpoint_lcd",
+        "type": "nmos-is07-endpoint",
+        "z": "example_flow_5",
+        "name": "Camera 1 LCD Control",
+        "registry": "",
+        "mqttBroker": "mqtt://localhost:1883",
+        "deviceLabel": "Camera 1 Smartpanel",
+        "deviceDescription": "Camera 1 control panel with LCD",
+        "receiverLabel": "Camera 1 Receiver",
+        "subscriptionFilter": "x-nmos/events/1.0/+/+",
+        "mqttQos": 1,
+        "sendStatusUpdates": true,
+        "parseSmartpanel": true,
+        "statusSourceId": "",
+        "nodeId": "",
+        "deviceId": "",
+        "receiverId": "",
+        "x": 340,
+        "y": 160
+    },
+    {
+        "id": "inject_lcd_general",
+        "type": "inject",
+        "z": "example_flow_5",
+        "name": "Write General LCD",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"action\":\"write_lcd\",\"text\":\"Camera 1 LIVE\"}",
+        "payloadType": "json",
+        "x": 140,
+        "y": 100
+    },
+    {
+        "id": "inject_lcd_line1",
+        "type": "inject",
+        "z": "example_flow_5",
+        "name": "Write LCD Line 1",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"action\":\"write_lcd\",\"text\":\"Program Feed\",\"line\":1}",
+        "payloadType": "json",
+        "x": 140,
+        "y": 140
+    },
+    {
+        "id": "inject_lcd_line2",
+        "type": "inject",
+        "z": "example_flow_5",
+        "name": "Write LCD Line 2",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"action\":\"write_lcd\",\"text\":\"Ready\",\"line\":2}",
+        "payloadType": "json",
+        "x": 140,
+        "y": 180
+    },
+    {
+        "id": "inject_lcd_clear",
+        "type": "inject",
+        "z": "example_flow_5",
+        "name": "Clear LCD",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"action\":\"write_lcd\",\"text\":\"\"}",
+        "payloadType": "json",
+        "x": 130,
+        "y": 220
+    },
+    {
+        "id": "debug_lcd_response",
+        "type": "debug",
+        "z": "example_flow_5",
+        "name": "LCD Response",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 570,
+        "y": 160
+    },
+    {
+        "id": "inject_dynamic_update",
+        "type": "inject",
+        "z": "example_flow_5",
+        "name": "Dynamic Update (every 5s)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "5",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 180,
+        "y": 300
+    },
+    {
+        "id": "function_dynamic_lcd",
+        "type": "function",
+        "z": "example_flow_5",
+        "name": "Build Dynamic LCD Text",
+        "func": "// Get current time\nconst now = new Date();\nconst timeStr = now.toLocaleTimeString('en-US', { \n    hour12: false, \n    hour: '2-digit', \n    minute: '2-digit' \n});\n\n// Get or initialize counter\nlet counter = flow.get('lcd_counter') || 0;\ncounter++;\nflow.set('lcd_counter', counter);\n\n// Prepare two messages - one for each LCD line\nconst msg1 = {\n    payload: {\n        action: 'write_lcd',\n        text: `Time: ${timeStr}`,\n        line: 1\n    }\n};\n\nconst msg2 = {\n    payload: {\n        action: 'write_lcd',\n        text: `Count: ${counter}`,\n        line: 2\n    }\n};\n\n// Return both messages\nreturn [msg1, msg2];",
+        "outputs": 2,
+        "noerr": 0,
+        "x": 430,
+        "y": 300
+    },
+    {
+        "id": "inject_status_examples",
+        "type": "inject",
+        "z": "example_flow_5",
+        "name": "Show Status: LIVE",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"action\":\"write_lcd\",\"text\":\"◉ LIVE ◉\",\"line\":1}",
+        "payloadType": "json",
+        "x": 140,
+        "y": 380
+    },
+    {
+        "id": "inject_status_standby",
+        "type": "inject",
+        "z": "example_flow_5",
+        "name": "Show Status: Standby",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"action\":\"write_lcd\",\"text\":\"Standby\",\"line\":1}",
+        "payloadType": "json",
+        "x": 150,
+        "y": 420
+    },
+    {
+        "id": "inject_status_recording",
+        "type": "inject",
+        "z": "example_flow_5",
+        "name": "Show Status: Recording",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"action\":\"write_lcd\",\"text\":\"● REC\",\"line\":1}",
+        "payloadType": "json",
+        "x": 160,
+        "y": 460
+    },
+    {
+        "id": "comment_5",
+        "type": "comment",
+        "z": "example_flow_5",
+        "name": "LCD Display Control Examples",
+        "info": "Use the inject nodes to write different text to the Smartpanel LCD display.\n\n- General LCD: Writes to the entire display\n- Line-specific: Writes to individual lines\n- Dynamic: Updates every 5 seconds with time and counter\n- Status: Shows different operational states",
+        "x": 170,
+        "y": 40
+    },
+    {
+        "id": "link_lcd_out",
+        "type": "link out",
+        "z": "example_flow_5",
+        "name": "To Endpoint",
+        "links": ["link_lcd_in"],
+        "x": 665,
+        "y": 300
+    },
+    {
+        "id": "link_lcd_in",
+        "type": "link in",
+        "z": "example_flow_5",
+        "name": "From Dynamic Updates",
+        "links": ["link_lcd_out"],
+        "x": 205,
+        "y": 160
     }
 ]
