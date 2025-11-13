@@ -1,0 +1,516 @@
+[
+    {
+        "id": "artist_example_flow_1",
+        "type": "tab",
+        "label": "RIEDEL Artist - Basic Setup",
+        "disabled": false,
+        "info": "# RIEDEL Artist Basic Example\n\nThis flow demonstrates basic RIEDEL Artist panel setup.\n\n## Setup:\n1. Configure the nmos-config node with your registry URL\n2. Set the MQTT broker URL in the Artist node\n3. Deploy the flow\n4. Use inject nodes to configure keys and routes\n5. View output in debug panel"
+    },
+    {
+        "id": "artist_panel_1",
+        "type": "nmos-riedel-artist",
+        "z": "artist_example_flow_1",
+        "name": "Director Panel",
+        "registry": "",
+        "mqttBroker": "mqtt://localhost:1883",
+        "deviceLabel": "Director Artist Panel",
+        "deviceDescription": "Main director intercom panel",
+        "panelLabel": "Director Panel",
+        "panelType": "2300",
+        "mqttQos": 1,
+        "enableAudioRouting": true,
+        "enableKeyControl": true,
+        "matrixSourceId": "",
+        "nodeId": "",
+        "deviceId": "",
+        "senderId": "",
+        "receiverId": "",
+        "x": 340,
+        "y": 100
+    },
+    {
+        "id": "debug_1",
+        "type": "debug",
+        "z": "artist_example_flow_1",
+        "name": "All Artist Events",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "x": 580,
+        "y": 100
+    },
+    {
+        "id": "inject_get_state",
+        "type": "inject",
+        "z": "artist_example_flow_1",
+        "name": "Get Panel State",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"action\":\"get_state\"}",
+        "payloadType": "json",
+        "x": 140,
+        "y": 180
+    },
+    {
+        "id": "inject_configure_key",
+        "type": "inject",
+        "z": "artist_example_flow_1",
+        "name": "Configure Key 1",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"action\":\"configure_key\",\"key\":1,\"config\":{\"label\":\"Camera Op\",\"type\":\"intercom\",\"destination\":\"cam-op-1\",\"color\":\"green\",\"mode\":\"both\",\"enabled\":true}}",
+        "payloadType": "json",
+        "x": 140,
+        "y": 220
+    },
+    {
+        "id": "inject_get_keys",
+        "type": "inject",
+        "z": "artist_example_flow_1",
+        "name": "Get All Keys",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"action\":\"get_keys\"}",
+        "payloadType": "json",
+        "x": 130,
+        "y": 260
+    },
+    {
+        "id": "artist_example_flow_2",
+        "type": "tab",
+        "label": "RIEDEL Artist - Key Configuration",
+        "disabled": false,
+        "info": "# RIEDEL Artist Key Configuration\n\nThis flow demonstrates configuring multiple keys on an Artist panel.\n\n## Features:\n- Configure multiple keys with different settings\n- Handle key press actions\n- Monitor key states"
+    },
+    {
+        "id": "artist_panel_2",
+        "type": "nmos-riedel-artist",
+        "z": "artist_example_flow_2",
+        "name": "Production Panel",
+        "registry": "",
+        "mqttBroker": "mqtt://localhost:1883",
+        "deviceLabel": "Production Artist Panel",
+        "deviceDescription": "Production crew intercom panel",
+        "panelLabel": "Production Panel",
+        "panelType": "generic",
+        "mqttQos": 1,
+        "enableAudioRouting": true,
+        "enableKeyControl": true,
+        "matrixSourceId": "",
+        "nodeId": "",
+        "deviceId": "",
+        "senderId": "",
+        "receiverId": "",
+        "x": 360,
+        "y": 100
+    },
+    {
+        "id": "inject_config_key1",
+        "type": "inject",
+        "z": "artist_example_flow_2",
+        "name": "Key 1: Director",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"action\":\"configure_key\",\"key\":1,\"config\":{\"label\":\"Director\",\"mode\":\"both\",\"color\":\"red\"}}",
+        "payloadType": "json",
+        "x": 140,
+        "y": 60
+    },
+    {
+        "id": "inject_config_key2",
+        "type": "inject",
+        "z": "artist_example_flow_2",
+        "name": "Key 2: Camera 1",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"action\":\"configure_key\",\"key\":2,\"config\":{\"label\":\"Camera 1\",\"mode\":\"talk\",\"color\":\"green\"}}",
+        "payloadType": "json",
+        "x": 140,
+        "y": 100
+    },
+    {
+        "id": "inject_config_key3",
+        "type": "inject",
+        "z": "artist_example_flow_2",
+        "name": "Key 3: Camera 2",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"action\":\"configure_key\",\"key\":3,\"config\":{\"label\":\"Camera 2\",\"mode\":\"talk\",\"color\":\"green\"}}",
+        "payloadType": "json",
+        "x": 140,
+        "y": 140
+    },
+    {
+        "id": "inject_key_press",
+        "type": "inject",
+        "z": "artist_example_flow_2",
+        "name": "Simulate Key 1 Press",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"action\":\"key_action\",\"key\":1,\"actionType\":\"press\",\"pressed\":true}",
+        "payloadType": "json",
+        "x": 160,
+        "y": 200
+    },
+    {
+        "id": "debug_keys",
+        "type": "debug",
+        "z": "artist_example_flow_2",
+        "name": "Key Events",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 610,
+        "y": 100
+    },
+    {
+        "id": "artist_example_flow_3",
+        "type": "tab",
+        "label": "RIEDEL Artist - Audio Routing",
+        "disabled": false,
+        "info": "# RIEDEL Artist Audio Routing\n\nThis flow demonstrates creating and managing audio routes in the Artist matrix.\n\n## Features:\n- Create point-to-point audio routes\n- Configure route parameters (gain, mode)\n- Remove routes\n- Monitor active routes"
+    },
+    {
+        "id": "artist_panel_3",
+        "type": "nmos-riedel-artist",
+        "z": "artist_example_flow_3",
+        "name": "Matrix Controller",
+        "registry": "",
+        "mqttBroker": "mqtt://localhost:1883",
+        "deviceLabel": "Artist Matrix Controller",
+        "deviceDescription": "Matrix routing controller",
+        "panelLabel": "Matrix Controller",
+        "panelType": "generic",
+        "mqttQos": 1,
+        "enableAudioRouting": true,
+        "enableKeyControl": true,
+        "matrixSourceId": "",
+        "nodeId": "",
+        "deviceId": "",
+        "senderId": "",
+        "receiverId": "",
+        "x": 360,
+        "y": 120
+    },
+    {
+        "id": "inject_create_route1",
+        "type": "inject",
+        "z": "artist_example_flow_3",
+        "name": "Route: Director → Camera 1",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"action\":\"create_route\",\"sourceId\":\"director-panel\",\"destinationId\":\"camera-1-panel\",\"config\":{\"gain\":0.0,\"muted\":false,\"mode\":\"both\"}}",
+        "payloadType": "json",
+        "x": 180,
+        "y": 60
+    },
+    {
+        "id": "inject_create_route2",
+        "type": "inject",
+        "z": "artist_example_flow_3",
+        "name": "Route: Director → Camera 2",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"action\":\"create_route\",\"sourceId\":\"director-panel\",\"destinationId\":\"camera-2-panel\",\"config\":{\"gain\":0.0,\"muted\":false,\"mode\":\"talk\"}}",
+        "payloadType": "json",
+        "x": 180,
+        "y": 100
+    },
+    {
+        "id": "inject_get_routes",
+        "type": "inject",
+        "z": "artist_example_flow_3",
+        "name": "Get All Routes",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"action\":\"get_routes\"}",
+        "payloadType": "json",
+        "x": 140,
+        "y": 160
+    },
+    {
+        "id": "inject_remove_route",
+        "type": "inject",
+        "z": "artist_example_flow_3",
+        "name": "Remove Route",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"action\":\"remove_route\",\"sourceId\":\"director-panel\",\"destinationId\":\"camera-1-panel\"}",
+        "payloadType": "json",
+        "x": 140,
+        "y": 200
+    },
+    {
+        "id": "debug_routes",
+        "type": "debug",
+        "z": "artist_example_flow_3",
+        "name": "Route Events",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 620,
+        "y": 120
+    },
+    {
+        "id": "artist_example_flow_4",
+        "type": "tab",
+        "label": "RIEDEL Artist - Production Workflow",
+        "disabled": false,
+        "info": "# RIEDEL Artist Production Workflow\n\nComplete production workflow example with multiple panels and automated routing.\n\n## Features:\n- Multiple Artist panels (Director, Camera Ops, Audio)\n- Automated routing based on production state\n- Key press handling with custom logic\n- Integration with production automation"
+    },
+    {
+        "id": "artist_director",
+        "type": "nmos-riedel-artist",
+        "z": "artist_example_flow_4",
+        "name": "Director",
+        "registry": "",
+        "mqttBroker": "mqtt://localhost:1883",
+        "deviceLabel": "Director Panel",
+        "deviceDescription": "Director intercom panel",
+        "panelLabel": "Director",
+        "panelType": "2300",
+        "mqttQos": 1,
+        "enableAudioRouting": true,
+        "enableKeyControl": true,
+        "matrixSourceId": "",
+        "nodeId": "",
+        "deviceId": "",
+        "senderId": "",
+        "receiverId": "",
+        "x": 300,
+        "y": 80
+    },
+    {
+        "id": "artist_camera1",
+        "type": "nmos-riedel-artist",
+        "z": "artist_example_flow_4",
+        "name": "Camera 1 Op",
+        "registry": "",
+        "mqttBroker": "mqtt://localhost:1883",
+        "deviceLabel": "Camera 1 Operator Panel",
+        "deviceDescription": "Camera 1 operator intercom",
+        "panelLabel": "Camera 1",
+        "panelType": "1100",
+        "mqttQos": 1,
+        "enableAudioRouting": true,
+        "enableKeyControl": true,
+        "matrixSourceId": "",
+        "nodeId": "",
+        "deviceId": "",
+        "senderId": "",
+        "receiverId": "",
+        "x": 310,
+        "y": 140
+    },
+    {
+        "id": "artist_camera2",
+        "type": "nmos-riedel-artist",
+        "z": "artist_example_flow_4",
+        "name": "Camera 2 Op",
+        "registry": "",
+        "mqttBroker": "mqtt://localhost:1883",
+        "deviceLabel": "Camera 2 Operator Panel",
+        "deviceDescription": "Camera 2 operator intercom",
+        "panelLabel": "Camera 2",
+        "panelType": "1100",
+        "mqttQos": 1,
+        "enableAudioRouting": true,
+        "enableKeyControl": true,
+        "matrixSourceId": "",
+        "nodeId": "",
+        "deviceId": "",
+        "senderId": "",
+        "receiverId": "",
+        "x": 310,
+        "y": 200
+    },
+    {
+        "id": "production_logic",
+        "type": "function",
+        "z": "artist_example_flow_4",
+        "name": "Production Automation",
+        "func": "// Centralized production automation logic\n// Process Artist commands and automate routing\n\nconst panelStates = flow.get('panel_states') || {};\n\n// Track panel events\nif (msg.artist && msg.artist.commands) {\n    const panelId = msg.artist.device_id;\n    \n    if (!panelStates[panelId]) {\n        panelStates[panelId] = {\n            label: msg.artist.panel_label,\n            type: msg.artist.panel_type,\n            lastUpdate: new Date().toISOString()\n        };\n    }\n    \n    for (const cmd of msg.artist.commands) {\n        if (cmd.type === 'key_action' && cmd.pressed) {\n            node.warn(`${msg.artist.panel_label} - Key ${cmd.key} pressed`);\n            \n            // Example automation: Key 1 creates all-call\n            if (cmd.key === 1) {\n                msg.payload = {\n                    action: 'create_route',\n                    sourceId: panelId,\n                    destinationId: 'all-panels',\n                    config: { mode: 'both' }\n                };\n                return msg;\n            }\n        }\n    }\n}\n\nflow.set('panel_states', panelStates);\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 580,
+        "y": 140
+    },
+    {
+        "id": "debug_production",
+        "type": "debug",
+        "z": "artist_example_flow_4",
+        "name": "Production Events",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "x": 810,
+        "y": 140
+    },
+    {
+        "id": "inject_setup_production",
+        "type": "inject",
+        "z": "artist_example_flow_4",
+        "name": "Setup Production Routing",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 2,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 170,
+        "y": 280
+    },
+    {
+        "id": "setup_routing",
+        "type": "function",
+        "z": "artist_example_flow_4",
+        "name": "Setup Initial Routes",
+        "func": "// Setup initial production routing\n// This would typically query actual panel IDs from the system\n\nconst messages = [];\n\n// Director can talk to all cameras\nmessages.push({\n    payload: {\n        action: 'create_route',\n        sourceId: 'director-panel-id',\n        destinationId: 'camera-1-panel-id',\n        config: { mode: 'both' }\n    }\n});\n\nmessages.push({\n    payload: {\n        action: 'create_route',\n        sourceId: 'director-panel-id',\n        destinationId: 'camera-2-panel-id',\n        config: { mode: 'both' }\n    }\n});\n\n// Camera ops can talk to each other (listen only)\nmessages.push({\n    payload: {\n        action: 'create_route',\n        sourceId: 'camera-1-panel-id',\n        destinationId: 'camera-2-panel-id',\n        config: { mode: 'listen' }\n    }\n});\n\nnode.warn('Setting up initial production routes');\n\nreturn [messages];",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 420,
+        "y": 280
+    },
+    {
+        "id": "comment_1",
+        "type": "comment",
+        "z": "artist_example_flow_1",
+        "name": "Configure Registry and MQTT",
+        "info": "1. Double-click the Artist panel node\n2. Configure nmos-config (registry URL)\n3. Set MQTT broker URL\n4. Deploy",
+        "x": 170,
+        "y": 40
+    },
+    {
+        "id": "comment_2",
+        "type": "comment",
+        "z": "artist_example_flow_2",
+        "name": "Configure Panel Keys",
+        "info": "Use the inject nodes to configure keys with labels, modes, and colors.",
+        "x": 150,
+        "y": 20
+    },
+    {
+        "id": "comment_3",
+        "type": "comment",
+        "z": "artist_example_flow_3",
+        "name": "Audio Route Management",
+        "info": "Create, monitor, and remove audio routes in the Artist matrix.",
+        "x": 160,
+        "y": 20
+    },
+    {
+        "id": "comment_4",
+        "type": "comment",
+        "z": "artist_example_flow_4",
+        "name": "Multi-Panel Production Setup",
+        "info": "Complete production workflow with automated routing and key handling.",
+        "x": 180,
+        "y": 40
+    }
+]

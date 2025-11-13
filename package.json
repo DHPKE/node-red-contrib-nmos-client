@@ -27,6 +27,8 @@
     "backup",
     "vue",
     "riedel",
+    "artist",
+    "intercom",
     "smartpanel",
     "endpoint",
     "gpio"
@@ -44,7 +46,8 @@
       "nmos-is07-endpoint": "nodes/nmos-is07-endpoint.js",
       "nmos-is07-receiver": "nodes/nmos-is07-receiver.js",
       "nmos-is07-sender": "nodes/nmos-is07-sender.js",
-      "nmos-matrix": "nodes/nmos-matrix.js"
+      "nmos-matrix": "nodes/nmos-matrix.js",
+      "nmos-riedel-artist": "nodes/nmos-riedel-artist.js"
     }
   },
   "author": "DHPKE",
