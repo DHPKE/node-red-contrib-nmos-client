@@ -287,7 +287,7 @@ module.exports = function(RED) {
                 ...node.registry.getAuthHeaders(), 
                 'Content-Type': 'application/json' 
             };
-            const payload = { type, data };
+            const payload = data;
 
             try {
                 node.log(`Registering ${type}: ${data.id}`);
