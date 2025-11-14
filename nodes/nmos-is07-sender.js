@@ -247,40 +247,37 @@ module.exports = function(RED) {
         };
 
         const buildSenderResource = () => {
-    const { ip, name: ifaceName } = getNetworkInfo();
-    
-    // Set transport URN based on configuration
-    let transport;
-    if (node.transportType === 'mqtt') {
-        transport = 'urn:x-nmos:transport:mqtt';
-    } else if (node.transportType === 'websocket') {
-        transport = 'urn:x-nmos:transport:websocket';
-    } else {
-        transport = 'urn:x-nmos:transport:mqtt'; // Default for 'both'
-    }
-    
-    const resource = {
-        id: node.senderId,
-        version: getTAITimestamp(),
-        label: node.senderLabel,
-        description: `IS-07 Event Sender - ${node.senderLabel}`,
-        flow_id: node.flowId,
-        transport: transport,  // ← CRITICAL: Must be present!
-        tags: {},
-        device_id: node.deviceId,
-        manifest_href: `http://${ip}:${node.httpPort || 1880}/x-nmos/events/sources/${node.sourceId}/manifest`,
-        interface_bindings: [ifaceName],
-        subscription: {
-            receiver_id: null,
-            active: false
-        }
-    };
-    return resource;
-};
+            const { name: ifaceName } = getNetworkInfo();
+            
+            // Ensure transport is never null or undefined
+            let transport = getTransportURN();
+            if (!transport) {
+                node.warn('Transport URN is null, using default mqtt');
+                transport = 'urn:x-nmos:transport:mqtt';
+            }
+            
+            const resource = {
+                id: node.senderId,
+                version: getTAITimestamp(),
+                label: node.senderLabel,
+                description: `IS-07 Event Sender (${node.eventType})`,
+                flow_id: node.flowId,
+                transport: transport,  // Guaranteed to have a value
+                device_id: node.deviceId,
+                tags: {},
+                interface_bindings: [ifaceName],
+                subscription: {
+                    receiver_id: node.targetReceiverId,
+                    active: node.targetReceiverId ? true : false
+                }
+            };
 
             // Build manifest_href
             resource.manifest_href = `http://${localIP}:${node.httpPort}/x-nmos/events/sources/${node.sourceId}/manifest`;
-
+            
+            // Log for debugging
+            node.log(`Sender resource built with transport: ${resource.transport}`);
+            
             return resource;
         };
 
@@ -288,24 +285,31 @@ module.exports = function(RED) {
         // IS-07 Manifest Builder
         // ============================================================================
 
-        function buildManifest() {
-    const eventTypeUrn = `urn:x-nmos:event_type:${node.eventType}/v1.0`;
-    
-    return {
-        id: node.sourceId,
-        label: node.sourceLabel,
-        description: `IS-07 Event Source - ${node.eventType}`,
-        tags: {},
-        state: {
-            event_type: eventTypeUrn,
-            description: `State type`
-        },
-        events: [{
-            event_type: eventTypeUrn,
-            description: `Event type`
-        }]
-    };
-}
+        const buildManifest = () => {
+            const eventTypeURN = getEventTypeURN();
+            
+            const manifest = {
+                id: node.sourceId,
+                label: node.sourceLabel,
+                description: `IS-07 Event Source (${node.eventType})`,
+                tags: {},
+                state: {
+                    event_type: eventTypeURN,
+                    description: `State type: ${node.eventType}`
+                },
+                events: [{
+                    event_type: eventTypeURN,
+                    description: `Event type: ${node.eventType}`
+                }]
+            };
+            
+            // Validate manifest before returning
+            if (!manifest.id || !manifest.events || manifest.events.length === 0) {
+                throw new Error('Manifest validation failed: missing required fields');
+            }
+            
+            return manifest;
+        };
 
         // ============================================================================
         // IS-05 Connection API State
@@ -748,24 +752,64 @@ module.exports = function(RED) {
         // ============================================================================
 
         function setupManifestEndpoint() {
-    const manifestPath = `/x-nmos/events/sources/${node.sourceId}/manifest`;
-    
-    RED.httpNode.get(manifestPath, (req, res) => {
-        // Add CORS headers
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Content-Type', 'application/json');
-        
-        try {
-            const manifest = buildManifest();
-            res.status(200).json(manifest);
-        } catch (err) {
-            node.error(`Manifest error: ${err.message}`);
-            res.status(500).json({ error: err.message });
+            const manifestUrl = `/x-nmos/events/sources/${node.sourceId}/manifest`;
+
+            httpEndpoints.push(
+                RED.httpNode.get(manifestUrl, (req, res) => {
+                    // Add CORS headers for registry access
+                    res.setHeader('Access-Control-Allow-Origin', '*');
+                    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+                    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+                    res.setHeader('Content-Type', 'application/json');
+                    
+                    try {
+                        const manifest = buildManifest();
+                        
+                        // Validate manifest structure
+                        if (!manifest || !manifest.id || !manifest.events) {
+                            throw new Error('Invalid manifest structure');
+                        }
+                        
+                        res.status(200).json(manifest);
+                        node.log(`✓ Manifest served successfully to ${req.ip}`);
+                    } catch (error) {
+                        node.error(`Manifest generation error: ${error.message}`);
+                        res.status(500).json({
+                            error: 'Failed to generate manifest',
+                            message: error.message,
+                            debug: error.stack
+                        });
+                    }
+                })
+            );
+            
+            // Add OPTIONS handler for CORS preflight requests
+            httpEndpoints.push(
+                RED.httpNode.options(manifestUrl, (req, res) => {
+                    res.setHeader('Access-Control-Allow-Origin', '*');
+                    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+                    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+                    res.status(204).send();
+                })
+            );
+
+            const fullUrl = `http://${localIP}:${node.httpPort}${manifestUrl}`;
+            node.log(`✓ Manifest endpoint registered: ${fullUrl}`);
+            
+            // Self-test the manifest endpoint after startup
+            setTimeout(() => {
+                const testUrl = `http://localhost:${node.httpPort}${manifestUrl}`;
+                axios.get(testUrl)
+                    .then(response => {
+                        node.log(`✓ Manifest endpoint self-test PASSED`);
+                    })
+                    .catch(err => {
+                        node.warn(`⚠ Manifest endpoint self-test FAILED: ${err.message}`);
+                        node.warn(`  URL: ${testUrl}`);
+                        node.warn(`  Make sure port ${node.httpPort} is accessible`);
+                    });
+            }, 2000);
         }
-    });
-    
-    node.log(`✓ Manifest at http://localhost:${node.httpPort}${manifestPath}`);
-}
 
     
 
