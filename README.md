@@ -233,72 +233,6 @@ Outputs received IS-07 grain messages with optional parsed Smartpanel commands.
 **Documentation:**
 See [IS-07 Endpoint & Smartpanel Guide](docs/is07-endpoint-smartpanel.md) for complete setup and integration instructions.
 
-#### nmos-riedel-artist
-Intercom matrix control and panel management for RIEDEL Artist systems via NMOS.
-
-**Configuration:**
-- Panel type: generic, 1100, 2300, smartpanel
-- Device and panel labels
-- MQTT broker URL and QoS
-- Enable/disable key control and audio routing features
-
-**Features:**
-- Panel registration and discovery via IS-04
-- Key assignment configuration (labels, modes, colors)
-- Audio routing control in Artist matrix
-- Status monitoring and panel management
-- IS-07 event-based communication via MQTT
-- Bidirectional Artist command processing
-- Command history tracking
-
-**Input Actions:**
-- `configure_key`: Set up panel key with label and mode
-- `key_action`: Simulate or handle key press/release
-- `create_route`: Create audio route between panels
-- `remove_route`: Remove audio route
-- `get_keys`: Query all configured keys
-- `get_routes`: Query all active routes
-- `get_state`: Get panel configuration and status
-- `update_panel_status`: Update panel status information
-- `get_command_history`: Query recent Artist commands
-
-**Output:**
-Outputs received Artist commands and events with parsed command data.
-
-**Example:**
-```javascript
-// Configure a panel key
-msg.payload = {
-    action: "configure_key",
-    key: 1,
-    config: {
-        label: "Director",
-        mode: "both",  // talk, listen, or both
-        color: "green",
-        enabled: true
-    }
-};
-
-// Create audio route
-msg.payload = {
-    action: "create_route",
-    sourceId: "director-panel-id",
-    destinationId: "camera-op-panel-id",
-    config: {
-        gain: 0.0,
-        mode: "both"
-    }
-};
-```
-
-**Integration:**
-- Supports RIEDEL Artist 1100, 2300, and smartpanel models
-- Compatible with NMOS IS-04, IS-05, IS-07, and IS-12
-- Integrates with existing IS-07 infrastructure
-- Works alongside nmos-is07-endpoint for complete RIEDEL integration
-
-See [examples/riedel-artist-example.json](examples/riedel-artist-example.json) for complete workflow examples.
-
 #### nmos-is12-control
 Implement IS-12 controllable device with WebSocket transport.
 
@@ -410,7 +344,6 @@ Example flows are available in the `examples` directory:
 - **dynamic-matrix-flow.json**: Complete modular matrix with Vue UI
 - **is12-control-example.json**: IS-12 device control demonstration
 - **is07-endpoint-smartpanel-example.json**: IS-07 endpoint with RIEDEL Smartpanel integration examples
-- **riedel-artist-example.json**: RIEDEL Artist intercom matrix control workflows
 
 ## License
 
