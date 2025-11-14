@@ -251,40 +251,33 @@ module.exports = function(RED) {
         };
 
         const buildSenderResource = () => {
-    const { ip, name: ifaceName } = getNetworkInfo();
-    
-    // Set transport URN based on configuration
-    let transport;
-    if (node.transportType === 'mqtt') {
-        transport = 'urn:x-nmos:transport:mqtt';
-    } else if (node.transportType === 'websocket') {
-        transport = 'urn:x-nmos:transport:websocket';
-    } else {
-        transport = 'urn:x-nmos:transport:mqtt'; // Default for 'both'
-    }
-    
-    const resource = {
-        id: node.senderId,
-        version: getTAITimestamp(),
-        label: node.senderLabel,
-        description: `IS-07 Event Sender - ${node.senderLabel}`,
-        flow_id: node.flowId,
-        transport: transport,  // ← CRITICAL: Must be present!
-        tags: {},
-        device_id: node.deviceId,
-        manifest_href: `http://${ip}:${node.httpPort || 1880}/x-nmos/events/sources/${node.sourceId}/manifest`,
-        interface_bindings: [ifaceName],
-        subscription: {
-            receiver_id: null,
-            active: false
-        }
-    };
-    return resource;
-};
-
-            // Build manifest_href
-            resource.manifest_href = `http://${localIP}:${node.httpPort}/x-nmos/events/sources/${node.sourceId}/manifest`;
-
+            const { ip, name: ifaceName } = getNetworkInfo();
+            
+            let transport;
+            if (node.transportType === 'mqtt') {
+                transport = 'urn:x-nmos:transport:mqtt';
+            } else if (node.transportType === 'websocket') {
+                transport = 'urn:x-nmos:transport:websocket';
+            } else {
+                transport = 'urn:x-nmos:transport:mqtt'; // Default for 'both'
+            }
+            
+            const resource = {
+                id: node.senderId,
+                version: getTAITimestamp(),
+                label: node.senderLabel,
+                description: `IS-07 Event Sender - ${node.senderLabel}`,
+                flow_id: node.flowId,
+                transport: transport,
+                tags: {},
+                device_id: node.deviceId,
+                manifest_href: `http://${ip}:${node.httpPort || 1880}/x-nmos/events/sources/${node.sourceId}/manifest`,
+                interface_bindings: [ifaceName],
+                subscription: {
+                    receiver_id: null,
+                    active: false
+                }
+            };
             return resource;
         };
 
@@ -755,22 +748,21 @@ module.exports = function(RED) {
             const manifestPath = `/x-nmos/events/sources/${node.sourceId}/manifest`;
     
             RED.httpNode.get(manifestPath, (req, res) => {
-        // Add CORS headers
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Content-Type', 'application/json');
-        
-        try {
-            const manifest = buildManifest();
-            res.status(200).json(manifest);
-        } catch (err) {
-            node.error(`Manifest error: ${err.message}`);
-            res.status(500).json({ error: err.message });
-        }
+                // Add CORS headers
+                res.setHeader('Access-Control-Allow-Origin', '*');
+                res.setHeader('Content-Type', 'application/json');
+                
+                try {
+                    const manifest = buildManifest();
+                    res.status(200).json(manifest);
+                } catch (err) {
+                    node.error(`Manifest error: ${err.message}`);
+                    res.status(500).json({ error: err.message });
+                }
             });
     
             node.log(`✓ Manifest at http://localhost:${node.httpPort}${manifestPath}`);
-
-    
+        }
 
         // ============================================================================
         // Event Publishing
