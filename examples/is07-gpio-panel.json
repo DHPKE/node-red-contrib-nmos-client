@@ -1,0 +1,342 @@
+[
+    {
+        "id": "gpio-panel-flow",
+        "type": "tab",
+        "label": "IS-07 GPIO Panel",
+        "disabled": false,
+        "info": "GPIO control panel integration using IS-07 events.\n\nFeatures:\n- GPIO mapper for tally lights (pins 17, 27, 22)\n- GPIO mapper for buttons (pins 23, 24, 25, 8)\n- Bidirectional control\n- MQTT transport"
+    },
+    {
+        "id": "tally-receiver",
+        "type": "nmos-is07-receiver",
+        "z": "gpio-panel-flow",
+        "name": "GPIO Tally Receiver",
+        "registry": "nmos-config-1",
+        "transportType": "mqtt",
+        "mqttBroker": "mqtt://localhost:1883",
+        "subscriptionFilter": "x-nmos/events/+/tally/#",
+        "x": 140,
+        "y": 100,
+        "wires": [
+            [
+                "gpio-mapper"
+            ]
+        ]
+    },
+    {
+        "id": "gpio-mapper",
+        "type": "function",
+        "z": "gpio-panel-flow",
+        "name": "GPIO Mapper",
+        "func": "// Initialize GPIO mapper\nlet mapper = global.get('gpioMapper');\nif (!mapper) {\n    const GPIOMapper = require('./nodes/lib/gpio-mapper');\n    mapper = new GPIOMapper({\n        mapping: {\n            '/tally/red': 17,\n            '/tally/yellow': 27,\n            '/tally/green': 22,\n            '/button/1': 23,\n            '/button/2': 24,\n            '/button/3': 25,\n            '/button/4': 8\n        }\n    });\n    global.set('gpioMapper', mapper);\n}\n\n// Parse grain\nconst grain = msg.payload;\nif (!grain || !grain.grain || !grain.grain.data) {\n    return null;\n}\n\nconst outputs = [];\n\nfor (const item of grain.grain.data) {\n    const gpioEvents = mapper.mapEvent({\n        path: item.path,\n        post: item.post || item.value\n    });\n    \n    // Add each GPIO event as a separate message\n    gpioEvents.forEach(event => {\n        outputs.push({\n            payload: event.value ? 1 : 0,\n            topic: `gpio/${event.pin}`,\n            pin: event.pin\n        });\n    });\n}\n\nreturn outputs.length > 0 ? [outputs] : null;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
+        "y": 100,
+        "wires": [
+            [
+                "split-gpio"
+            ]
+        ]
+    },
+    {
+        "id": "split-gpio",
+        "type": "split",
+        "z": "gpio-panel-flow",
+        "name": "Split GPIO Events",
+        "splt": "\\n",
+        "spltType": "str",
+        "arraySplt": 1,
+        "arraySpltType": "len",
+        "stream": false,
+        "addname": "",
+        "x": 540,
+        "y": 100,
+        "wires": [
+            [
+                "route-gpio-output"
+            ]
+        ]
+    },
+    {
+        "id": "route-gpio-output",
+        "type": "switch",
+        "z": "gpio-panel-flow",
+        "name": "Route GPIO Pin",
+        "property": "pin",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "17",
+                "vt": "num"
+            },
+            {
+                "t": "eq",
+                "v": "27",
+                "vt": "num"
+            },
+            {
+                "t": "eq",
+                "v": "22",
+                "vt": "num"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 3,
+        "x": 730,
+        "y": 100,
+        "wires": [
+            [
+                "gpio-17-debug"
+            ],
+            [
+                "gpio-27-debug"
+            ],
+            [
+                "gpio-22-debug"
+            ]
+        ]
+    },
+    {
+        "id": "gpio-17-debug",
+        "type": "debug",
+        "z": "gpio-panel-flow",
+        "name": "GPIO 17 (Red)",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "complete": "payload",
+        "x": 940,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "gpio-27-debug",
+        "type": "debug",
+        "z": "gpio-panel-flow",
+        "name": "GPIO 27 (Yellow)",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "complete": "payload",
+        "x": 960,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "gpio-22-debug",
+        "type": "debug",
+        "z": "gpio-panel-flow",
+        "name": "GPIO 22 (Green)",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "complete": "payload",
+        "x": 950,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "button-23",
+        "type": "inject",
+        "z": "gpio-panel-flow",
+        "name": "Button 1 Pressed (Pin 23)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "payload": "{\"pin\":23,\"state\":1}",
+        "payloadType": "json",
+        "x": 180,
+        "y": 300,
+        "wires": [
+            [
+                "map-gpio-input"
+            ]
+        ]
+    },
+    {
+        "id": "button-24",
+        "type": "inject",
+        "z": "gpio-panel-flow",
+        "name": "Button 2 Pressed (Pin 24)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "payload": "{\"pin\":24,\"state\":1}",
+        "payloadType": "json",
+        "x": 180,
+        "y": 340,
+        "wires": [
+            [
+                "map-gpio-input"
+            ]
+        ]
+    },
+    {
+        "id": "map-gpio-input",
+        "type": "function",
+        "z": "gpio-panel-flow",
+        "name": "Map GPIO Input",
+        "func": "// Map GPIO pin back to event path\nconst pin = msg.payload.pin;\nconst state = msg.payload.state;\n\nconst pinMapping = {\n    23: '/button/1',\n    24: '/button/2',\n    25: '/button/3',\n    8: '/button/4'\n};\n\nconst eventPath = pinMapping[pin];\nif (eventPath) {\n    return {\n        payload: {\n            path: eventPath,\n            post: state === 1,\n            timestamp: Date.now()\n        }\n    };\n}\n\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 440,
+        "y": 320,
+        "wires": [
+            [
+                "button-sender"
+            ]
+        ]
+    },
+    {
+        "id": "button-sender",
+        "type": "nmos-is07-sender",
+        "z": "gpio-panel-flow",
+        "name": "GPIO Button Sender",
+        "registry": "nmos-config-1",
+        "transportType": "mqtt",
+        "mqttBroker": "mqtt://localhost:1883",
+        "deviceLabel": "GPIO Control Panel",
+        "senderLabel": "GPIO Buttons",
+        "eventType": "object",
+        "x": 660,
+        "y": 320,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "tally-red",
+        "type": "inject",
+        "z": "gpio-panel-flow",
+        "name": "Send Red Tally",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "payload": "{\"path\": \"/tally/red\", \"post\": true}",
+        "payloadType": "json",
+        "x": 130,
+        "y": 480,
+        "wires": [
+            [
+                "tally-sender"
+            ]
+        ]
+    },
+    {
+        "id": "tally-yellow",
+        "type": "inject",
+        "z": "gpio-panel-flow",
+        "name": "Send Yellow Tally",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "payload": "{\"path\": \"/tally/yellow\", \"post\": true}",
+        "payloadType": "json",
+        "x": 140,
+        "y": 520,
+        "wires": [
+            [
+                "tally-sender"
+            ]
+        ]
+    },
+    {
+        "id": "tally-green",
+        "type": "inject",
+        "z": "gpio-panel-flow",
+        "name": "Send Green Tally",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "payload": "{\"path\": \"/tally/green\", \"post\": true}",
+        "payloadType": "json",
+        "x": 140,
+        "y": 560,
+        "wires": [
+            [
+                "tally-sender"
+            ]
+        ]
+    },
+    {
+        "id": "tally-sender",
+        "type": "nmos-is07-sender",
+        "z": "gpio-panel-flow",
+        "name": "GPIO Tally Sender",
+        "registry": "nmos-config-1",
+        "transportType": "mqtt",
+        "mqttBroker": "mqtt://localhost:1883",
+        "deviceLabel": "GPIO Tally Source",
+        "senderLabel": "GPIO Tally",
+        "eventType": "object",
+        "x": 370,
+        "y": 520,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "comment-output",
+        "type": "comment",
+        "z": "gpio-panel-flow",
+        "name": "GPIO Outputs - Receive tally events and map to GPIO pins",
+        "info": "",
+        "x": 230,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "comment-input",
+        "type": "comment",
+        "z": "gpio-panel-flow",
+        "name": "GPIO Inputs - Read button presses and send as IS-07 events",
+        "info": "",
+        "x": 240,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "comment-test",
+        "type": "comment",
+        "z": "gpio-panel-flow",
+        "name": "Test Tally - Send test tally events to GPIO outputs",
+        "info": "",
+        "x": 190,
+        "y": 440,
+        "wires": []
+    }
+]
