@@ -1,0 +1,225 @@
+[
+    {
+        "id": "simple-tally-flow",
+        "type": "tab",
+        "label": "IS-07 Simple Tally",
+        "disabled": false,
+        "info": "Basic IS-07 tally demonstration with one sender and one receiver.\n\nThis flow shows:\n- Sending tally states (red/yellow/green/off)\n- Receiving and displaying tally states\n- Basic MQTT transport usage"
+    },
+    {
+        "id": "inject-red",
+        "type": "inject",
+        "z": "simple-tally-flow",
+        "name": "Red Tally",
+        "props": [
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "red",
+        "x": 120,
+        "y": 100,
+        "wires": [
+            [
+                "create-tally"
+            ]
+        ]
+    },
+    {
+        "id": "inject-yellow",
+        "type": "inject",
+        "z": "simple-tally-flow",
+        "name": "Yellow Tally",
+        "props": [
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "yellow",
+        "x": 130,
+        "y": 140,
+        "wires": [
+            [
+                "create-tally"
+            ]
+        ]
+    },
+    {
+        "id": "inject-green",
+        "type": "inject",
+        "z": "simple-tally-flow",
+        "name": "Green Tally",
+        "props": [
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "green",
+        "x": 130,
+        "y": 180,
+        "wires": [
+            [
+                "create-tally"
+            ]
+        ]
+    },
+    {
+        "id": "inject-off",
+        "type": "inject",
+        "z": "simple-tally-flow",
+        "name": "Off",
+        "props": [
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "off",
+        "x": 110,
+        "y": 220,
+        "wires": [
+            [
+                "create-tally"
+            ]
+        ]
+    },
+    {
+        "id": "create-tally",
+        "type": "function",
+        "z": "simple-tally-flow",
+        "name": "Create Tally State",
+        "func": "// msg.topic contains the button pressed: \"red\", \"yellow\", \"green\", or \"off\"\nconst tallyState = {\n    red: msg.topic === 'red',\n    yellow: msg.topic === 'yellow',\n    green: msg.topic === 'green'\n};\n\nreturn {\n    payload: tallyState,\n    topic: 'tally/camera-1'\n};",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 320,
+        "y": 160,
+        "wires": [
+            [
+                "tally-sender"
+            ]
+        ]
+    },
+    {
+        "id": "tally-sender",
+        "type": "nmos-is07-sender",
+        "z": "simple-tally-flow",
+        "name": "Tally Sender",
+        "registry": "nmos-config-1",
+        "transportType": "mqtt",
+        "mqttBroker": "mqtt://localhost:1883",
+        "mqttQos": 0,
+        "wsPort": 3002,
+        "httpPort": 1880,
+        "deviceLabel": "Simple Tally Sender",
+        "deviceDescription": "IS-07 Tally Sender Example",
+        "senderLabel": "Camera Tally Sender",
+        "sourceLabel": "Tally Source",
+        "flowLabel": "Tally Flow",
+        "eventType": "object",
+        "x": 530,
+        "y": 160,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "tally-receiver",
+        "type": "nmos-is07-receiver",
+        "z": "simple-tally-flow",
+        "name": "Tally Receiver",
+        "registry": "nmos-config-1",
+        "transportType": "mqtt",
+        "mqttBroker": "mqtt://localhost:1883",
+        "wsPort": 3001,
+        "httpPort": 1880,
+        "deviceLabel": "Simple Tally Receiver",
+        "deviceDescription": "IS-07 Tally Receiver Example",
+        "receiverLabel": "Camera Tally Receiver",
+        "subscriptionFilter": "x-nmos/events/+/tally/camera-1",
+        "x": 150,
+        "y": 340,
+        "wires": [
+            [
+                "display-tally"
+            ]
+        ]
+    },
+    {
+        "id": "display-tally",
+        "type": "function",
+        "z": "simple-tally-flow",
+        "name": "Display Tally",
+        "func": "// Extract tally state from grain\nconst grain = msg.payload;\nif (grain && grain.grain && grain.grain.data) {\n    const data = grain.grain.data[0];\n    \n    if (data.post.red) {\n        msg.payload = \"🔴 RED\";\n        msg.background = \"red\";\n    } else if (data.post.yellow) {\n        msg.payload = \"🟡 YELLOW\";\n        msg.background = \"yellow\";\n    } else if (data.post.green) {\n        msg.payload = \"🟢 GREEN\";\n        msg.background = \"green\";\n    } else {\n        msg.payload = \"⚫ OFF\";\n        msg.background = \"black\";\n    }\n}\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 360,
+        "y": 340,
+        "wires": [
+            [
+                "debug-tally"
+            ]
+        ]
+    },
+    {
+        "id": "debug-tally",
+        "type": "debug",
+        "z": "simple-tally-flow",
+        "name": "Tally Display",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 560,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "comment-1",
+        "type": "comment",
+        "z": "simple-tally-flow",
+        "name": "Tally Control Panel - Click buttons to send tally states",
+        "info": "",
+        "x": 230,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "comment-2",
+        "type": "comment",
+        "z": "simple-tally-flow",
+        "name": "Tally Receiver - Displays received tally states",
+        "info": "",
+        "x": 210,
+        "y": 300,
+        "wires": []
+    }
+]
