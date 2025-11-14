@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.1] - 2025-11-14
+
+### Removed
+- **nmos-riedel-artist node** - RIEDEL Artist intercom matrix control node has been removed
+  - Removed node implementation files (nodes/nmos-riedel-artist.js, nodes/nmos-riedel-artist.html)
+  - Removed example flow (examples/riedel-artist-example.json)
+  - Removed package.json registration and RIEDEL-specific keywords
+  - Updated documentation to remove references to the Artist node
+  - Note: IS-07 endpoint node continues to support RIEDEL Smartpanel integration for control commands
+
+### Changed
+- README.md - Removed nmos-riedel-artist node documentation section
+- package.json - Cleaned up keywords and node registrations
+
 ## [Unreleased]
 
 ### Added
