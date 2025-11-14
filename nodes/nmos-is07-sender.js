@@ -289,9 +289,9 @@ module.exports = function(RED) {
         // ============================================================================
 
         function buildManifest() {
-    const eventTypeUrn = `urn:x-nmos:event_type:${node.eventType}/v1.0`;
+            const eventTypeUrn = `urn:x-nmos:event_type:${node.eventType}/v1.0`;
     
-    return {
+            return {
         id: node.sourceId,
         label: node.sourceLabel,
         description: `IS-07 Event Source - ${node.eventType}`,
@@ -304,8 +304,8 @@ module.exports = function(RED) {
             event_type: eventTypeUrn,
             description: `Event type`
         }]
-    };
-}
+            };
+        }
 
         // ============================================================================
         // IS-05 Connection API State
@@ -748,9 +748,9 @@ module.exports = function(RED) {
         // ============================================================================
 
         function setupManifestEndpoint() {
-    const manifestPath = `/x-nmos/events/sources/${node.sourceId}/manifest`;
+            const manifestPath = `/x-nmos/events/sources/${node.sourceId}/manifest`;
     
-    RED.httpNode.get(manifestPath, (req, res) => {
+            RED.httpNode.get(manifestPath, (req, res) => {
         // Add CORS headers
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Content-Type', 'application/json');
@@ -762,10 +762,9 @@ module.exports = function(RED) {
             node.error(`Manifest error: ${err.message}`);
             res.status(500).json({ error: err.message });
         }
-    });
+            });
     
-    node.log(`✓ Manifest at http://localhost:${node.httpPort}${manifestPath}`);
-}
+            node.log(`✓ Manifest at http://localhost:${node.httpPort}${manifestPath}`);
 
     
 
