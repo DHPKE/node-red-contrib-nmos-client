@@ -282,12 +282,6 @@ module.exports = function(RED) {
     return resource;
 };
 
-            // Build manifest_href
-            resource.manifest_href = `http://${localIP}:${node.httpPort}/x-nmos/events/sources/${node.sourceId}/manifest`;
-
-            return resource;
-        };
-
         // ============================================================================
         // IS-07 Manifest Builder
         // ============================================================================
@@ -769,6 +763,7 @@ module.exports = function(RED) {
             });
     
             node.log(`✓ Manifest at http://localhost:${node.httpPort}${manifestPath}`);
+        }
 
     
 
