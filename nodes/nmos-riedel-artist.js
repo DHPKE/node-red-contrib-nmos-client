@@ -467,11 +467,13 @@ module.exports = function(RED) {
                     return true;
                 } else {
                     node.error(`Registration failed ${type}: HTTP ${res.status}`);
+                    node.error(`Response: ${JSON.stringify(res.data, null, 2)}`);
                     return false;
                 }
             } catch (err) {
                 if (err.response) {
                     node.error(`Registration error ${type}: HTTP ${err.response.status}`);
+                    node.error(`Response: ${JSON.stringify(err.response.data, null, 2)}`);
                 } else {
                     node.error(`Registration error ${type}: ${err.message}`);
                 }
