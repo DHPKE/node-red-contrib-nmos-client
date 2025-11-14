@@ -321,6 +321,40 @@ module.exports = function(RED) {
             }
         }
 
+        // Connection health monitoring
+        let healthStats = {
+            messagesReceived: 0,
+            messagesSent: 0,
+            errors: 0,
+            lastMessageTime: null,
+            connectionQuality: 'unknown'
+        };
+
+        const updateHealthStats = (type, success = true) => {
+            if (type === 'send') {
+                healthStats.messagesSent++;
+            } else if (type === 'receive') {
+                healthStats.messagesReceived++;
+                healthStats.lastMessageTime = Date.now();
+            }
+            
+            if (!success) {
+                healthStats.errors++;
+            }
+
+            // Calculate quality
+            const errorRate = healthStats.errors / (healthStats.messagesSent + healthStats.messagesReceived || 1);
+            if (errorRate < 0.01) {
+                healthStats.connectionQuality = 'excellent';
+            } else if (errorRate < 0.05) {
+                healthStats.connectionQuality = 'good';
+            } else if (errorRate < 0.1) {
+                healthStats.connectionQuality = 'fair';
+            } else {
+                healthStats.connectionQuality = 'poor';
+            }
+        };
+
         async function sendHeartbeat() {
             if (!registrationComplete) return;
 
@@ -471,6 +505,74 @@ module.exports = function(RED) {
             } catch (e) {
                 node.warn(`Failed to parse grain: ${e.message}`);
             }
+        };
+
+        /**
+         * Parse smartpanel-style commands from IS-07 grains
+         */
+        const parseSmartpanelCommand = (grain) => {
+            if (!grain || !grain.grain || !grain.grain.data) return null;
+
+            const data = grain.grain.data;
+            const commands = [];
+
+            for (const item of data) {
+                if (!item.path) continue;
+
+                // Parse button commands
+                if (item.path.includes('/button/')) {
+                    const buttonMatch = item.path.match(/button\/(\d+)/);
+                    if (buttonMatch) {
+                        commands.push({
+                            type: 'button',
+                            button: parseInt(buttonMatch[1]),
+                            pressed: item.post === true || item.post === 1,
+                            timestamp: grain.origin_timestamp
+                        });
+                    }
+                }
+
+                // Parse tally commands
+                if (item.path.includes('/tally/')) {
+                    const tallyMatch = item.path.match(/tally\/(red|yellow|green)/);
+                    if (tallyMatch) {
+                        commands.push({
+                            type: 'tally',
+                            color: tallyMatch[1],
+                            state: item.post === true || item.post === 1,
+                            timestamp: grain.origin_timestamp
+                        });
+                    }
+                }
+
+                // Parse fader commands
+                if (item.path.includes('/fader/')) {
+                    const faderMatch = item.path.match(/fader\/(\d+)/);
+                    if (faderMatch) {
+                        commands.push({
+                            type: 'fader',
+                            fader: parseInt(faderMatch[1]),
+                            value: parseFloat(item.post),
+                            timestamp: grain.origin_timestamp
+                        });
+                    }
+                }
+
+                // Parse GPIO commands
+                if (item.path.includes('/gpio/')) {
+                    const gpioMatch = item.path.match(/gpio\/(\d+)/);
+                    if (gpioMatch) {
+                        commands.push({
+                            type: 'gpio',
+                            pin: parseInt(gpioMatch[1]),
+                            state: item.post === true || item.post === 1,
+                            timestamp: grain.origin_timestamp
+                        });
+                    }
+                }
+            }
+
+            return commands.length > 0 ? commands : null;
         };
 
         // ============================================================================

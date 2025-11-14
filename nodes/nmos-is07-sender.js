@@ -441,6 +441,40 @@ module.exports = function(RED) {
             }
         }
 
+        // Connection health monitoring
+        let healthStats = {
+            messagesReceived: 0,
+            messagesSent: 0,
+            errors: 0,
+            lastMessageTime: null,
+            connectionQuality: 'unknown'
+        };
+
+        const updateHealthStats = (type, success = true) => {
+            if (type === 'send') {
+                healthStats.messagesSent++;
+            } else if (type === 'receive') {
+                healthStats.messagesReceived++;
+                healthStats.lastMessageTime = Date.now();
+            }
+            
+            if (!success) {
+                healthStats.errors++;
+            }
+
+            // Calculate quality
+            const errorRate = healthStats.errors / (healthStats.messagesSent + healthStats.messagesReceived || 1);
+            if (errorRate < 0.01) {
+                healthStats.connectionQuality = 'excellent';
+            } else if (errorRate < 0.05) {
+                healthStats.connectionQuality = 'good';
+            } else if (errorRate < 0.1) {
+                healthStats.connectionQuality = 'fair';
+            } else {
+                healthStats.connectionQuality = 'poor';
+            }
+        };
+
         async function sendHeartbeat() {
             if (!registrationComplete) return;
             
