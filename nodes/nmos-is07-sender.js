@@ -247,40 +247,42 @@ module.exports = function(RED) {
         };
 
         const buildSenderResource = () => {
-    const { ip, name: ifaceName } = getNetworkInfo();
-    
-    // Set transport URN based on configuration
-    let transport;
-    if (node.transportType === 'mqtt') {
-        transport = 'urn:x-nmos:transport:mqtt';
-    } else if (node.transportType === 'websocket') {
-        transport = 'urn:x-nmos:transport:websocket';
-    } else {
-        transport = 'urn:x-nmos:transport:mqtt'; // Default for 'both'
-    }
-    
-    const resource = {
-        id: node.senderId,
-        version: getTAITimestamp(),
-        label: node.senderLabel,
-        description: `IS-07 Event Sender - ${node.senderLabel}`,
-        flow_id: node.flowId,
-        transport: transport,  // ← CRITICAL: Must be present!
-        tags: {},
-        device_id: node.deviceId,
-        manifest_href: `http://${ip}:${node.httpPort || 1880}/x-nmos/events/sources/${node.sourceId}/manifest`,
-        interface_bindings: [ifaceName],
-        subscription: {
-            receiver_id: null,
-            active: false
-        }
-    };
-    return resource;
-};
-
-            // Build manifest_href
-            resource.manifest_href = `http://${localIP}:${node.httpPort}/x-nmos/events/sources/${node.sourceId}/manifest`;
-
+            const { ip, name: ifaceName } = getNetworkInfo();
+            
+            // Determine transport URN based on configuration
+            let transport;
+            if (node.transportType === 'mqtt') {
+                transport = 'urn:x-nmos:transport:mqtt';
+            } else if (node.transportType === 'websocket') {
+                transport = 'urn:x-nmos:transport:websocket';
+            } else if (node.transportType === 'both') {
+                transport = 'urn:x-nmos:transport:mqtt'; // Primary transport for dual mode
+            } else {
+                transport = 'urn:x-nmos:transport:mqtt'; // Fallback default
+            }
+            
+            const resource = {
+                id: node.senderId,
+                version: getTAITimestamp(),
+                label: node.senderLabel || 'IS-07 Sender',
+                description: `IS-07 Event Sender - ${node.senderLabel || 'Event Publisher'}`,
+                flow_id: node.flowId,
+                transport: transport,  // REQUIRED: Must be present for registry validation
+                tags: {
+                    'urn:x-nmos:tag:grouphint/v1.0': [node.deviceLabel || 'IS-07 Device']
+                },
+                device_id: node.deviceId,
+                manifest_href: `http://${ip}:${node.httpPort || 1880}/x-nmos/events/sources/${node.sourceId}/manifest`,
+                interface_bindings: [ifaceName],
+                subscription: {
+                    receiver_id: node.targetReceiverId || null,
+                    active: node.targetReceiverId ? true : false
+                }
+            };
+            
+            // Validation logging
+            node.log(`✓ Sender resource built with transport: ${transport}`);
+            
             return resource;
         };
 
@@ -289,23 +291,33 @@ module.exports = function(RED) {
         // ============================================================================
 
         function buildManifest() {
-    const eventTypeUrn = `urn:x-nmos:event_type:${node.eventType}/v1.0`;
-    
-    return {
-        id: node.sourceId,
-        label: node.sourceLabel,
-        description: `IS-07 Event Source - ${node.eventType}`,
-        tags: {},
-        state: {
-            event_type: eventTypeUrn,
-            description: `State type`
-        },
-        events: [{
-            event_type: eventTypeUrn,
-            description: `Event type`
-        }]
-    };
-}
+            // Generate proper NMOS event type URN
+            const eventTypeUrn = `urn:x-nmos:event_type:${node.eventType}/v1.0`;
+            
+            const manifest = {
+                id: node.sourceId,
+                label: node.sourceLabel || 'IS-07 Event Source',
+                description: `IS-07 Event Source - ${node.eventType} events`,
+                tags: {
+                    'urn:x-nmos:tag:grouphint/v1.0': [node.deviceLabel || 'IS-07 Device']
+                },
+                state: {
+                    event_type: eventTypeUrn,
+                    description: `Current state for ${node.eventType} events`
+                },
+                events: [{
+                    event_type: eventTypeUrn,
+                    description: `${node.eventType.charAt(0).toUpperCase() + node.eventType.slice(1)} event type`
+                }]
+            };
+            
+            // Validate manifest before returning
+            if (!manifest.id || !manifest.events || manifest.events.length === 0) {
+                throw new Error('Manifest validation failed: missing required fields');
+            }
+            
+            return manifest;
+        }
 
         // ============================================================================
         // IS-05 Connection API State
@@ -748,24 +760,60 @@ module.exports = function(RED) {
         // ============================================================================
 
         function setupManifestEndpoint() {
-    const manifestPath = `/x-nmos/events/sources/${node.sourceId}/manifest`;
-    
-    RED.httpNode.get(manifestPath, (req, res) => {
-        // Add CORS headers
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Content-Type', 'application/json');
-        
-        try {
-            const manifest = buildManifest();
-            res.status(200).json(manifest);
-        } catch (err) {
-            node.error(`Manifest error: ${err.message}`);
-            res.status(500).json({ error: err.message });
+            const manifestPath = `/x-nmos/events/sources/${node.sourceId}/manifest`;
+            
+            // GET manifest
+            RED.httpNode.get(manifestPath, (req, res) => {
+                // CORS headers for cross-origin registry access
+                res.setHeader('Access-Control-Allow-Origin', '*');
+                res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+                res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+                res.setHeader('Content-Type', 'application/json');
+                
+                try {
+                    const manifest = buildManifest();
+                    
+                    // Validate manifest structure
+                    if (!manifest || !manifest.id || !manifest.events) {
+                        throw new Error('Invalid manifest structure');
+                    }
+                    
+                    res.status(200).json(manifest);
+                    node.log(`✓ Manifest served: ${manifestPath}`);
+                } catch (err) {
+                    node.error(`Manifest generation error: ${err.message}`);
+                    res.status(500).json({
+                        error: 'Manifest generation failed',
+                        message: err.message,
+                        debug: err.stack
+                    });
+                }
+            });
+            
+            // OPTIONS handler for CORS preflight
+            RED.httpNode.options(manifestPath, (req, res) => {
+                res.setHeader('Access-Control-Allow-Origin', '*');
+                res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+                res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+                res.status(204).send();
+            });
+            
+            const { ip } = getNetworkInfo();
+            const fullUrl = `http://${ip}:${node.httpPort || 1880}${manifestPath}`;
+            node.log(`✓ Manifest endpoint registered at ${fullUrl}`);
+            
+            // Self-test manifest endpoint on startup
+            setTimeout(() => {
+                const testUrl = `http://localhost:${node.httpPort || 1880}${manifestPath}`;
+                axios.get(testUrl)
+                    .then(response => {
+                        node.log(`✓ Manifest endpoint self-test passed`);
+                    })
+                    .catch(err => {
+                        node.warn(`⚠ Manifest endpoint self-test failed: ${err.message}`);
+                    });
+            }, 2000);
         }
-    });
-    
-    node.log(`✓ Manifest at http://localhost:${node.httpPort}${manifestPath}`);
-}
 
     
 
@@ -931,45 +979,59 @@ module.exports = function(RED) {
         // ============================================================================
 
         node.on('close', (done) => {
-            node.log('Shutting down IS-07 Sender...');
+            node.log('Shutting down IS-07 sender...');
             
             // Stop heartbeat
             if (heartbeatInterval) {
                 clearInterval(heartbeatInterval);
             }
             
-            // Close MQTT
+            // Close MQTT client
             if (mqttClient) {
                 mqttClient.end(true);
             }
-
-            // Close WebSocket connections
-            wsConnections.forEach(ws => {
-                try {
-                    ws.close();
-                } catch (e) {
-                    // Ignore
-                }
-            });
-            wsConnections.clear();
-
-            // Close WebSocket server
+            
+            // Close WebSocket server and connections
             if (wss) {
+                wsConnections.forEach(ws => {
+                    try {
+                        ws.close();
+                    } catch (err) {
+                        // Ignore close errors
+                    }
+                });
                 wss.close(() => {
                     node.log('✓ WebSocket server closed');
                 });
             }
-
-            // Remove HTTP endpoints
-            httpEndpoints.forEach(endpoint => {
+            
+            // Remove HTTP endpoints (Connection API + Manifest)
+            const connectionApiVersion = 'v1.1';
+            const routes = [
+                // Connection API routes
+                `/x-nmos/connection/${connectionApiVersion}/`,
+                `/x-nmos/connection/${connectionApiVersion}/single/`,
+                `/x-nmos/connection/${connectionApiVersion}/single/senders/`,
+                `/x-nmos/connection/${connectionApiVersion}/single/senders/${node.senderId}/`,
+                `/x-nmos/connection/${connectionApiVersion}/single/senders/${node.senderId}/staged`,
+                `/x-nmos/connection/${connectionApiVersion}/single/senders/${node.senderId}/active`,
+                `/x-nmos/connection/${connectionApiVersion}/single/senders/${node.senderId}/constraints`,
+                `/x-nmos/connection/${connectionApiVersion}/single/senders/${node.senderId}/transporttype`,
+                // Manifest route
+                `/x-nmos/events/sources/${node.sourceId}/manifest`
+            ];
+            
+            routes.forEach(route => {
                 try {
-                    RED.httpNode._router.stack = RED.httpNode._router.stack.filter(r => r.route !== endpoint);
-                } catch (e) {
-                    // Ignore
+                    RED.httpNode._router.stack = RED.httpNode._router.stack.filter(
+                        r => !(r.route && r.route.path === route)
+                    );
+                } catch (err) {
+                    // Ignore cleanup errors
                 }
             });
-
-            // Unregister IS-04 resources
+            
+            // Unregister IS-04 resources (reverse order)
             (async () => {
                 const registrationApiUrl = getRegistrationApiUrl();
                 const headers = node.registry.getAuthHeaders();
@@ -979,13 +1041,12 @@ module.exports = function(RED) {
                     await axios.delete(`${registrationApiUrl}/resource/sources/${node.sourceId}`, { headers }).catch(() => {});
                     await axios.delete(`${registrationApiUrl}/resource/devices/${node.deviceId}`, { headers }).catch(() => {});
                     await axios.delete(`${registrationApiUrl}/resource/nodes/${node.nodeId}`, { headers }).catch(() => {});
-                    node.log('✓ Unregistered from IS-04');
-                } catch (e) {
-                    node.warn('Unregister error (normal on shutdown)');
+                    node.log('✓ Resources deregistered');
+                } catch (err) {
+                    node.warn(`Cleanup error: ${err.message}`);
                 }
-            })().finally(() => {
                 done();
-            });
+            })();
         });
     }
 
