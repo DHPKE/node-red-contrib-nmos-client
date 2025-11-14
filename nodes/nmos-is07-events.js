@@ -128,9 +128,13 @@ module.exports = function(RED) {
                     ref_type: 'internal'
                 }],
                 interfaces: [{
+                    name: ifaceName,
                     chassis_id: localMAC,
                     port_id: localMAC,
-                    name: ifaceName
+                    attached_network_device: {
+                        chassis_id: localMAC,
+                        port_id: localMAC
+                    }
                 }]
             };
 
