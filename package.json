@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-nmos-client",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "Complete NMOS implementation for Node-RED with IS-04, IS-05, IS-07, and IS-12 support including dynamic routing matrix flow with snapshot management",
   "keywords": [
     "node-red",
