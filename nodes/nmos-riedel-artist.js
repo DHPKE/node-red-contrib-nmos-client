@@ -1120,8 +1120,8 @@ module.exports = function(RED) {
                             brightness: msg.payload.brightness,
                             scroll: msg.payload.scroll
                         };
-                        if (!dispId || !dispText) {
-                            throw new Error('send_display_text requires displayId and text');
+                        if (!dispId || dispText === undefined || dispText === null || dispText === '') {
+                            throw new Error('send_display_text requires displayId and non-empty text');
                         }
                         const dispOk = sendDisplayText(dispId, dispText, dispOptions);
                         msg.payload = { success: dispOk, action: 'send_display_text', displayId: dispId, text: dispText };
@@ -1130,13 +1130,13 @@ module.exports = function(RED) {
 
                     case 'send_display_line':
                         const lineDispId = msg.payload.displayId || msg.payload.display || msg.displayId;
-                        const lineNumber = msg.payload.lineNumber || msg.payload.line || msg.lineNumber;
-                        const lineText = msg.payload.text || msg.text;
+                        const lineNumber = msg.payload.lineNumber !== undefined ? msg.payload.lineNumber : (msg.payload.line !== undefined ? msg.payload.line : msg.lineNumber);
+                        const lineText = msg.payload.text !== undefined ? msg.payload.text : msg.text;
                         const lineOptions = {
                             brightness: msg.payload.brightness
                         };
-                        if (!lineDispId || !lineNumber || !lineText) {
-                            throw new Error('send_display_line requires displayId, lineNumber, and text');
+                        if (!lineDispId || lineNumber === undefined || lineNumber === null || lineText === undefined || lineText === null || lineText === '') {
+                            throw new Error('send_display_line requires displayId, lineNumber, and non-empty text');
                         }
                         const lineOk = sendDisplayLine(lineDispId, lineNumber, lineText, lineOptions);
                         msg.payload = { success: lineOk, action: 'send_display_line', displayId: lineDispId, lineNumber: lineNumber, text: lineText };
