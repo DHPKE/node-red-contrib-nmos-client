@@ -26,6 +26,12 @@ module.exports = function(RED) {
         node.statusSourceId = config.statusSourceId || uuidv4();
         node.parseSmartpanel = config.parseSmartpanel !== false;
         
+        // SmartPanel configuration
+        node.smartpanelIp = config.smartpanelIp || '';
+        node.smartpanelPort = config.smartpanelPort || 0;
+        node.displayMappings = config.displayMappings || [];
+        node.controlMappings = config.controlMappings || {};
+        
         // Resource IDs
         node.nodeId = config.nodeId || uuidv4();
         node.deviceId = config.deviceId || uuidv4();
@@ -447,21 +453,67 @@ module.exports = function(RED) {
         }
 
         /**
-         * Send display text to SmartPanel
-         * @param {number} displayId - Display identifier (1-based)
-         * @param {string} text - Text to display
-         * @param {object} options - Optional display options (color, brightness, etc.)
+         * Get display ID from name mapping
+         * @param {string} displayName - Friendly display name
+         * @returns {string|null} Display ID or null if not found
          */
-        function sendDisplayText(displayId, text, options = {}) {
-            if (!mqttClient || !mqttClient.connected) {
-                return false;
+        function getDisplayId(displayName) {
+            if (!displayName) return null;
+            
+            // If it's already a numeric ID, use it directly
+            if (!isNaN(displayName)) return displayName.toString();
+            
+            // Look up in mappings
+            const mapping = node.displayMappings.find(m => m.name === displayName);
+            return mapping ? mapping.id : displayName; // Fallback to name if not found
+        }
+
+        /**
+         * Validate display name/ID
+         * @param {string} displayNameOrId - Display name or ID
+         * @returns {object} Validation result {valid: boolean, displayId: string, error: string}
+         */
+        function validateDisplay(displayNameOrId) {
+            if (!displayNameOrId) {
+                return { valid: false, error: 'Display name or ID is required' };
             }
 
+            const displayId = getDisplayId(displayNameOrId);
+            if (!displayId) {
+                return { valid: false, error: `Display '${displayNameOrId}' not found in mappings` };
+            }
+
+            return { valid: true, displayId: displayId };
+        }
+
+        /**
+         * Send display text to SmartPanel (Enhanced version)
+         * @param {string|number} displayNameOrId - Display name or numeric ID
+         * @param {string} text - Text to display
+         * @param {object} options - Optional display options (scroll, align, color, brightness)
+         * @returns {object} Result {success: boolean, displayId: string, error: string}
+         */
+        function sendDisplayText(displayNameOrId, text, options = {}) {
+            if (!mqttClient || !mqttClient.connected) {
+                node.warn('Cannot send display text: MQTT not connected');
+                return { success: false, error: 'MQTT not connected' };
+            }
+
+            // Validate display
+            const validation = validateDisplay(displayNameOrId);
+            if (!validation.valid) {
+                node.warn(`Display validation failed: ${validation.error}`);
+                return { success: false, error: validation.error };
+            }
+
+            const displayId = validation.displayId;
             const displayPath = `display/${displayId}/text`;
             const displayData = {
                 text: text,
                 color: options.color || 'white',
                 brightness: options.brightness || 100,
+                scroll: options.scroll || false,
+                align: options.align || 'left',
                 timestamp: new Date().toISOString()
             };
 
@@ -476,10 +528,37 @@ module.exports = function(RED) {
                     node.error(`Display text publish error: ${err.message}`);
                 } else {
                     node.log(`► Display ${displayId}: ${text}`);
+                    node.status({ 
+                        fill: 'green', 
+                        shape: 'dot', 
+                        text: `display: ${text.substring(0, 20)}${text.length > 20 ? '...' : ''}` 
+                    });
                 }
             });
 
-            return true;
+            return { success: true, displayId: displayId };
+        }
+
+        /**
+         * Send display text to multiple displays
+         * @param {object} displays - Object mapping display names to text {displayName: text, ...}
+         * @param {object} options - Optional display options applied to all
+         * @returns {object} Result {success: boolean, updates: array, errors: array}
+         */
+        function sendMultipleDisplayTexts(displays, options = {}) {
+            const results = { success: true, updates: [], errors: [] };
+            
+            for (const [displayName, text] of Object.entries(displays)) {
+                const result = sendDisplayText(displayName, text, options);
+                if (result.success) {
+                    results.updates.push({ display: displayName, displayId: result.displayId, text });
+                } else {
+                    results.errors.push({ display: displayName, error: result.error });
+                    results.success = false;
+                }
+            }
+            
+            return results;
         }
 
         /**
@@ -508,6 +587,52 @@ module.exports = function(RED) {
             });
 
             return true;
+        }
+
+        /**
+         * Create standardized control event message from parsed command
+         * @param {object} cmd - Parsed SmartPanel command
+         * @returns {object|null} Control event message or null
+         */
+        function createControlEventMessage(cmd) {
+            if (!cmd || !cmd.type) return null;
+
+            let event = null;
+            let control = null;
+
+            // Map command types to event names
+            if (cmd.type === 'leverkey') {
+                event = cmd.direction === 'up' ? 'leverkey_up' : 'leverkey_down';
+                control = node.controlMappings[`leverkey${cmd.leverkey}`] || `lever${cmd.leverkey}`;
+            } else if (cmd.type === 'rotary') {
+                if (cmd.action === 'push') {
+                    event = 'rotary_push';
+                } else if (cmd.action === 'left') {
+                    event = 'rotary_left';
+                } else if (cmd.action === 'right') {
+                    event = 'rotary_right';
+                }
+                control = node.controlMappings[`rotary${cmd.rotary}`] || `rotary${cmd.rotary}`;
+            } else if (cmd.type === 'button') {
+                event = cmd.pressed ? 'button_press' : 'button_release';
+                control = node.controlMappings[`button${cmd.button}`] || `button${cmd.button}`;
+            } else if (cmd.type === 'gpio') {
+                event = cmd.state ? 'gpio_high' : 'gpio_low';
+                control = node.controlMappings[`gpio${cmd.gpio}`] || `gpio${cmd.gpio}`;
+            }
+
+            if (!event) return null;
+
+            return {
+                topic: 'smartpanel/control',
+                payload: {
+                    event: event,
+                    control: control,
+                    timestamp: new Date().toISOString(),
+                    value: cmd.value,
+                    raw_command: cmd
+                }
+            };
         }
 
         // ============================================================================
@@ -599,6 +724,14 @@ module.exports = function(RED) {
                             commands: smartpanelCommands,
                             raw_grain: grain
                         };
+                        
+                        // Emit standardized control event messages for each command
+                        for (const cmd of smartpanelCommands) {
+                            const controlEvent = createControlEventMessage(cmd);
+                            if (controlEvent) {
+                                node.send(controlEvent);
+                            }
+                        }
                     }
 
                     node.send(outputMsg);
@@ -629,10 +762,41 @@ module.exports = function(RED) {
 
         node.on('input', async (msg) => {
             try {
+                // Check for simplified display text formats first
+                if (msg.payload && !msg.payload.action) {
+                    // Single display update: {display: "name", text: "...", ...}
+                    if (msg.payload.display && msg.payload.text) {
+                        const options = {
+                            color: msg.payload.color,
+                            brightness: msg.payload.brightness,
+                            scroll: msg.payload.scroll,
+                            align: msg.payload.align
+                        };
+                        const result = sendDisplayText(msg.payload.display, msg.payload.text, options);
+                        msg.payload = result;
+                        node.send(msg);
+                        return;
+                    }
+                    
+                    // Multiple displays: {displays: {name1: "text1", name2: "text2"}}
+                    if (msg.payload.displays && typeof msg.payload.displays === 'object') {
+                        const options = {
+                            color: msg.payload.color,
+                            brightness: msg.payload.brightness,
+                            scroll: msg.payload.scroll,
+                            align: msg.payload.align
+                        };
+                        const result = sendMultipleDisplayTexts(msg.payload.displays, options);
+                        msg.payload = result;
+                        node.send(msg);
+                        return;
+                    }
+                }
+
                 const action = (msg.payload && msg.payload.action) || msg.action;
 
                 if (!action) {
-                    node.warn('No action specified');
+                    node.warn('No action specified in message. Use msg.payload.action or simplified display format.');
                     return;
                 }
 
@@ -652,7 +816,10 @@ module.exports = function(RED) {
                             localState: Object.fromEntries(localState),
                             registrationUrl: getRegistrationApiUrl(),
                             sendStatusUpdates: node.sendStatusUpdates,
-                            parseSmartpanel: node.parseSmartpanel
+                            parseSmartpanel: node.parseSmartpanel,
+                            smartpanelIp: node.smartpanelIp,
+                            smartpanelPort: node.smartpanelPort,
+                            displayMappings: node.displayMappings
                         };
                         node.send(msg);
                         break;
@@ -688,19 +855,19 @@ module.exports = function(RED) {
                         break;
 
                     case 'send_display_text':
-                        const displayId = msg.payload.displayId || msg.displayId;
+                        const displayId = msg.payload.displayId || msg.payload.display || msg.displayId;
                         const displayText = msg.payload.text || msg.text;
-                        const displayOptions = msg.payload.options || msg.options || {};
-                        if (!displayId || !displayText) {
-                            throw new Error('send_display_text requires displayId and text');
-                        }
-                        const displayOk = sendDisplayText(displayId, displayText, displayOptions);
-                        msg.payload = { 
-                            success: displayOk, 
-                            action: 'send_display_text', 
-                            displayId: displayId, 
-                            text: displayText 
+                        const displayOptions = {
+                            color: msg.payload.color || (msg.payload.options && msg.payload.options.color),
+                            brightness: msg.payload.brightness || (msg.payload.options && msg.payload.options.brightness),
+                            scroll: msg.payload.scroll || (msg.payload.options && msg.payload.options.scroll),
+                            align: msg.payload.align || (msg.payload.options && msg.payload.options.align)
                         };
+                        if (!displayId || !displayText) {
+                            throw new Error('send_display_text requires displayId/display and text');
+                        }
+                        const displayResult = sendDisplayText(displayId, displayText, displayOptions);
+                        msg.payload = displayResult;
                         node.send(msg);
                         break;
 
