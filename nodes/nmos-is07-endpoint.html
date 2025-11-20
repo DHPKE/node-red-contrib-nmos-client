@@ -212,6 +212,30 @@ RED.nodes.registerType('nmos-is07-endpoint',{
 };</pre>
     <p>Publish status update back to sources (requires "Send Status Updates" enabled).</p>
     
+    <p><strong>Send Display Text to SmartPanel:</strong></p>
+    <pre>msg.payload = {
+    action: "send_display_text",
+    displayId: 1,
+    text: "Hello World",
+    options: {
+        color: "green",      // optional: white, green, red, amber
+        brightness: 100      // optional: 0-100
+    }
+};</pre>
+    <p>Send text to a SmartPanel display. Display ID is the panel display number (1-based).</p>
+    
+    <p><strong>Configure SmartPanel Routing:</strong></p>
+    <pre>msg.payload = {
+    action: "configure_smartpanel_routing",
+    panelId: "panel-1",
+    routingConfig: {
+        source: "source-id",
+        destination: "dest-id",
+        mode: "bidirectional"
+    }
+};</pre>
+    <p>Configure routing for a RIEDEL SmartPanel device.</p>
+    
     <p><strong>Clear History:</strong></p>
     <pre>msg.payload = { action: "clear_history" };</pre>
     
@@ -248,14 +272,18 @@ RED.nodes.registerType('nmos-is07-endpoint',{
     "smartpanel": {  // Only present if Smartpanel parsing is enabled
         "commands": [
             {
-                "type": "gpio|button|tally|fader|encoder|property",
+                "type": "gpio|button|tally|fader|encoder|leverkey|rotary|property",
                 "gpio": 1,           // For GPIO commands
-                "state": true,       // For GPIO/button/tally
+                "state": true,       // For GPIO/button/tally/leverkey
                 "button": 1,         // For button commands
                 "pressed": true,     // For button commands
                 "color": "red",      // For tally commands
                 "fader": 1,          // For fader commands
-                "value": 0.5,        // For fader/encoder
+                "value": 0.5,        // For fader/encoder/rotary
+                "leverkey": 1,       // For LeverKey commands
+                "direction": "up",   // For LeverKey: "up" or "down"
+                "rotary": 1,         // For Rotary commands
+                "action": "push",    // For Rotary: "push", "left", or "right"
                 "raw_path": "original/path",
                 "raw_value": "original_value"
             }
@@ -271,6 +299,8 @@ RED.nodes.registerType('nmos-is07-endpoint',{
         <li><strong>Tally:</strong> <code>tally/red</code>, <code>tally/green</code>, <code>tally/amber</code>, <code>tally/program</code>, <code>tally/preview</code></li>
         <li><strong>Faders:</strong> <code>fader/N</code>, <code>level/N</code>, <code>gain/N</code></li>
         <li><strong>Encoders:</strong> <code>encoder/N</code>, <code>rotary/N</code></li>
+        <li><strong>LeverKey:</strong> <code>leverkey/N/up</code>, <code>leverkey/N/down</code> or <code>lever/N/up</code>, <code>lever/N/down</code></li>
+        <li><strong>Rotary Controls:</strong> <code>rotary/N/push</code>, <code>rotary/N/left</code>, <code>rotary/N/right</code></li>
     </ul>
     
     <h3>MQTT Topics</h3>
@@ -287,7 +317,52 @@ RED.nodes.registerType('nmos-is07-endpoint',{
         <li>Map Smartpanel buttons/GPIs to IS-07 event paths</li>
         <li>Enable "Parse RIEDEL Smartpanel Commands" for automatic command identification</li>
         <li>Use the output messages to trigger Node-RED flows based on Smartpanel controls</li>
+        <li>Send display text updates using the <code>send_display_text</code> action</li>
+        <li>Configure routing using the <code>configure_smartpanel_routing</code> action</li>
     </ol>
+    
+    <h4>SmartPanel Control Events</h4>
+    <p>The endpoint node recognizes and emits messages for the following SmartPanel controls:</p>
+    <ul>
+        <li><strong>LeverKey Up/Down:</strong> Physical lever switches that can be moved up or down</li>
+        <li><strong>Rotary Push:</strong> Pressing the rotary encoder button</li>
+        <li><strong>Rotary Left:</strong> Turning the rotary encoder counter-clockwise</li>
+        <li><strong>Rotary Right:</strong> Turning the rotary encoder clockwise</li>
+    </ul>
+    
+    <h4>Example Flow</h4>
+    <p>Example: Handle LeverKey events and update display</p>
+    <pre>// In a function node after the endpoint
+if (msg.smartpanel && msg.smartpanel.commands) {
+    for (const cmd of msg.smartpanel.commands) {
+        if (cmd.type === 'leverkey') {
+            // LeverKey moved
+            node.send({
+                payload: {
+                    action: 'send_display_text',
+                    displayId: cmd.leverkey,
+                    text: `Lever ${cmd.direction}`,
+                    options: { color: 'green' }
+                }
+            });
+        } else if (cmd.type === 'rotary') {
+            // Rotary control used
+            let text = '';
+            if (cmd.action === 'push') text = 'Pressed';
+            else if (cmd.action === 'left') text = 'Turn Left';
+            else if (cmd.action === 'right') text = 'Turn Right';
+            
+            node.send({
+                payload: {
+                    action: 'send_display_text',
+                    displayId: cmd.rotary,
+                    text: text
+                }
+            });
+        }
+    }
+}
+return null;</pre>
     
     <h3>Example Use Cases</h3>
     <ul>
