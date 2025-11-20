@@ -640,41 +640,48 @@ module.exports = function(RED) {
         // ============================================================================
 
         const buildNodeResource = () => {
-            return {
-                id: node.nodeId,
-                version: getTAITimestamp(),
-                label: `${node.deviceLabel} Node`,
-                description: node.deviceDescription,
-                href: `http://${localIP}:${node.registry.httpPort || 1880}/`,
-                hostname: os.hostname(),
-                caps: {},
-                tags: {
-                    'urn:x-nmos:tag:riedel/artist': ['panel'],
-                    'urn:x-nmos:tag:is07/role': ['sender', 'receiver']
-                },
-                api: {
-                    versions: [node.registry.queryApiVersion],
-                    endpoints: [{
-                        host: localIP,
-                        port: node.registry.httpPort || 1880,
-                        protocol: 'http'
-                    }]
-                },
-                clocks: [{
-                    name: 'clk0',
-                    ref_type: 'internal'
-                }],
-                interfaces: [{
-                    name: ifaceName,
-                    chassis_id: localMAC,
-                    port_id: localMAC,
-                    attached_network_device: {
-                        chassis_id: localMAC,
-                        port_id: localMAC
-                    }
-                }]
-            };
-        };
+    const resource = {
+        id: node.nodeId,
+        version: getTAITimestamp(),
+        label: `${node.deviceLabel} Node`,
+        description: node.deviceDescription,
+        href: `http://${localIP}:${node.registry.httpPort || 1880}/`,
+        hostname: os.hostname(),
+        caps: {},
+        tags: {
+            'urn:x-nmos:tag:riedel/artist': ['panel'],
+            'urn:x-nmos:tag:is07/role': ['sender', 'receiver']
+        },
+        api: {
+            versions: [node.registry.queryApiVersion],
+            endpoints: [{
+                host: localIP,
+                port: node.registry.httpPort || 1880,
+                protocol: 'http'
+            }]
+        },
+        clocks: [{
+            name: 'clk0',
+            ref_type: 'internal'
+        }],
+        interfaces: [{
+            name: ifaceName,
+            chassis_id: localMAC,
+            port_id: localMAC,
+            attached_network_device: {
+                chassis_id: localMAC,
+                port_id: localMAC
+            }
+        }]
+    };
+
+    // Add services array for API v1.1 and above (required by IS-04 spec)
+    if (node.registry.queryApiVersion >= 'v1.1') {
+        resource.services = [];
+    }
+
+    return resource;
+};
 
         const buildDeviceResource = () => {
             return {
