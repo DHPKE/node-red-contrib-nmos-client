@@ -16,7 +16,11 @@ RED.nodes.registerType('nmos-is07-endpoint',{
         statusSourceId: {value:""},
         nodeId: {value:""},
         deviceId: {value:""},
-        receiverId: {value:""}
+        receiverId: {value:""},
+        smartpanelIp: {value:""},
+        smartpanelPort: {value:0},
+        displayMappings: {value:[]},
+        controlMappings: {value:{}}
     },
     inputs:1,
     outputs:1,
@@ -25,6 +29,8 @@ RED.nodes.registerType('nmos-is07-endpoint',{
         return this.name || this.deviceLabel || "IS-07 Endpoint";
     },
     oneditprepare: function() {
+        var node = this;
+        
         // Generate UUIDs if not present
         if (!this.nodeId) this.nodeId = generateUUID();
         if (!this.deviceId) this.deviceId = generateUUID();
@@ -49,6 +55,77 @@ RED.nodes.registerType('nmos-is07-endpoint',{
             $("#node-input-receiverId").val(generateUUID());
             $("#node-input-statusSourceId").val(generateUUID());
         });
+        
+        // Initialize display mappings
+        if (!node.displayMappings) {
+            node.displayMappings = [];
+        }
+        
+        // Display mappings list
+        var displayList = $("#node-input-display-container");
+        
+        function addDisplayMapping(name, id) {
+            var row = $('<div/>').css({
+                'margin-bottom': '5px',
+                'display': 'flex',
+                'gap': '5px'
+            }).appendTo(displayList);
+            
+            $('<input/>', {
+                type: 'text',
+                placeholder: 'Display name (e.g., button1)',
+                value: name || '',
+                css: { 'flex': '1' }
+            }).addClass('display-name').appendTo(row);
+            
+            $('<input/>', {
+                type: 'text',
+                placeholder: 'Display ID',
+                value: id || '',
+                css: { 'width': '100px' }
+            }).addClass('display-id').appendTo(row);
+            
+            $('<button/>', {
+                type: 'button',
+                text: '×',
+                css: { 'width': '30px' }
+            }).addClass('red-ui-button').click(function() {
+                row.remove();
+            }).appendTo(row);
+        }
+        
+        // Load existing mappings
+        if (node.displayMappings && node.displayMappings.length > 0) {
+            node.displayMappings.forEach(function(mapping) {
+                addDisplayMapping(mapping.name, mapping.id);
+            });
+        } else {
+            // Add default mappings
+            ['display1', 'display2', 'display3', 'button1', 'button2'].forEach(function(name, idx) {
+                addDisplayMapping(name, (idx + 1).toString());
+            });
+        }
+        
+        $("#node-input-add-display").click(function() {
+            addDisplayMapping('', '');
+        });
+        
+        // Initialize control mappings
+        if (!node.controlMappings) {
+            node.controlMappings = {};
+        }
+    },
+    oneditsave: function() {
+        // Save display mappings
+        var displayMappings = [];
+        $("#node-input-display-container > div").each(function() {
+            var name = $(this).find('.display-name').val().trim();
+            var id = $(this).find('.display-id').val().trim();
+            if (name && id) {
+                displayMappings.push({ name: name, id: id });
+            }
+        });
+        this.displayMappings = displayMappings;
     }
 });
 </script>
@@ -129,6 +206,40 @@ RED.nodes.registerType('nmos-is07-endpoint',{
     </div>
     
     <hr/>
+    <h4>SmartPanel Configuration</h4>
+    
+    <div class="form-row">
+        <label for="node-input-smartpanelIp"><i class="fa fa-server"></i> SmartPanel IP</label>
+        <input type="text" id="node-input-smartpanelIp" placeholder="192.168.1.100">
+    </div>
+    <div class="form-row">
+        <label for="node-input-smartpanelPort"><i class="fa fa-plug"></i> SmartPanel Port</label>
+        <input type="number" id="node-input-smartpanelPort" placeholder="8080">
+    </div>
+    <div class="form-tip">
+        Connection settings for direct SmartPanel communication (optional)
+    </div>
+    
+    <hr/>
+    <h4>Display Mappings</h4>
+    <div class="form-tip" style="margin-bottom: 10px;">
+        Map friendly display names to SmartPanel display IDs for easy text updates
+    </div>
+    
+    <div class="form-row">
+        <label style="vertical-align: top;"><i class="fa fa-list"></i> Displays</label>
+        <div style="display: inline-block; width: 70%;">
+            <div id="node-input-display-container" style="margin-bottom: 5px;"></div>
+            <button type="button" id="node-input-add-display" class="red-ui-button" style="margin-top: 5px;">
+                <i class="fa fa-plus"></i> Add Display Mapping
+            </button>
+        </div>
+    </div>
+    <div class="form-tip">
+        Example: Name "button1" → ID "1" allows msg.payload = {display: "button1", text: "Hello"}
+    </div>
+    
+    <hr/>
     <h4>Resource IDs</h4>
     
     <div class="form-row">
@@ -156,23 +267,31 @@ RED.nodes.registerType('nmos-is07-endpoint',{
 </script>
 
 <script type="text/html" data-help-name="nmos-is07-endpoint">
-    <p>NMOS IS-07 Endpoint node - Receives control commands and tally from IS-07 sources including RIEDEL Smartpanel.</p>
+    <p>NMOS IS-07 Endpoint node - Receives control commands and tally from IS-07 sources including RIEDEL Smartpanel with comprehensive display text management.</p>
     
     <h3>Overview</h3>
     <p>This node acts as an NMOS endpoint that subscribes to IS-07 events via MQTT and processes incoming control commands. 
-    It supports bidirectional communication by optionally sending status updates back to control sources.</p>
+    It supports bidirectional communication with SmartPanel devices and provides an easy-to-use interface for display text updates.</p>
     
     <h3>Features</h3>
     <ul>
         <li><strong>IS-07 Event Subscription:</strong> Receives events from any IS-07 source</li>
-        <li><strong>RIEDEL Smartpanel Support:</strong> Automatic parsing of Smartpanel commands (GPIO, buttons, tally, faders)</li>
+        <li><strong>Easy Display Text Updates:</strong> Simple message format for updating SmartPanel displays</li>
+        <li><strong>Display Name Mapping:</strong> Configure friendly names for displays (e.g., "button1", "top", "main")</li>
+        <li><strong>SmartPanel Control Events:</strong> Standardized output for LeverKey and Rotary controls</li>
+        <li><strong>RIEDEL Smartpanel Support:</strong> Automatic parsing of Smartpanel commands</li>
         <li><strong>Bidirectional Communication:</strong> Send status updates back to sources</li>
-        <li><strong>Command History:</strong> Tracks received commands for monitoring and debugging</li>
-        <li><strong>State Management:</strong> Maintains state from multiple sources</li>
         <li><strong>IS-04 Registration:</strong> Registers as receiver in NMOS registry</li>
     </ul>
     
     <h3>Configuration</h3>
+    
+    <h4>SmartPanel Settings</h4>
+    <ul>
+        <li><strong>SmartPanel IP:</strong> IP address or hostname of the SmartPanel device (optional)</li>
+        <li><strong>SmartPanel Port:</strong> Port for direct SmartPanel communication (optional)</li>
+        <li><strong>Display Mappings:</strong> Map friendly names to SmartPanel display IDs</li>
+    </ul>
     
     <h4>Device Settings</h4>
     <ul>
@@ -181,28 +300,87 @@ RED.nodes.registerType('nmos-is07-endpoint',{
         <li><strong>Subscription Filter:</strong> MQTT topic filter (default: all IS-07 events)</li>
     </ul>
     
-    <h4>Endpoint Features</h4>
+    <h3>Simple Display Text Updates</h3>
+    
+    <h4>Single Display Update</h4>
+    <p>Send text to a single display using the display name configured in mappings:</p>
+    <pre>msg.payload = {
+    display: "button1",
+    text: "MIC 1"
+};</pre>
+    
+    <h4>With Formatting Options</h4>
+    <pre>msg.payload = {
+    display: "main",
+    text: "Long scrolling text message",
+    scroll: true,
+    align: "center",
+    color: "green",
+    brightness: 80
+};</pre>
+    
+    <h4>Multiple Displays at Once</h4>
+    <p>Update multiple displays with a single message:</p>
+    <pre>msg.payload = {
+    displays: {
+        "top": "Router A",
+        "middle": "Input 5",
+        "bottom": "Active"
+    }
+};</pre>
+    
+    <h4>Formatting Options</h4>
     <ul>
-        <li><strong>Send Status Updates:</strong> Enable/disable publishing status back to sources</li>
-        <li><strong>Parse RIEDEL Smartpanel:</strong> Automatically identify Smartpanel command patterns</li>
+        <li><strong>scroll:</strong> true/false - Enable text scrolling for long text</li>
+        <li><strong>align:</strong> "left", "center", or "right" - Text alignment</li>
+        <li><strong>color:</strong> "white", "green", "red", "amber" - Text color</li>
+        <li><strong>brightness:</strong> 0-100 - Display brightness percentage</li>
     </ul>
     
-    <h3>Input Actions</h3>
+    <h3>Control Event Output</h3>
+    
+    <p>When SmartPanel controls are activated, the node emits standardized messages:</p>
+    
+    <h4>LeverKey Events</h4>
+    <pre>{
+    topic: "smartpanel/control",
+    payload: {
+        event: "leverkey_up",     // or "leverkey_down"
+        control: "lever1",         // control identifier
+        timestamp: "2025-11-20T19:35:08Z",
+        value: true,
+        raw_command: {...}         // original parsed command
+    }
+}</pre>
+    
+    <h4>Rotary Control Events</h4>
+    <pre>{
+    topic: "smartpanel/control",
+    payload: {
+        event: "rotary_push",      // or "rotary_left", "rotary_right"
+        control: "rotary1",        // control identifier
+        timestamp: "2025-11-20T19:35:08Z",
+        value: 1,
+        raw_command: {...}
+    }
+}</pre>
+    
+    <h3>Action-Based Input (Advanced)</h3>
     
     <p><strong>Get Current State:</strong></p>
     <pre>msg.payload = { action: "get_state" };</pre>
-    <p>Returns endpoint configuration, connection status, and statistics.</p>
+    <p>Returns endpoint configuration, connection status, display mappings, and statistics.</p>
     
-    <p><strong>Get Received States:</strong></p>
-    <pre>msg.payload = { action: "get_received_states" };</pre>
-    <p>Returns all received property states from subscribed sources.</p>
-    
-    <p><strong>Get Command History:</strong></p>
-    <pre>msg.payload = { 
-    action: "get_command_history",
-    limit: 10  // optional, default 10
+    <p><strong>Send Display Text (Action Format):</strong></p>
+    <pre>msg.payload = {
+    action: "send_display_text",
+    display: "button1",         // or displayId: 1
+    text: "Hello World",
+    color: "green",
+    brightness: 100,
+    scroll: false,
+    align: "left"
 };</pre>
-    <p>Returns recent command history with parsed Smartpanel commands.</p>
     
     <p><strong>Send Status Update:</strong></p>
     <pre>msg.payload = {
@@ -210,19 +388,12 @@ RED.nodes.registerType('nmos-is07-endpoint',{
     path: "status/ready",
     value: true
 };</pre>
-    <p>Publish status update back to sources (requires "Send Status Updates" enabled).</p>
     
-    <p><strong>Send Display Text to SmartPanel:</strong></p>
-    <pre>msg.payload = {
-    action: "send_display_text",
-    displayId: 1,
-    text: "Hello World",
-    options: {
-        color: "green",      // optional: white, green, red, amber
-        brightness: 100      // optional: 0-100
-    }
+    <p><strong>Get Command History:</strong></p>
+    <pre>msg.payload = { 
+    action: "get_command_history",
+    limit: 10
 };</pre>
-    <p>Send text to a SmartPanel display. Display ID is the panel display number (1-based).</p>
     
     <p><strong>Configure SmartPanel Routing:</strong></p>
     <pre>msg.payload = {
@@ -230,64 +401,27 @@ RED.nodes.registerType('nmos-is07-endpoint',{
     panelId: "panel-1",
     routingConfig: {
         source: "source-id",
-        destination: "dest-id",
-        mode: "bidirectional"
+        destination: "dest-id"
     }
 };</pre>
-    <p>Configure routing for a RIEDEL SmartPanel device.</p>
     
-    <p><strong>Clear History:</strong></p>
-    <pre>msg.payload = { action: "clear_history" };</pre>
+    <h3>Output Message Format</h3>
+    <p>The node outputs two types of messages:</p>
     
-    <p><strong>Clear States:</strong></p>
-    <pre>msg.payload = { action: "clear_states" };</pre>
+    <h4>1. Control Event Messages (Simplified)</h4>
+    <p>Standardized messages for SmartPanel controls as shown above.</p>
     
-    <h3>Output Message</h3>
-    <p>Outputs received IS-07 grain messages with optional Smartpanel command parsing:</p>
+    <h4>2. Full IS-07 Grain Messages</h4>
     <pre>{
     "topic": "x-nmos/events/1.0/{source_id}/{type}",
     "payload": {
         // IS-07 grain message
         "grain_type": "event",
         "source_id": "source-uuid",
-        "flow_id": "flow-uuid",
-        "grain": {
-            "type": "urn:x-nmos:format:data.event",
-            "topic": "event|state",
-            "data": [
-                {
-                    "path": "property/path",
-                    "pre": previous_value,
-                    "post": new_value
-                }
-            ]
-        }
+        "grain": {...}
     },
-    "source_id": "source-uuid",
-    "flow_id": "flow-uuid",
-    "endpoint": {
-        "device_id": "endpoint-device-uuid",
-        "receiver_id": "endpoint-receiver-uuid"
-    },
-    "smartpanel": {  // Only present if Smartpanel parsing is enabled
-        "commands": [
-            {
-                "type": "gpio|button|tally|fader|encoder|leverkey|rotary|property",
-                "gpio": 1,           // For GPIO commands
-                "state": true,       // For GPIO/button/tally/leverkey
-                "button": 1,         // For button commands
-                "pressed": true,     // For button commands
-                "color": "red",      // For tally commands
-                "fader": 1,          // For fader commands
-                "value": 0.5,        // For fader/encoder/rotary
-                "leverkey": 1,       // For LeverKey commands
-                "direction": "up",   // For LeverKey: "up" or "down"
-                "rotary": 1,         // For Rotary commands
-                "action": "push",    // For Rotary: "push", "left", or "right"
-                "raw_path": "original/path",
-                "raw_value": "original_value"
-            }
-        ]
+    "smartpanel": {
+        "commands": [...]  // Parsed SmartPanel commands
     }
 }</pre>
     
@@ -296,82 +430,57 @@ RED.nodes.registerType('nmos-is07-endpoint',{
     <ul>
         <li><strong>GPIO:</strong> <code>gpio/input/N</code> or <code>gpi/N</code></li>
         <li><strong>Buttons:</strong> <code>button/N</code>, <code>key/N</code>, <code>switch/N</code></li>
-        <li><strong>Tally:</strong> <code>tally/red</code>, <code>tally/green</code>, <code>tally/amber</code>, <code>tally/program</code>, <code>tally/preview</code></li>
+        <li><strong>Tally:</strong> <code>tally/red</code>, <code>tally/green</code>, <code>tally/amber</code></li>
         <li><strong>Faders:</strong> <code>fader/N</code>, <code>level/N</code>, <code>gain/N</code></li>
-        <li><strong>Encoders:</strong> <code>encoder/N</code>, <code>rotary/N</code></li>
-        <li><strong>LeverKey:</strong> <code>leverkey/N/up</code>, <code>leverkey/N/down</code> or <code>lever/N/up</code>, <code>lever/N/down</code></li>
+        <li><strong>LeverKey:</strong> <code>leverkey/N/up</code>, <code>leverkey/N/down</code></li>
         <li><strong>Rotary Controls:</strong> <code>rotary/N/push</code>, <code>rotary/N/left</code>, <code>rotary/N/right</code></li>
-    </ul>
-    
-    <h3>MQTT Topics</h3>
-    <ul>
-        <li><strong>Subscribe:</strong> Configurable filter (default: <code>x-nmos/events/1.0/+/+</code>)</li>
-        <li><strong>Publish Status:</strong> <code>x-nmos/events/1.0/{status_source_id}/object</code></li>
     </ul>
     
     <h3>Integration with RIEDEL Smartpanel</h3>
     <p>To integrate with RIEDEL Smartpanel:</p>
     <ol>
-        <li>Configure Smartpanel to publish IS-07 events via MQTT</li>
+        <li>Configure display mappings in the node settings (e.g., "button1" → "1")</li>
         <li>Set the MQTT broker URL to match your broker</li>
-        <li>Map Smartpanel buttons/GPIs to IS-07 event paths</li>
-        <li>Enable "Parse RIEDEL Smartpanel Commands" for automatic command identification</li>
-        <li>Use the output messages to trigger Node-RED flows based on Smartpanel controls</li>
-        <li>Send display text updates using the <code>send_display_text</code> action</li>
-        <li>Configure routing using the <code>configure_smartpanel_routing</code> action</li>
+        <li>Enable "Parse RIEDEL Smartpanel Commands"</li>
+        <li>Send simple display text messages: <code>{display: "button1", text: "Hello"}</code></li>
+        <li>Receive standardized control events on topic "smartpanel/control"</li>
     </ol>
     
-    <h4>SmartPanel Control Events</h4>
-    <p>The endpoint node recognizes and emits messages for the following SmartPanel controls:</p>
-    <ul>
-        <li><strong>LeverKey Up/Down:</strong> Physical lever switches that can be moved up or down</li>
-        <li><strong>Rotary Push:</strong> Pressing the rotary encoder button</li>
-        <li><strong>Rotary Left:</strong> Turning the rotary encoder counter-clockwise</li>
-        <li><strong>Rotary Right:</strong> Turning the rotary encoder clockwise</li>
-    </ul>
+    <h3>Example Flows</h3>
     
-    <h4>Example Flow</h4>
-    <p>Example: Handle LeverKey events and update display</p>
+    <h4>Update Display on Button Press</h4>
     <pre>// In a function node after the endpoint
-if (msg.smartpanel && msg.smartpanel.commands) {
-    for (const cmd of msg.smartpanel.commands) {
-        if (cmd.type === 'leverkey') {
-            // LeverKey moved
-            node.send({
-                payload: {
-                    action: 'send_display_text',
-                    displayId: cmd.leverkey,
-                    text: `Lever ${cmd.direction}`,
-                    options: { color: 'green' }
-                }
-            });
-        } else if (cmd.type === 'rotary') {
-            // Rotary control used
-            let text = '';
-            if (cmd.action === 'push') text = 'Pressed';
-            else if (cmd.action === 'left') text = 'Turn Left';
-            else if (cmd.action === 'right') text = 'Turn Right';
-            
-            node.send({
-                payload: {
-                    action: 'send_display_text',
-                    displayId: cmd.rotary,
-                    text: text
-                }
-            });
-        }
+if (msg.topic === 'smartpanel/control') {
+    if (msg.payload.event === 'rotary_push') {
+        return {
+            payload: {
+                display: msg.payload.control,
+                text: "Pressed!",
+                color: "green"
+            }
+        };
     }
 }
 return null;</pre>
     
-    <h3>Example Use Cases</h3>
-    <ul>
-        <li>Camera tally control in broadcast studios</li>
-        <li>Production automation triggered by panel buttons</li>
-        <li>Status feedback to operators via tally lights</li>
-        <li>Remote control of broadcast equipment</li>
-        <li>Integration with production switchers and routers</li>
-    </ul>
+    <h4>Cycle Through Menu Options</h4>
+    <pre>// Handle rotary left/right to navigate menu
+var menuIndex = context.get('menuIndex') || 0;
+var menuItems = ['Option 1', 'Option 2', 'Option 3'];
+
+if (msg.payload.event === 'rotary_left') {
+    menuIndex = Math.max(0, menuIndex - 1);
+} else if (msg.payload.event === 'rotary_right') {
+    menuIndex = Math.min(menuItems.length - 1, menuIndex + 1);
+}
+
+context.set('menuIndex', menuIndex);
+return {
+    payload: {
+        display: "main",
+        text: menuItems[menuIndex]
+    }
+};</pre>
     
     <h3>Reference</h3>
     <ul>
