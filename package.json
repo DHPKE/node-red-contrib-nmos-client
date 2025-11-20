@@ -27,7 +27,6 @@
     "backup",
     "vue",
     "riedel",
-    "artist",
     "intercom",
     "smartpanel",
     "endpoint",
@@ -41,13 +40,11 @@
       "nmos-connection": "nodes/nmos-connection.js",
       "nmos-websocket": "nodes/nmos-websocket.js",
       "nmos-node": "nodes/nmos-node.js",
-      "nmos-is12-control": "nodes/nmos-is12-control.js",
       "nmos-is07-events": "nodes/nmos-is07-events.js",
       "nmos-is07-endpoint": "nodes/nmos-is07-endpoint.js",
       "nmos-is07-receiver": "nodes/nmos-is07-receiver.js",
       "nmos-is07-sender": "nodes/nmos-is07-sender.js",
       "nmos-matrix": "nodes/nmos-matrix.js",
-      "nmos-riedel-artist": "nodes/nmos-riedel-artist.js"
     }
   },
   "author": "DHPKE",
