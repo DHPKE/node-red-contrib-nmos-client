@@ -169,6 +169,26 @@ module.exports = function(RED) {
                         command.value = parseFloat(value) || 0;
                     }
                 }
+                // Parse SmartPanel LeverKey Up/Down
+                else if (path.match(/^(leverkey|lever)\/(\d+)\/(up|down)$/i)) {
+                    const match = path.match(/^(leverkey|lever)\/(\d+)\/(up|down)$/i);
+                    if (match) {
+                        command.type = 'leverkey';
+                        command.leverkey = parseInt(match[2]);
+                        command.direction = match[3].toLowerCase();
+                        command.state = !!value;
+                    }
+                }
+                // Parse SmartPanel Rotary controls
+                else if (path.match(/^rotary\/(\d+)\/(push|left|right)$/i)) {
+                    const match = path.match(/^rotary\/(\d+)\/(push|left|right)$/i);
+                    if (match) {
+                        command.type = 'rotary';
+                        command.rotary = parseInt(match[1]);
+                        command.action = match[2].toLowerCase();
+                        command.value = value;
+                    }
+                }
                 // Generic property
                 else {
                     command.type = 'property';
@@ -426,6 +446,70 @@ module.exports = function(RED) {
             return true;
         }
 
+        /**
+         * Send display text to SmartPanel
+         * @param {number} displayId - Display identifier (1-based)
+         * @param {string} text - Text to display
+         * @param {object} options - Optional display options (color, brightness, etc.)
+         */
+        function sendDisplayText(displayId, text, options = {}) {
+            if (!mqttClient || !mqttClient.connected) {
+                return false;
+            }
+
+            const displayPath = `display/${displayId}/text`;
+            const displayData = {
+                text: text,
+                color: options.color || 'white',
+                brightness: options.brightness || 100,
+                timestamp: new Date().toISOString()
+            };
+
+            const grain = buildStatusGrain(displayPath, displayData);
+            const topic = `x-nmos/events/1.0/${node.statusSourceId}/object`;
+
+            mqttClient.publish(topic, JSON.stringify(grain), {
+                qos: node.mqttQos,
+                retain: false
+            }, (err) => {
+                if (err) {
+                    node.error(`Display text publish error: ${err.message}`);
+                } else {
+                    node.log(`► Display ${displayId}: ${text}`);
+                }
+            });
+
+            return true;
+        }
+
+        /**
+         * Configure SmartPanel routing
+         * @param {string} panelId - SmartPanel identifier
+         * @param {object} routingConfig - Routing configuration
+         */
+        function configureSmartPanelRouting(panelId, routingConfig) {
+            if (!mqttClient || !mqttClient.connected) {
+                return false;
+            }
+
+            const routingPath = `smartpanel/${panelId}/routing`;
+            const grain = buildStatusGrain(routingPath, routingConfig);
+            const topic = `x-nmos/events/1.0/${node.statusSourceId}/object`;
+
+            mqttClient.publish(topic, JSON.stringify(grain), {
+                qos: node.mqttQos,
+                retain: false
+            }, (err) => {
+                if (err) {
+                    node.error(`SmartPanel routing config error: ${err.message}`);
+                } else {
+                    node.log(`► SmartPanel routing configured: ${panelId}`);
+                }
+            });
+
+            return true;
+        }
+
         // ============================================================================
         // MQTT Functions
         // ============================================================================
@@ -600,6 +684,38 @@ module.exports = function(RED) {
                         }
                         const statusOk = publishStatus(statusPath, statusValue);
                         msg.payload = { success: statusOk, action: 'send_status', path: statusPath, value: statusValue };
+                        node.send(msg);
+                        break;
+
+                    case 'send_display_text':
+                        const displayId = msg.payload.displayId || msg.displayId;
+                        const displayText = msg.payload.text || msg.text;
+                        const displayOptions = msg.payload.options || msg.options || {};
+                        if (!displayId || !displayText) {
+                            throw new Error('send_display_text requires displayId and text');
+                        }
+                        const displayOk = sendDisplayText(displayId, displayText, displayOptions);
+                        msg.payload = { 
+                            success: displayOk, 
+                            action: 'send_display_text', 
+                            displayId: displayId, 
+                            text: displayText 
+                        };
+                        node.send(msg);
+                        break;
+
+                    case 'configure_smartpanel_routing':
+                        const panelId = msg.payload.panelId || msg.panelId;
+                        const routingConfig = msg.payload.routingConfig || msg.routingConfig;
+                        if (!panelId || !routingConfig) {
+                            throw new Error('configure_smartpanel_routing requires panelId and routingConfig');
+                        }
+                        const routingOk = configureSmartPanelRouting(panelId, routingConfig);
+                        msg.payload = { 
+                            success: routingOk, 
+                            action: 'configure_smartpanel_routing', 
+                            panelId: panelId 
+                        };
                         node.send(msg);
                         break;
 
