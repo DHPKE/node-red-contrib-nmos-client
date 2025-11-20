@@ -1,0 +1,459 @@
+[
+    {
+        "id": "smartpanel-enhanced-tab",
+        "type": "tab",
+        "label": "SmartPanel Enhanced Integration",
+        "disabled": false,
+        "info": "# SmartPanel Enhanced Integration Example\n\nDemonstrates the new simplified display text management and standardized control events.\n\n## Features Shown:\n1. Simple display text updates\n2. Multiple displays at once\n3. Formatting options (color, scroll, align)\n4. Standardized control event handling\n5. Display name mapping\n\n## Setup:\n1. Configure display mappings in the endpoint node\n2. Set MQTT broker URL\n3. Deploy the flow\n4. Use inject nodes to test display updates\n5. Monitor control events in debug panel"
+    },
+    {
+        "id": "endpoint-enhanced",
+        "type": "nmos-is07-endpoint",
+        "z": "smartpanel-enhanced-tab",
+        "name": "Enhanced SmartPanel Endpoint",
+        "registry": "",
+        "mqttBroker": "mqtt://localhost:1883",
+        "deviceLabel": "SmartPanel Enhanced",
+        "deviceDescription": "SmartPanel with enhanced display management",
+        "receiverLabel": "Enhanced Receiver",
+        "subscriptionFilter": "x-nmos/events/1.0/+/+",
+        "mqttQos": 1,
+        "sendStatusUpdates": true,
+        "parseSmartpanel": true,
+        "smartpanelIp": "192.168.1.100",
+        "smartpanelPort": 8080,
+        "displayMappings": [
+            {"name": "top", "id": "1"},
+            {"name": "middle", "id": "2"},
+            {"name": "bottom", "id": "3"},
+            {"name": "button1", "id": "4"},
+            {"name": "button2", "id": "5"},
+            {"name": "main", "id": "10"}
+        ],
+        "controlMappings": {
+            "leverkey1": "lever1",
+            "rotary1": "encoder1"
+        },
+        "x": 370,
+        "y": 180,
+        "wires": [["route-by-topic", "debug-all"]]
+    },
+    {
+        "id": "route-by-topic",
+        "type": "switch",
+        "z": "smartpanel-enhanced-tab",
+        "name": "Route Messages",
+        "property": "topic",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "smartpanel/control",
+                "vt": "str"
+            },
+            {
+                "t": "cont",
+                "v": "x-nmos/events",
+                "vt": "str"
+            }
+        ],
+        "checkall": "false",
+        "repair": false,
+        "outputs": 2,
+        "x": 610,
+        "y": 180,
+        "wires": [["handle-control-events"], ["handle-grain-events"]]
+    },
+    {
+        "id": "handle-control-events",
+        "type": "function",
+        "z": "smartpanel-enhanced-tab",
+        "name": "Handle Control Events",
+        "func": "// Process standardized SmartPanel control events\nconst event = msg.payload.event;\nconst control = msg.payload.control;\n\nswitch (event) {\n    case 'leverkey_up':\n        return {\n            payload: {\n                display: control,\n                text: 'UP ↑',\n                color: 'green'\n            }\n        };\n        \n    case 'leverkey_down':\n        return {\n            payload: {\n                display: control,\n                text: 'DOWN ↓',\n                color: 'amber'\n            }\n        };\n        \n    case 'rotary_push':\n        return {\n            payload: {\n                display: control,\n                text: 'SELECTED',\n                color: 'green',\n                brightness: 100\n            }\n        };\n        \n    case 'rotary_left':\n        return {\n            payload: {\n                display: control,\n                text: '◄ LEFT',\n                color: 'amber'\n            }\n        };\n        \n    case 'rotary_right':\n        return {\n            payload: {\n                display: control,\n                text: 'RIGHT ►',\n                color: 'amber'\n            }\n        };\n}\n\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 850,
+        "y": 140,
+        "wires": [["send-to-endpoint", "debug-control"]]
+    },
+    {
+        "id": "handle-grain-events",
+        "type": "function",
+        "z": "smartpanel-enhanced-tab",
+        "name": "Handle Grain Events",
+        "func": "// Process full IS-07 grain messages\nif (msg.smartpanel && msg.smartpanel.commands) {\n    const commands = msg.smartpanel.commands;\n    node.status({\n        fill: 'blue',\n        shape: 'dot',\n        text: `Received ${commands.length} commands`\n    });\n}\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 850,
+        "y": 220,
+        "wires": [["debug-grains"]]
+    },
+    {
+        "id": "send-to-endpoint",
+        "type": "link out",
+        "z": "smartpanel-enhanced-tab",
+        "name": "To Endpoint",
+        "links": ["endpoint-input"],
+        "x": 1075,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "endpoint-input",
+        "type": "link in",
+        "z": "smartpanel-enhanced-tab",
+        "name": "Endpoint Input",
+        "links": ["send-to-endpoint"],
+        "x": 165,
+        "y": 180,
+        "wires": [["endpoint-enhanced"]]
+    },
+    {
+        "id": "debug-all",
+        "type": "debug",
+        "z": "smartpanel-enhanced-tab",
+        "name": "All Messages",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "x": 610,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "debug-control",
+        "type": "debug",
+        "z": "smartpanel-enhanced-tab",
+        "name": "Control Events",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 1090,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "debug-grains",
+        "type": "debug",
+        "z": "smartpanel-enhanced-tab",
+        "name": "Grain Events",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "smartpanel",
+        "targetType": "msg",
+        "x": 1080,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "comment-simple",
+        "type": "comment",
+        "z": "smartpanel-enhanced-tab",
+        "name": "Simple Display Text Examples",
+        "info": "Use the inject nodes below to test simple display text updates",
+        "x": 190,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "test-single-display",
+        "type": "inject",
+        "z": "smartpanel-enhanced-tab",
+        "name": "Single Display",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"display\":\"button1\",\"text\":\"MIC 1\"}",
+        "payloadType": "json",
+        "x": 160,
+        "y": 380,
+        "wires": [["endpoint-input"]]
+    },
+    {
+        "id": "test-with-color",
+        "type": "inject",
+        "z": "smartpanel-enhanced-tab",
+        "name": "With Color & Brightness",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"display\":\"top\",\"text\":\"ACTIVE\",\"color\":\"green\",\"brightness\":100}",
+        "payloadType": "json",
+        "x": 190,
+        "y": 420,
+        "wires": [["endpoint-input"]]
+    },
+    {
+        "id": "test-scrolling",
+        "type": "inject",
+        "z": "smartpanel-enhanced-tab",
+        "name": "Scrolling Text",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"display\":\"main\",\"text\":\"This is a very long scrolling message that will scroll across the display\",\"scroll\":true,\"align\":\"left\"}",
+        "payloadType": "json",
+        "x": 160,
+        "y": 460,
+        "wires": [["endpoint-input"]]
+    },
+    {
+        "id": "test-multiple",
+        "type": "inject",
+        "z": "smartpanel-enhanced-tab",
+        "name": "Multiple Displays",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"displays\":{\"top\":\"Router A\",\"middle\":\"Input 5\",\"bottom\":\"Active\"}}",
+        "payloadType": "json",
+        "x": 170,
+        "y": 500,
+        "wires": [["endpoint-input"]]
+    },
+    {
+        "id": "test-all-options",
+        "type": "inject",
+        "z": "smartpanel-enhanced-tab",
+        "name": "All Options",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"display\":\"main\",\"text\":\"CENTERED\",\"color\":\"amber\",\"brightness\":80,\"align\":\"center\",\"scroll\":false}",
+        "payloadType": "json",
+        "x": 150,
+        "y": 540,
+        "wires": [["endpoint-input"]]
+    },
+    {
+        "id": "comment-control",
+        "type": "comment",
+        "z": "smartpanel-enhanced-tab",
+        "name": "Control Event Test Triggers",
+        "info": "Simulate SmartPanel control events",
+        "x": 180,
+        "y": 600,
+        "wires": []
+    },
+    {
+        "id": "test-leverkey-up",
+        "type": "inject",
+        "z": "smartpanel-enhanced-tab",
+        "name": "Simulate LeverKey Up",
+        "props": [
+            {
+                "p": "topic",
+                "vt": "str"
+            },
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "smartpanel/control",
+        "payload": "{\"event\":\"leverkey_up\",\"control\":\"lever1\",\"timestamp\":\"2025-11-20T19:35:08Z\",\"value\":true}",
+        "payloadType": "json",
+        "x": 180,
+        "y": 640,
+        "wires": [["handle-control-events"]]
+    },
+    {
+        "id": "test-rotary-push",
+        "type": "inject",
+        "z": "smartpanel-enhanced-tab",
+        "name": "Simulate Rotary Push",
+        "props": [
+            {
+                "p": "topic",
+                "vt": "str"
+            },
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "smartpanel/control",
+        "payload": "{\"event\":\"rotary_push\",\"control\":\"encoder1\",\"timestamp\":\"2025-11-20T19:35:08Z\",\"value\":1}",
+        "payloadType": "json",
+        "x": 180,
+        "y": 680,
+        "wires": [["handle-control-events"]]
+    },
+    {
+        "id": "test-rotary-left",
+        "type": "inject",
+        "z": "smartpanel-enhanced-tab",
+        "name": "Simulate Rotary Left",
+        "props": [
+            {
+                "p": "topic",
+                "vt": "str"
+            },
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "smartpanel/control",
+        "payload": "{\"event\":\"rotary_left\",\"control\":\"encoder1\",\"timestamp\":\"2025-11-20T19:35:08Z\",\"value\":1}",
+        "payloadType": "json",
+        "x": 180,
+        "y": 720,
+        "wires": [["handle-control-events"]]
+    },
+    {
+        "id": "comment-menu",
+        "type": "comment",
+        "z": "smartpanel-enhanced-tab",
+        "name": "Interactive Menu Example",
+        "info": "Example showing a rotary-controlled menu system",
+        "x": 180,
+        "y": 780,
+        "wires": []
+    },
+    {
+        "id": "menu-controller",
+        "type": "function",
+        "z": "smartpanel-enhanced-tab",
+        "name": "Menu Controller",
+        "func": "// Interactive menu controlled by rotary encoder\nconst menuItems = [\n    'Camera 1',\n    'Camera 2',\n    'Camera 3',\n    'Graphics',\n    'Playback'\n];\n\nlet menuIndex = context.get('menuIndex') || 0;\nconst event = msg.payload.event;\n\nif (event === 'rotary_left') {\n    menuIndex = Math.max(0, menuIndex - 1);\n} else if (event === 'rotary_right') {\n    menuIndex = Math.min(menuItems.length - 1, menuIndex + 1);\n} else if (event === 'rotary_push') {\n    // Selection made\n    context.set('selectedItem', menuItems[menuIndex]);\n    return {\n        payload: {\n            displays: {\n                'top': 'SELECTED:',\n                'middle': menuItems[menuIndex],\n                'bottom': '✓ Confirmed'\n            },\n            color: 'green'\n        }\n    };\n}\n\ncontext.set('menuIndex', menuIndex);\n\n// Update display with menu\nreturn {\n    payload: {\n        displays: {\n            'top': `Menu (${menuIndex + 1}/${menuItems.length})`,\n            'middle': menuItems[menuIndex],\n            'bottom': '⏎ Select'\n        },\n        color: 'white'\n    }\n};",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 440,
+        "y": 820,
+        "wires": [["endpoint-input", "debug-menu"]]
+    },
+    {
+        "id": "debug-menu",
+        "type": "debug",
+        "z": "smartpanel-enhanced-tab",
+        "name": "Menu State",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 660,
+        "y": 820,
+        "wires": []
+    },
+    {
+        "id": "test-menu-left",
+        "type": "inject",
+        "z": "smartpanel-enhanced-tab",
+        "name": "Menu Left",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"event\":\"rotary_left\",\"control\":\"encoder1\"}",
+        "payloadType": "json",
+        "x": 150,
+        "y": 820,
+        "wires": [["menu-controller"]]
+    },
+    {
+        "id": "test-menu-right",
+        "type": "inject",
+        "z": "smartpanel-enhanced-tab",
+        "name": "Menu Right",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"event\":\"rotary_right\",\"control\":\"encoder1\"}",
+        "payloadType": "json",
+        "x": 160,
+        "y": 860,
+        "wires": [["menu-controller"]]
+    },
+    {
+        "id": "test-menu-select",
+        "type": "inject",
+        "z": "smartpanel-enhanced-tab",
+        "name": "Menu Select",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"event\":\"rotary_push\",\"control\":\"encoder1\"}",
+        "payloadType": "json",
+        "x": 160,
+        "y": 900,
+        "wires": [["menu-controller"]]
+    }
+]
