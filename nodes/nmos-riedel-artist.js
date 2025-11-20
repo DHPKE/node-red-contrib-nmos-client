@@ -640,7 +640,7 @@ module.exports = function(RED) {
         // ============================================================================
 
         const buildNodeResource = () => {
-    const resource = {
+    return {
         id: node.nodeId,
         version: getTAITimestamp(),
         label: `${node.deviceLabel} Node`,
@@ -648,6 +648,7 @@ module.exports = function(RED) {
         href: `http://${localIP}:${node.registry.httpPort || 1880}/`,
         hostname: os.hostname(),
         caps: {},
+        services: [],  // ← ADD THIS LINE - REQUIRED FOR IS-04 v1.3
         tags: {
             'urn:x-nmos:tag:riedel/artist': ['panel'],
             'urn:x-nmos:tag:is07/role': ['sender', 'receiver']
@@ -674,13 +675,6 @@ module.exports = function(RED) {
             }
         }]
     };
-
-    // Add services array for API v1.1 and above (required by IS-04 spec)
-    if (node.registry.queryApiVersion >= 'v1.1') {
-        resource.services = [];
-    }
-
-    return resource;
 };
 
         const buildDeviceResource = () => {
