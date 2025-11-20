@@ -26,6 +26,7 @@ module.exports = function(RED) {
         node.enableAudioRouting = config.enableAudioRouting !== false;
         node.enableKeyControl = config.enableKeyControl !== false;
         node.matrixSourceId = config.matrixSourceId || uuidv4();
+        node.smartpanelPreset = config.smartpanelPreset || null; // RSP-1216HL, RSP-1232HL, or null
         
         // Resource IDs
         node.nodeId = config.nodeId || uuidv4();
@@ -67,6 +68,123 @@ module.exports = function(RED) {
             node.status({ fill: 'red', shape: 'ring', text: 'no mqtt' });
             return;
         }
+
+        // ============================================================================
+        // SmartPanel Preset Configurations
+        // ============================================================================
+
+        const SMARTPANEL_PRESETS = {
+            'RSP-1216HL': {
+                model: 'RSP-1216HL',
+                keys: 16,
+                rotaries: 4,
+                displays: 4,
+                leverkeys: 8,
+                keyMapping: {
+                    1: { type: 'button', led: true, display: 1 },
+                    2: { type: 'button', led: true, display: 1 },
+                    3: { type: 'button', led: true, display: 1 },
+                    4: { type: 'button', led: true, display: 1 },
+                    5: { type: 'leverkey', led: true, display: 2 },
+                    6: { type: 'leverkey', led: true, display: 2 },
+                    7: { type: 'button', led: true, display: 2 },
+                    8: { type: 'button', led: true, display: 2 },
+                    9: { type: 'button', led: true, display: 3 },
+                    10: { type: 'button', led: true, display: 3 },
+                    11: { type: 'leverkey', led: true, display: 3 },
+                    12: { type: 'leverkey', led: true, display: 3 },
+                    13: { type: 'leverkey', led: true, display: 4 },
+                    14: { type: 'leverkey', led: true, display: 4 },
+                    15: { type: 'button', led: true, display: 4 },
+                    16: { type: 'button', led: true, display: 4 }
+                },
+                displayMapping: {
+                    1: { lines: 2, chars: 16, position: 'top-left' },
+                    2: { lines: 2, chars: 16, position: 'top-right' },
+                    3: { lines: 2, chars: 16, position: 'bottom-left' },
+                    4: { lines: 2, chars: 16, position: 'bottom-right' }
+                },
+                rotaryMapping: {
+                    1: { keys: [1, 2, 3, 4], display: 1 },
+                    2: { keys: [5, 6, 7, 8], display: 2 },
+                    3: { keys: [9, 10, 11, 12], display: 3 },
+                    4: { keys: [13, 14, 15, 16], display: 4 }
+                },
+                colorProfiles: {
+                    idle: { color: 'green', brightness: 50 },
+                    active: { color: 'red', brightness: 100 },
+                    warning: { color: 'amber', brightness: 75 },
+                    off: { color: 'off', brightness: 0 }
+                }
+            },
+            'RSP-1232HL': {
+                model: 'RSP-1232HL',
+                keys: 32,
+                rotaries: 4,
+                displays: 4,
+                leverkeys: 16,
+                keyMapping: {
+                    1: { type: 'button', led: true, display: 1 },
+                    2: { type: 'button', led: true, display: 1 },
+                    3: { type: 'button', led: true, display: 1 },
+                    4: { type: 'button', led: true, display: 1 },
+                    5: { type: 'button', led: true, display: 1 },
+                    6: { type: 'button', led: true, display: 1 },
+                    7: { type: 'button', led: true, display: 1 },
+                    8: { type: 'button', led: true, display: 1 },
+                    9: { type: 'leverkey', led: true, display: 2 },
+                    10: { type: 'leverkey', led: true, display: 2 },
+                    11: { type: 'leverkey', led: true, display: 2 },
+                    12: { type: 'leverkey', led: true, display: 2 },
+                    13: { type: 'button', led: true, display: 2 },
+                    14: { type: 'button', led: true, display: 2 },
+                    15: { type: 'button', led: true, display: 2 },
+                    16: { type: 'button', led: true, display: 2 },
+                    17: { type: 'button', led: true, display: 3 },
+                    18: { type: 'button', led: true, display: 3 },
+                    19: { type: 'button', led: true, display: 3 },
+                    20: { type: 'button', led: true, display: 3 },
+                    21: { type: 'leverkey', led: true, display: 3 },
+                    22: { type: 'leverkey', led: true, display: 3 },
+                    23: { type: 'leverkey', led: true, display: 3 },
+                    24: { type: 'leverkey', led: true, display: 3 },
+                    25: { type: 'leverkey', led: true, display: 4 },
+                    26: { type: 'leverkey', led: true, display: 4 },
+                    27: { type: 'leverkey', led: true, display: 4 },
+                    28: { type: 'leverkey', led: true, display: 4 },
+                    29: { type: 'button', led: true, display: 4 },
+                    30: { type: 'button', led: true, display: 4 },
+                    31: { type: 'button', led: true, display: 4 },
+                    32: { type: 'button', led: true, display: 4 }
+                },
+                displayMapping: {
+                    1: { lines: 2, chars: 16, position: 'top-left' },
+                    2: { lines: 2, chars: 16, position: 'top-right' },
+                    3: { lines: 2, chars: 16, position: 'bottom-left' },
+                    4: { lines: 2, chars: 16, position: 'bottom-right' }
+                },
+                rotaryMapping: {
+                    1: { keys: [1, 2, 3, 4, 5, 6, 7, 8], display: 1 },
+                    2: { keys: [9, 10, 11, 12, 13, 14, 15, 16], display: 2 },
+                    3: { keys: [17, 18, 19, 20, 21, 22, 23, 24], display: 3 },
+                    4: { keys: [25, 26, 27, 28, 29, 30, 31, 32], display: 4 }
+                },
+                colorProfiles: {
+                    idle: { color: 'green', brightness: 50 },
+                    active: { color: 'red', brightness: 100 },
+                    warning: { color: 'amber', brightness: 75 },
+                    off: { color: 'off', brightness: 0 }
+                }
+            }
+        };
+
+        // Get active preset configuration
+        const getSmartPanelPreset = () => {
+            if (node.smartpanelPreset && SMARTPANEL_PRESETS[node.smartpanelPreset]) {
+                return SMARTPANEL_PRESETS[node.smartpanelPreset];
+            }
+            return null;
+        };
 
         // ============================================================================
         // Utility Functions
@@ -272,7 +390,166 @@ module.exports = function(RED) {
         };
 
         /**
-         * Parse incoming Artist commands
+         * Set LED color and brightness for a SmartPanel key
+         * @param {number} keyId - Key number (1-16 or 1-32)
+         * @param {string} color - LED color: "red", "green", "amber", "off"
+         * @param {number} brightness - Brightness level 0-100
+         */
+        const setLedColor = (keyId, color, brightness = 100) => {
+            if (!mqttClient || !mqttClient.connected) {
+                node.warn('Cannot set LED: MQTT not connected');
+                return false;
+            }
+
+            const validColors = ['red', 'green', 'amber', 'off'];
+            if (!validColors.includes(color)) {
+                node.warn(`Invalid LED color: ${color}. Must be one of: ${validColors.join(', ')}`);
+                return false;
+            }
+
+            const preset = getSmartPanelPreset();
+            if (preset && (keyId < 1 || keyId > preset.keys)) {
+                node.warn(`Invalid key ID ${keyId} for ${preset.model}. Must be 1-${preset.keys}`);
+                return false;
+            }
+
+            brightness = Math.max(0, Math.min(100, brightness)); // Clamp to 0-100
+
+            const ledData = {
+                color: color,
+                brightness: brightness,
+                timestamp: new Date().toISOString()
+            };
+
+            publishArtistEvent('led_control', {
+                path: `led/${keyId}/color`,
+                keyId: keyId,
+                data: ledData
+            });
+
+            node.log(`LED ${keyId}: ${color} @ ${brightness}%`);
+            return true;
+        };
+
+        /**
+         * Send text to a SmartPanel OLED display
+         * @param {number} displayId - Display number (1-4)
+         * @param {string} text - Text to display (or array of 2 lines)
+         * @param {object} options - Display options (brightness, scroll, etc.)
+         */
+        const sendDisplayText = (displayId, text, options = {}) => {
+            if (!mqttClient || !mqttClient.connected) {
+                node.warn('Cannot send display text: MQTT not connected');
+                return false;
+            }
+
+            const preset = getSmartPanelPreset();
+            if (preset && (displayId < 1 || displayId > preset.displays)) {
+                node.warn(`Invalid display ID ${displayId} for ${preset.model}. Must be 1-${preset.displays}`);
+                return false;
+            }
+
+            // Format text into lines
+            let lines;
+            if (Array.isArray(text)) {
+                lines = text.slice(0, 2); // Max 2 lines per display
+            } else {
+                // Split text into lines if it contains newline, otherwise put on line 1
+                const textLines = text.split('\n');
+                lines = textLines.slice(0, 2);
+            }
+
+            // Truncate lines to 16 chars
+            lines = lines.map(line => line.substring(0, 16));
+
+            const displayData = {
+                displayId: displayId,
+                text: lines.join('\n'),
+                line1: lines[0] || '',
+                line2: lines[1] || '',
+                brightness: options.brightness !== undefined ? Math.max(0, Math.min(100, options.brightness)) : 100,
+                scroll: options.scroll || false,
+                timestamp: new Date().toISOString()
+            };
+
+            publishArtistEvent('display_text', {
+                path: `display/${displayId}/text`,
+                displayId: displayId,
+                data: displayData
+            });
+
+            node.log(`Display ${displayId}: "${lines.join(' / ')}"`);
+            return true;
+        };
+
+        /**
+         * Send text to a specific line of a display
+         * @param {number} displayId - Display number (1-4)
+         * @param {number} lineNumber - Line number (1-2)
+         * @param {string} text - Text to display (max 16 chars)
+         * @param {object} options - Display options
+         */
+        const sendDisplayLine = (displayId, lineNumber, text, options = {}) => {
+            if (!mqttClient || !mqttClient.connected) {
+                node.warn('Cannot send display line: MQTT not connected');
+                return false;
+            }
+
+            const preset = getSmartPanelPreset();
+            if (preset && (displayId < 1 || displayId > preset.displays)) {
+                node.warn(`Invalid display ID ${displayId} for ${preset.model}. Must be 1-${preset.displays}`);
+                return false;
+            }
+
+            if (lineNumber < 1 || lineNumber > 2) {
+                node.warn(`Invalid line number ${lineNumber}. Must be 1 or 2`);
+                return false;
+            }
+
+            const truncatedText = text.substring(0, 16);
+
+            const lineData = {
+                displayId: displayId,
+                lineNumber: lineNumber,
+                text: truncatedText,
+                brightness: options.brightness !== undefined ? Math.max(0, Math.min(100, options.brightness)) : 100,
+                timestamp: new Date().toISOString()
+            };
+
+            publishArtistEvent('display_line', {
+                path: `display/${displayId}/line/${lineNumber}`,
+                displayId: displayId,
+                lineNumber: lineNumber,
+                data: lineData
+            });
+
+            node.log(`Display ${displayId} Line ${lineNumber}: "${truncatedText}"`);
+            return true;
+        };
+
+        /**
+         * Apply a color profile to a key
+         * @param {number} keyId - Key number
+         * @param {string} profile - Profile name: "idle", "active", "warning", "off"
+         */
+        const applyColorProfile = (keyId, profile) => {
+            const preset = getSmartPanelPreset();
+            if (!preset) {
+                node.warn('No SmartPanel preset configured');
+                return false;
+            }
+
+            if (!preset.colorProfiles[profile]) {
+                node.warn(`Unknown color profile: ${profile}`);
+                return false;
+            }
+
+            const colorProfile = preset.colorProfiles[profile];
+            return setLedColor(keyId, colorProfile.color, colorProfile.brightness);
+        };
+
+        /**
+         * Parse incoming Artist commands (enhanced for SmartPanel)
          */
         const parseArtistCommand = (grain) => {
             if (!grain.grain || !grain.grain.data) {
@@ -300,6 +577,30 @@ module.exports = function(RED) {
                     command.key = parseInt(match[1]);
                     command.action = match[2].toLowerCase();
                     command.pressed = (command.action === 'press' || command.action === 'toggle' && value);
+                }
+                // Button press/release: button/N/press, button/N/release
+                else if (path.match(/^button\/(\d+)\/(press|release)$/i)) {
+                    const match = path.match(/^button\/(\d+)\/(press|release)$/i);
+                    command.type = 'button';
+                    command.button = parseInt(match[1]);
+                    command.action = match[2].toLowerCase();
+                    command.pressed = (command.action === 'press');
+                }
+                // LeverKey up/down: leverkey/N/up, leverkey/N/down
+                else if (path.match(/^leverkey\/(\d+)\/(up|down)$/i)) {
+                    const match = path.match(/^leverkey\/(\d+)\/(up|down)$/i);
+                    command.type = 'leverkey';
+                    command.leverkey = parseInt(match[1]);
+                    command.direction = match[2].toLowerCase();
+                    command.state = !!value;
+                }
+                // Rotary encoder: rotary/N/left, rotary/N/right, rotary/N/push
+                else if (path.match(/^rotary\/(\d+)\/(left|right|push)$/i)) {
+                    const match = path.match(/^rotary\/(\d+)\/(left|right|push)$/i);
+                    command.type = 'rotary';
+                    command.rotary = parseInt(match[1]);
+                    command.action = match[2].toLowerCase();
+                    command.value = value;
                 }
                 // Audio route: artist/route/source_id/destination_id
                 else if (path.match(/^artist\/route\/([^\/]+)\/([^\/]+)$/i)) {
@@ -798,6 +1099,68 @@ module.exports = function(RED) {
                     case 're-register':
                         node.log('Manual re-registration requested');
                         await registerAll();
+                        break;
+
+                    case 'set_led_color':
+                        const ledKeyId = msg.payload.keyId || msg.payload.key || msg.keyId;
+                        const ledColor = msg.payload.color || msg.color;
+                        const ledBrightness = msg.payload.brightness !== undefined ? msg.payload.brightness : 100;
+                        if (!ledKeyId || !ledColor) {
+                            throw new Error('set_led_color requires keyId and color');
+                        }
+                        const ledOk = setLedColor(ledKeyId, ledColor, ledBrightness);
+                        msg.payload = { success: ledOk, action: 'set_led_color', keyId: ledKeyId, color: ledColor, brightness: ledBrightness };
+                        node.send(msg);
+                        break;
+
+                    case 'send_display_text':
+                        const dispId = msg.payload.displayId || msg.payload.display || msg.displayId;
+                        const dispText = msg.payload.text || msg.text;
+                        const dispOptions = {
+                            brightness: msg.payload.brightness,
+                            scroll: msg.payload.scroll
+                        };
+                        if (!dispId || dispText === undefined || dispText === null || dispText === '') {
+                            throw new Error('send_display_text requires displayId and non-empty text');
+                        }
+                        const dispOk = sendDisplayText(dispId, dispText, dispOptions);
+                        msg.payload = { success: dispOk, action: 'send_display_text', displayId: dispId, text: dispText };
+                        node.send(msg);
+                        break;
+
+                    case 'send_display_line':
+                        const lineDispId = msg.payload.displayId || msg.payload.display || msg.displayId;
+                        const lineNumber = msg.payload.lineNumber !== undefined ? msg.payload.lineNumber : (msg.payload.line !== undefined ? msg.payload.line : msg.lineNumber);
+                        const lineText = msg.payload.text !== undefined ? msg.payload.text : msg.text;
+                        const lineOptions = {
+                            brightness: msg.payload.brightness
+                        };
+                        if (!lineDispId || lineNumber === undefined || lineNumber === null || lineText === undefined || lineText === null || lineText === '') {
+                            throw new Error('send_display_line requires displayId, lineNumber, and non-empty text');
+                        }
+                        const lineOk = sendDisplayLine(lineDispId, lineNumber, lineText, lineOptions);
+                        msg.payload = { success: lineOk, action: 'send_display_line', displayId: lineDispId, lineNumber: lineNumber, text: lineText };
+                        node.send(msg);
+                        break;
+
+                    case 'apply_color_profile':
+                        const profileKeyId = msg.payload.keyId || msg.payload.key || msg.keyId;
+                        const profileName = msg.payload.profile || msg.profile;
+                        if (!profileKeyId || !profileName) {
+                            throw new Error('apply_color_profile requires keyId and profile');
+                        }
+                        const profileOk = applyColorProfile(profileKeyId, profileName);
+                        msg.payload = { success: profileOk, action: 'apply_color_profile', keyId: profileKeyId, profile: profileName };
+                        node.send(msg);
+                        break;
+
+                    case 'get_smartpanel_preset':
+                        const preset = getSmartPanelPreset();
+                        msg.payload = {
+                            preset: node.smartpanelPreset,
+                            config: preset
+                        };
+                        node.send(msg);
                         break;
 
                     default:

@@ -234,10 +234,11 @@ Outputs received IS-07 grain messages with optional parsed Smartpanel commands.
 See [IS-07 Endpoint & Smartpanel Guide](docs/is07-endpoint-smartpanel.md) for complete setup and integration instructions.
 
 #### nmos-riedel-artist
-Intercom matrix control and panel management for RIEDEL Artist systems via NMOS.
+Intercom matrix control and panel management for RIEDEL Artist systems via NMOS, with complete support for SmartPanel 1200 series.
 
 **Configuration:**
 - Panel type: generic, 1100, 2300, smartpanel
+- **SmartPanel Preset:** RSP-1216HL, RSP-1232HL (for 1200 series panels)
 - Device and panel labels
 - MQTT broker URL and QoS
 - Enable/disable key control and audio routing features
@@ -250,6 +251,14 @@ Intercom matrix control and panel management for RIEDEL Artist systems via NMOS.
 - IS-07 event-based communication via MQTT
 - Bidirectional Artist command processing
 - Command history tracking
+- **SmartPanel 1200 series support:**
+  - LED color control (red, green, amber, off)
+  - LED brightness control (0-100)
+  - OLED display text writing (4 displays, 2 lines each, 16 chars per line)
+  - Rotary encoder events (left, right, push)
+  - Button press/release events
+  - LeverKey up/down events
+  - Predefined color profiles (idle, active, warning, off)
 
 **Input Actions:**
 - `configure_key`: Set up panel key with label and mode
@@ -261,9 +270,15 @@ Intercom matrix control and panel management for RIEDEL Artist systems via NMOS.
 - `get_state`: Get panel configuration and status
 - `update_panel_status`: Update panel status information
 - `get_command_history`: Query recent Artist commands
+- **SmartPanel Actions:**
+  - `set_led_color`: Control LED color and brightness
+  - `send_display_text`: Write text to display (2 lines)
+  - `send_display_line`: Write text to specific display line
+  - `apply_color_profile`: Apply predefined LED color profile
+  - `get_smartpanel_preset`: Get active preset configuration
 
 **Output:**
-Outputs received Artist commands and events with parsed command data.
+Outputs received Artist commands and events with parsed command data. SmartPanel events include button presses, leverkey positions, and rotary encoder movements.
 
 **Example:**
 ```javascript
@@ -289,15 +304,58 @@ msg.payload = {
         mode: "both"
     }
 };
+
+// SmartPanel: Set LED color
+msg.payload = {
+    action: "set_led_color",
+    keyId: 5,
+    color: "red",
+    brightness: 100
+};
+
+// SmartPanel: Send display text
+msg.payload = {
+    action: "send_display_text",
+    displayId: 1,
+    text: "Camera 1\nReady"
+};
 ```
 
+**SmartPanel 1200 Series:**
+
+The node includes built-in presets for RIEDEL 1200 series SmartPanels:
+
+- **RSP-1216HL**: 16 keys, 4 OLED displays, 4 rotary encoders, 8 leverkeys
+- **RSP-1232HL**: 32 keys, 4 OLED displays, 4 rotary encoders, 16 leverkeys
+
+Each display supports 2 lines of 16 characters. LEDs support red, green, amber colors with 0-100% brightness control.
+
+**IS-07 Event Paths:**
+
+Input events (Panel → Node-RED):
+- `rotary/N/left`, `rotary/N/right`, `rotary/N/push` - Rotary encoder actions
+- `button/N/press`, `button/N/release` - Button events
+- `leverkey/N/up`, `leverkey/N/down` - LeverKey position events
+- `artist/key/N/press`, `artist/key/N/release` - Artist key actions
+
+Output commands (Node-RED → Panel):
+- `led/N/color` - Set LED color and brightness
+- `display/N/text` - Write text to display
+- `display/N/line/1`, `display/N/line/2` - Write to specific display line
+
 **Integration:**
-- Supports RIEDEL Artist 1100, 2300, and smartpanel models
+- Supports RIEDEL Artist 1100, 2300, and SmartPanel models including RSP-1216HL and RSP-1232HL
 - Compatible with NMOS IS-04, IS-05, IS-07, and IS-12
 - Integrates with existing IS-07 infrastructure
 - Works alongside nmos-is07-endpoint for complete RIEDEL integration
+- Automatic IS-04 registration with heartbeat maintenance
+- Auto re-registration on connection loss
 
-See [examples/riedel-artist-example.json](examples/riedel-artist-example.json) for complete workflow examples.
+See example flows:
+- [examples/riedel-artist-example.json](examples/riedel-artist-example.json) - Basic Artist workflows
+- [examples/riedel-smartpanel-rsp1216hl-example.json](examples/riedel-smartpanel-rsp1216hl-example.json) - RSP-1216HL complete example
+- [examples/riedel-smartpanel-rsp1232hl-example.json](examples/riedel-smartpanel-rsp1232hl-example.json) - RSP-1232HL complete example
+
 
 #### nmos-is12-control
 Implement IS-12 controllable device with WebSocket transport.
@@ -411,6 +469,8 @@ Example flows are available in the `examples` directory:
 - **is12-control-example.json**: IS-12 device control demonstration
 - **is07-endpoint-smartpanel-example.json**: IS-07 endpoint with RIEDEL Smartpanel integration examples
 - **riedel-artist-example.json**: RIEDEL Artist intercom matrix control workflows
+- **riedel-smartpanel-rsp1216hl-example.json**: Complete RSP-1216HL SmartPanel example with LED/display control
+- **riedel-smartpanel-rsp1232hl-example.json**: Complete RSP-1232HL SmartPanel example with 32-key support
 
 ## License
 

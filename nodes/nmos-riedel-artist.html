@@ -14,6 +14,7 @@ RED.nodes.registerType('nmos-riedel-artist',{
         enableAudioRouting: {value:true},
         enableKeyControl: {value:true},
         matrixSourceId: {value:""},
+        smartpanelPreset: {value:""},
         nodeId: {value:""},
         deviceId: {value:""},
         senderId: {value:""},
@@ -95,8 +96,17 @@ RED.nodes.registerType('nmos-riedel-artist',{
             <option value="smartpanel">Smartpanel</option>
         </select>
     </div>
+    <div class="form-row">
+        <label for="node-input-smartpanelPreset"><i class="fa fa-microchip"></i> SmartPanel Preset</label>
+        <select id="node-input-smartpanelPreset">
+            <option value="">None</option>
+            <option value="RSP-1216HL">RSP-1216HL (16 keys, 4 displays, 4 rotaries, 8 leverkeys)</option>
+            <option value="RSP-1232HL">RSP-1232HL (32 keys, 4 displays, 4 rotaries, 16 leverkeys)</option>
+        </select>
+    </div>
     <div class="form-tip">
-        <strong>Panel Type:</strong> Select the RIEDEL Artist panel model. Generic works with all types.
+        <strong>Panel Type:</strong> Select the RIEDEL Artist panel model. Generic works with all types.<br/>
+        <strong>SmartPanel Preset:</strong> For Riedel 1200 series SmartPanels, select the appropriate model for enhanced LED and display control.
     </div>
     
     <hr/>
@@ -278,6 +288,47 @@ RED.nodes.registerType('nmos-riedel-artist',{
 };</pre>
     <p>Update panel status information and publish via MQTT.</p>
     
+    <p><strong>Set LED Color (SmartPanel):</strong></p>
+    <pre>msg.payload = {
+    action: "set_led_color",
+    keyId: 5,
+    color: "red",  // red, green, amber, off
+    brightness: 100  // 0-100, optional, default 100
+};</pre>
+    <p>Control LED color and brightness for a SmartPanel key.</p>
+    
+    <p><strong>Send Display Text (SmartPanel):</strong></p>
+    <pre>msg.payload = {
+    action: "send_display_text",
+    displayId: 1,
+    text: "Line 1\nLine 2",  // String or array of 2 lines
+    brightness: 100,  // optional, 0-100
+    scroll: false  // optional
+};</pre>
+    <p>Write text to a SmartPanel OLED display (max 2 lines, 16 chars each).</p>
+    
+    <p><strong>Send Display Line (SmartPanel):</strong></p>
+    <pre>msg.payload = {
+    action: "send_display_line",
+    displayId: 1,
+    lineNumber: 1,  // 1 or 2
+    text: "Status: Ready",  // max 16 chars
+    brightness: 100  // optional
+};</pre>
+    <p>Write text to a specific line of a SmartPanel display.</p>
+    
+    <p><strong>Apply Color Profile (SmartPanel):</strong></p>
+    <pre>msg.payload = {
+    action: "apply_color_profile",
+    keyId: 5,
+    profile: "active"  // idle, active, warning, off
+};</pre>
+    <p>Apply a predefined color profile to a key LED.</p>
+    
+    <p><strong>Get SmartPanel Preset:</strong></p>
+    <pre>msg.payload = { action: "get_smartpanel_preset" };</pre>
+    <p>Returns the active SmartPanel preset configuration.</p>
+    
     <p><strong>Clear History/Keys/Routes:</strong></p>
     <pre>// Clear command history
 msg.payload = { action: "clear_history" };
@@ -317,9 +368,39 @@ msg.payload = { action: "clear_routes" };</pre>
     <p>The node automatically recognizes these Artist-specific MQTT event patterns:</p>
     <ul>
         <li><strong>Key Actions:</strong> <code>artist/key/N/press</code>, <code>artist/key/N/release</code>, <code>artist/key/N/toggle</code></li>
+        <li><strong>Button Actions (SmartPanel):</strong> <code>button/N/press</code>, <code>button/N/release</code></li>
+        <li><strong>LeverKey Actions (SmartPanel):</strong> <code>leverkey/N/up</code>, <code>leverkey/N/down</code></li>
+        <li><strong>Rotary Encoder (SmartPanel):</strong> <code>rotary/N/left</code>, <code>rotary/N/right</code>, <code>rotary/N/push</code></li>
         <li><strong>Audio Routes:</strong> <code>artist/route/{source-id}/{destination-id}</code></li>
         <li><strong>Panel Registration:</strong> <code>artist/panel/register</code></li>
         <li><strong>Matrix Configuration:</strong> <code>artist/matrix/config</code>, <code>artist/matrix/inputs</code>, <code>artist/matrix/outputs</code></li>
+    </ul>
+    
+    <h3>SmartPanel 1200 Series Support</h3>
+    <p>The node includes built-in support for Riedel 1200 series SmartPanels:</p>
+    
+    <h4>RSP-1216HL (16 keys, 4 displays, 4 rotaries, 8 leverkeys)</h4>
+    <ul>
+        <li>16 programmable keys with RGB LEDs</li>
+        <li>8 LeverKey switches (dual-position)</li>
+        <li>4 OLED displays (2 lines, 16 chars each)</li>
+        <li>4 rotary encoders with push buttons</li>
+    </ul>
+    
+    <h4>RSP-1232HL (32 keys, 4 displays, 4 rotaries, 16 leverkeys)</h4>
+    <ul>
+        <li>32 programmable keys with RGB LEDs</li>
+        <li>16 LeverKey switches (dual-position)</li>
+        <li>4 OLED displays (2 lines, 16 chars each)</li>
+        <li>4 rotary encoders with push buttons</li>
+    </ul>
+    
+    <h4>SmartPanel Features</h4>
+    <ul>
+        <li><strong>LED Control:</strong> Set color (red/green/amber/off) and brightness (0-100) for any key</li>
+        <li><strong>Display Control:</strong> Write text to any of the 4 displays, with per-line control</li>
+        <li><strong>Input Events:</strong> Receive button press/release, leverkey up/down, and rotary left/right/push events</li>
+        <li><strong>Color Profiles:</strong> Predefined profiles (idle/active/warning/off) for quick LED state changes</li>
     </ul>
     
     <h3>Integration with RIEDEL Artist</h3>
