@@ -1,0 +1,256 @@
+[
+    {
+        "id": "smartpanel-example",
+        "type": "tab",
+        "label": "RIEDEL SmartPanel Example",
+        "disabled": false,
+        "info": "Example flow demonstrating RIEDEL SmartPanel integration with IS-07 Endpoint"
+    },
+    {
+        "id": "endpoint-node",
+        "type": "nmos-is07-endpoint",
+        "z": "smartpanel-example",
+        "name": "SmartPanel Endpoint",
+        "registry": "nmos-registry-config",
+        "mqttBroker": "mqtt://localhost:1883",
+        "deviceLabel": "SmartPanel Control Endpoint",
+        "deviceDescription": "RIEDEL SmartPanel Integration",
+        "receiverLabel": "SmartPanel Receiver",
+        "subscriptionFilter": "x-nmos/events/1.0/+/+",
+        "mqttQos": "1",
+        "sendStatusUpdates": true,
+        "parseSmartpanel": true,
+        "x": 340,
+        "y": 200,
+        "wires": [["process-smartpanel"]]
+    },
+    {
+        "id": "process-smartpanel",
+        "type": "function",
+        "z": "smartpanel-example",
+        "name": "Process SmartPanel Events",
+        "func": "// Process incoming SmartPanel control events\nif (msg.smartpanel && msg.smartpanel.commands) {\n    const outputs = [];\n    \n    for (const cmd of msg.smartpanel.commands) {\n        if (cmd.type === 'leverkey') {\n            // LeverKey moved - send display update\n            outputs.push({\n                payload: {\n                    action: 'send_display_text',\n                    displayId: cmd.leverkey,\n                    text: `Lever ${cmd.direction.toUpperCase()}`,\n                    options: {\n                        color: cmd.direction === 'up' ? 'green' : 'amber',\n                        brightness: 100\n                    }\n                },\n                topic: 'leverkey',\n                leverkey: cmd.leverkey,\n                direction: cmd.direction\n            });\n        } else if (cmd.type === 'rotary') {\n            // Rotary control - handle different actions\n            let text = '';\n            let color = 'white';\n            \n            switch(cmd.action) {\n                case 'push':\n                    text = 'SELECTED';\n                    color = 'green';\n                    break;\n                case 'left':\n                    text = '◄ LEFT';\n                    color = 'amber';\n                    break;\n                case 'right':\n                    text = 'RIGHT ►';\n                    color = 'amber';\n                    break;\n            }\n            \n            outputs.push({\n                payload: {\n                    action: 'send_display_text',\n                    displayId: cmd.rotary,\n                    text: text,\n                    options: { color: color }\n                },\n                topic: 'rotary',\n                rotary: cmd.rotary,\n                action: cmd.action\n            });\n        } else if (cmd.type === 'button') {\n            // Button press - show confirmation\n            outputs.push({\n                payload: {\n                    action: 'send_display_text',\n                    displayId: cmd.button,\n                    text: cmd.pressed ? 'PRESSED' : 'RELEASED',\n                    options: {\n                        color: cmd.pressed ? 'red' : 'green'\n                    }\n                },\n                topic: 'button',\n                button: cmd.button,\n                pressed: cmd.pressed\n            });\n        }\n    }\n    \n    // Send all display updates back to endpoint\n    return [outputs];\n}\n\n// Pass through other messages\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 580,
+        "y": 200,
+        "wires": [["send-to-endpoint", "debug-events"]]
+    },
+    {
+        "id": "send-to-endpoint",
+        "type": "link out",
+        "z": "smartpanel-example",
+        "name": "To Endpoint",
+        "links": ["endpoint-input"],
+        "x": 795,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "endpoint-input",
+        "type": "link in",
+        "z": "smartpanel-example",
+        "name": "Endpoint Input",
+        "links": ["send-to-endpoint"],
+        "x": 145,
+        "y": 200,
+        "wires": [["endpoint-node"]]
+    },
+    {
+        "id": "debug-events",
+        "type": "debug",
+        "z": "smartpanel-example",
+        "name": "SmartPanel Events",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 810,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "test-leverkey-up",
+        "type": "inject",
+        "z": "smartpanel-example",
+        "name": "Test: LeverKey 1 Up",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "x-nmos/events/1.0/test-source/object",
+        "payload": "{\"grain_type\":\"event\",\"source_id\":\"test-source\",\"flow_id\":\"test-flow\",\"origin_timestamp\":\"1234567890:000000000\",\"sync_timestamp\":\"1234567890:000000000\",\"creation_timestamp\":\"1234567890:000000000\",\"rate\":{\"numerator\":0,\"denominator\":1},\"duration\":{\"numerator\":0,\"denominator\":1},\"grain\":{\"type\":\"urn:x-nmos:format:data.event\",\"topic\":\"control\",\"data\":[{\"path\":\"leverkey/1/up\",\"pre\":false,\"post\":true}]}}",
+        "payloadType": "json",
+        "x": 170,
+        "y": 360,
+        "wires": [["simulate-mqtt"]]
+    },
+    {
+        "id": "test-leverkey-down",
+        "type": "inject",
+        "z": "smartpanel-example",
+        "name": "Test: LeverKey 2 Down",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "x-nmos/events/1.0/test-source/object",
+        "payload": "{\"grain_type\":\"event\",\"source_id\":\"test-source\",\"flow_id\":\"test-flow\",\"origin_timestamp\":\"1234567890:000000000\",\"sync_timestamp\":\"1234567890:000000000\",\"creation_timestamp\":\"1234567890:000000000\",\"rate\":{\"numerator\":0,\"denominator\":1},\"duration\":{\"numerator\":0,\"denominator\":1},\"grain\":{\"type\":\"urn:x-nmos:format:data.event\",\"topic\":\"control\",\"data\":[{\"path\":\"leverkey/2/down\",\"pre\":false,\"post\":true}]}}",
+        "payloadType": "json",
+        "x": 180,
+        "y": 400,
+        "wires": [["simulate-mqtt"]]
+    },
+    {
+        "id": "test-rotary-push",
+        "type": "inject",
+        "z": "smartpanel-example",
+        "name": "Test: Rotary 1 Push",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "x-nmos/events/1.0/test-source/object",
+        "payload": "{\"grain_type\":\"event\",\"source_id\":\"test-source\",\"flow_id\":\"test-flow\",\"origin_timestamp\":\"1234567890:000000000\",\"sync_timestamp\":\"1234567890:000000000\",\"creation_timestamp\":\"1234567890:000000000\",\"rate\":{\"numerator\":0,\"denominator\":1},\"duration\":{\"numerator\":0,\"denominator\":1},\"grain\":{\"type\":\"urn:x-nmos:format:data.event\",\"topic\":\"control\",\"data\":[{\"path\":\"rotary/1/push\",\"pre\":false,\"post\":true}]}}",
+        "payloadType": "json",
+        "x": 170,
+        "y": 440,
+        "wires": [["simulate-mqtt"]]
+    },
+    {
+        "id": "test-rotary-left",
+        "type": "inject",
+        "z": "smartpanel-example",
+        "name": "Test: Rotary 2 Left",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "x-nmos/events/1.0/test-source/object",
+        "payload": "{\"grain_type\":\"event\",\"source_id\":\"test-source\",\"flow_id\":\"test-flow\",\"origin_timestamp\":\"1234567890:000000000\",\"sync_timestamp\":\"1234567890:000000000\",\"creation_timestamp\":\"1234567890:000000000\",\"rate\":{\"numerator\":0,\"denominator\":1},\"duration\":{\"numerator\":0,\"denominator\":1},\"grain\":{\"type\":\"urn:x-nmos:format:data.event\",\"topic\":\"control\",\"data\":[{\"path\":\"rotary/2/left\",\"pre\":0,\"post\":1}]}}",
+        "payloadType": "json",
+        "x": 170,
+        "y": 480,
+        "wires": [["simulate-mqtt"]]
+    },
+    {
+        "id": "test-rotary-right",
+        "type": "inject",
+        "z": "smartpanel-example",
+        "name": "Test: Rotary 3 Right",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "x-nmos/events/1.0/test-source/object",
+        "payload": "{\"grain_type\":\"event\",\"source_id\":\"test-source\",\"flow_id\":\"test-flow\",\"origin_timestamp\":\"1234567890:000000000\",\"sync_timestamp\":\"1234567890:000000000\",\"creation_timestamp\":\"1234567890:000000000\",\"rate\":{\"numerator\":0,\"denominator\":1},\"duration\":{\"numerator\":0,\"denominator\":1},\"grain\":{\"type\":\"urn:x-nmos:format:data.event\",\"topic\":\"control\",\"data\":[{\"path\":\"rotary/3/right\",\"pre\":0,\"post\":1}]}}",
+        "payloadType": "json",
+        "x": 180,
+        "y": 520,
+        "wires": [["simulate-mqtt"]]
+    },
+    {
+        "id": "simulate-mqtt",
+        "type": "comment",
+        "z": "smartpanel-example",
+        "name": "Note: These inject nodes simulate MQTT messages that would come from a real SmartPanel",
+        "info": "In a real deployment, these messages would come from:\n- A RIEDEL SmartPanel publishing to MQTT\n- An nmos-is07-sender node\n- Another IS-07 event source\n\nThe inject nodes here allow testing the SmartPanel integration without needing the actual hardware.",
+        "x": 360,
+        "y": 440,
+        "wires": []
+    },
+    {
+        "id": "routing-example",
+        "type": "inject",
+        "z": "smartpanel-example",
+        "name": "Configure Routing",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"action\":\"configure_smartpanel_routing\",\"panelId\":\"panel-1\",\"routingConfig\":{\"source\":\"audio-input-1\",\"destination\":\"audio-output-1\",\"mode\":\"bidirectional\"}}",
+        "payloadType": "json",
+        "x": 180,
+        "y": 580,
+        "wires": [["endpoint-input"]]
+    },
+    {
+        "id": "display-text-example",
+        "type": "inject",
+        "z": "smartpanel-example",
+        "name": "Send Display Text",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"action\":\"send_display_text\",\"displayId\":1,\"text\":\"Hello SmartPanel!\",\"options\":{\"color\":\"green\",\"brightness\":100}}",
+        "payloadType": "json",
+        "x": 180,
+        "y": 620,
+        "wires": [["endpoint-input"]]
+    }
+]
