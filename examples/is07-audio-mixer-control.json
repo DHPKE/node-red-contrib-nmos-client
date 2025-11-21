@@ -1,0 +1,245 @@
+[
+    {
+        "id": "audio-mixer-flow",
+        "type": "tab",
+        "label": "IS-07 Audio Mixer Control",
+        "disabled": false,
+        "info": "Audio mixer control via WebSocket transport.\n\nFeatures:\n- Fader control (8 channels)\n- Mute/unmute controls\n- WebSocket transport for low latency\n- Bidirectional feedback"
+    },
+    {
+        "id": "fader-1",
+        "type": "inject",
+        "z": "audio-mixer-flow",
+        "name": "Fader 1: 75%",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "payload": "{\"fader\":1,\"value\":0.75}",
+        "payloadType": "json",
+        "x": 120,
+        "y": 80,
+        "wires": [
+            [
+                "fader-control"
+            ]
+        ]
+    },
+    {
+        "id": "fader-2",
+        "type": "inject",
+        "z": "audio-mixer-flow",
+        "name": "Fader 2: 50%",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "payload": "{\"fader\":2,\"value\":0.5}",
+        "payloadType": "json",
+        "x": 120,
+        "y": 120,
+        "wires": [
+            [
+                "fader-control"
+            ]
+        ]
+    },
+    {
+        "id": "mute-1",
+        "type": "inject",
+        "z": "audio-mixer-flow",
+        "name": "Mute Ch 1",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "payload": "{\"channel\":1,\"muted\":true}",
+        "payloadType": "json",
+        "x": 120,
+        "y": 200,
+        "wires": [
+            [
+                "mute-control"
+            ]
+        ]
+    },
+    {
+        "id": "unmute-1",
+        "type": "inject",
+        "z": "audio-mixer-flow",
+        "name": "Unmute Ch 1",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "payload": "{\"channel\":1,\"muted\":false}",
+        "payloadType": "json",
+        "x": 130,
+        "y": 240,
+        "wires": [
+            [
+                "mute-control"
+            ]
+        ]
+    },
+    {
+        "id": "fader-control",
+        "type": "function",
+        "z": "audio-mixer-flow",
+        "name": "Fader Control",
+        "func": "const faderNum = msg.payload.fader;\nconst faderValue = msg.payload.value;\n\nreturn {\n    payload: {\n        path: `/mixer/fader/${faderNum}`,\n        value: faderValue,\n        timestamp: Date.now()\n    }\n};",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 310,
+        "y": 100,
+        "wires": [
+            [
+                "mixer-sender"
+            ]
+        ]
+    },
+    {
+        "id": "mute-control",
+        "type": "function",
+        "z": "audio-mixer-flow",
+        "name": "Mute Control",
+        "func": "const channel = msg.payload.channel;\nconst muted = msg.payload.muted;\n\nreturn {\n    payload: {\n        path: `/mixer/channel/${channel}/mute`,\n        value: muted,\n        timestamp: Date.now()\n    }\n};",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 310,
+        "y": 220,
+        "wires": [
+            [
+                "mixer-sender"
+            ]
+        ]
+    },
+    {
+        "id": "mixer-sender",
+        "type": "nmos-is07-sender",
+        "z": "audio-mixer-flow",
+        "name": "Mixer Control Sender",
+        "registry": "nmos-config-1",
+        "transportType": "websocket",
+        "wsPort": 3002,
+        "httpPort": 1880,
+        "deviceLabel": "Audio Mixer Control Panel",
+        "senderLabel": "Mixer Control",
+        "eventType": "object",
+        "x": 540,
+        "y": 160,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "mixer-receiver",
+        "type": "nmos-is07-receiver",
+        "z": "audio-mixer-flow",
+        "name": "Mixer Control Receiver",
+        "registry": "nmos-config-1",
+        "transportType": "websocket",
+        "wsPort": 3001,
+        "httpPort": 1880,
+        "deviceLabel": "Audio Mixer Device",
+        "receiverLabel": "Mixer Control Receiver",
+        "subscriptionFilter": "*",
+        "x": 160,
+        "y": 400,
+        "wires": [
+            [
+                "execute-command"
+            ]
+        ]
+    },
+    {
+        "id": "execute-command",
+        "type": "function",
+        "z": "audio-mixer-flow",
+        "name": "Execute Mixer Command",
+        "func": "const grain = msg.payload;\nif (!grain || !grain.grain || !grain.grain.data) {\n    return null;\n}\n\nconst outputs = [null, null];\n\nfor (const item of grain.grain.data) {\n    if (!item.path) continue;\n    \n    // Parse fader commands\n    if (item.path.includes('/mixer/fader/')) {\n        const match = item.path.match(/fader\\/(\\d+)/);\n        if (match) {\n            outputs[0] = {\n                payload: {\n                    type: 'fader',\n                    channel: parseInt(match[1]),\n                    value: item.value,\n                    display: `Fader ${match[1]}: ${Math.round(item.value * 100)}%`\n                }\n            };\n        }\n    }\n    \n    // Parse mute commands\n    if (item.path.includes('/mixer/channel/') && item.path.includes('/mute')) {\n        const match = item.path.match(/channel\\/(\\d+)/);\n        if (match) {\n            outputs[1] = {\n                payload: {\n                    type: 'mute',\n                    channel: parseInt(match[1]),\n                    muted: item.value,\n                    display: `Channel ${match[1]}: ${item.value ? 'MUTED' : 'UNMUTED'}`\n                }\n            };\n        }\n    }\n}\n\nreturn outputs;",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 410,
+        "y": 400,
+        "wires": [
+            [
+                "fader-output"
+            ],
+            [
+                "mute-output"
+            ]
+        ]
+    },
+    {
+        "id": "fader-output",
+        "type": "debug",
+        "z": "audio-mixer-flow",
+        "name": "Fader Actions",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "complete": "payload",
+        "x": 640,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "mute-output",
+        "type": "debug",
+        "z": "audio-mixer-flow",
+        "name": "Mute Actions",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "complete": "payload",
+        "x": 640,
+        "y": 420,
+        "wires": []
+    },
+    {
+        "id": "comment-control",
+        "type": "comment",
+        "z": "audio-mixer-flow",
+        "name": "Control Panel - Send fader and mute commands via WebSocket",
+        "info": "",
+        "x": 240,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "comment-receiver",
+        "type": "comment",
+        "z": "audio-mixer-flow",
+        "name": "Mixer Device - Receives and executes control commands",
+        "info": "",
+        "x": 230,
+        "y": 360,
+        "wires": []
+    }
+]

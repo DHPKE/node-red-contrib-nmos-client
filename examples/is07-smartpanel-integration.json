@@ -1,0 +1,428 @@
+[
+    {
+        "id": "smartpanel-flow",
+        "type": "tab",
+        "label": "IS-07 Smartpanel Integration",
+        "disabled": false,
+        "info": "Complete smartpanel integration workflow.\n\nFeatures:\n- Parse smartpanel commands (buttons, tally, faders, GPIO)\n- Route commands by type\n- Send tally feedback to smartpanel\n- Both MQTT and WebSocket transport examples"
+    },
+    {
+        "id": "smartpanel-receiver",
+        "type": "nmos-is07-receiver",
+        "z": "smartpanel-flow",
+        "name": "Smartpanel Receiver",
+        "registry": "nmos-config-1",
+        "transportType": "both",
+        "mqttBroker": "mqtt://localhost:1883",
+        "wsPort": 3001,
+        "subscriptionFilter": "x-nmos/events/smartpanel/#",
+        "x": 160,
+        "y": 100,
+        "wires": [
+            [
+                "parse-smartpanel"
+            ]
+        ]
+    },
+    {
+        "id": "parse-smartpanel",
+        "type": "function",
+        "z": "smartpanel-flow",
+        "name": "Parse Smartpanel Commands",
+        "func": "// Parse smartpanel-style commands from IS-07 grains\nconst parseSmartpanelCommand = (grain) => {\n    if (!grain || !grain.grain || !grain.grain.data) return null;\n\n    const data = grain.grain.data;\n    const commands = [];\n\n    for (const item of data) {\n        if (!item.path) continue;\n\n        // Parse button commands\n        if (item.path.includes('/button/')) {\n            const buttonMatch = item.path.match(/button\\/(\\d+)/);\n            if (buttonMatch) {\n                commands.push({\n                    type: 'button',\n                    button: parseInt(buttonMatch[1]),\n                    pressed: item.post === true || item.post === 1,\n                    timestamp: grain.origin_timestamp\n                });\n            }\n        }\n\n        // Parse tally commands\n        if (item.path.includes('/tally/')) {\n            const tallyMatch = item.path.match(/tally\\/(red|yellow|green)/);\n            if (tallyMatch) {\n                commands.push({\n                    type: 'tally',\n                    color: tallyMatch[1],\n                    state: item.post === true || item.post === 1,\n                    timestamp: grain.origin_timestamp\n                });\n            }\n        }\n\n        // Parse fader commands\n        if (item.path.includes('/fader/')) {\n            const faderMatch = item.path.match(/fader\\/(\\d+)/);\n            if (faderMatch) {\n                commands.push({\n                    type: 'fader',\n                    fader: parseInt(faderMatch[1]),\n                    value: parseFloat(item.post),\n                    timestamp: grain.origin_timestamp\n                });\n            }\n        }\n\n        // Parse GPIO commands\n        if (item.path.includes('/gpio/')) {\n            const gpioMatch = item.path.match(/gpio\\/(\\d+)/);\n            if (gpioMatch) {\n                commands.push({\n                    type: 'gpio',\n                    pin: parseInt(gpioMatch[1]),\n                    state: item.post === true || item.post === 1,\n                    timestamp: grain.origin_timestamp\n                });\n            }\n        }\n    }\n\n    return commands.length > 0 ? commands : null;\n};\n\n// Parse incoming grain\nconst commands = parseSmartpanelCommand(msg.payload);\n\nif (commands && commands.length > 0) {\n    // Create output array for switch node\n    return commands.map(cmd => ({\n        payload: cmd,\n        topic: cmd.type\n    }));\n}\n\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 410,
+        "y": 100,
+        "wires": [
+            [
+                "split-commands"
+            ]
+        ]
+    },
+    {
+        "id": "split-commands",
+        "type": "split",
+        "z": "smartpanel-flow",
+        "name": "Split Commands",
+        "splt": "\\n",
+        "spltType": "str",
+        "arraySplt": 1,
+        "arraySpltType": "len",
+        "stream": false,
+        "addname": "",
+        "x": 620,
+        "y": 100,
+        "wires": [
+            [
+                "route-command-type"
+            ]
+        ]
+    },
+    {
+        "id": "route-command-type",
+        "type": "switch",
+        "z": "smartpanel-flow",
+        "name": "Route by Command Type",
+        "property": "topic",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "button",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "tally",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "fader",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "gpio",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 4,
+        "x": 820,
+        "y": 100,
+        "wires": [
+            [
+                "button-handler"
+            ],
+            [
+                "tally-handler"
+            ],
+            [
+                "fader-handler"
+            ],
+            [
+                "gpio-handler"
+            ]
+        ]
+    },
+    {
+        "id": "button-handler",
+        "type": "function",
+        "z": "smartpanel-flow",
+        "name": "Handle Button",
+        "func": "const button = msg.payload.button;\nconst pressed = msg.payload.pressed;\n\nreturn {\n    payload: {\n        button: button,\n        pressed: pressed,\n        display: `Button ${button} ${pressed ? 'PRESSED' : 'RELEASED'}`\n    }\n};",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1050,
+        "y": 40,
+        "wires": [
+            [
+                "button-debug"
+            ]
+        ]
+    },
+    {
+        "id": "tally-handler",
+        "type": "function",
+        "z": "smartpanel-flow",
+        "name": "Handle Tally",
+        "func": "const color = msg.payload.color;\nconst state = msg.payload.state;\n\nconst emoji = {\n    red: '🔴',\n    yellow: '🟡',\n    green: '🟢'\n};\n\nreturn {\n    payload: {\n        color: color,\n        state: state,\n        display: `${emoji[color]} Tally ${color.toUpperCase()} ${state ? 'ON' : 'OFF'}`\n    }\n};",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1050,
+        "y": 80,
+        "wires": [
+            [
+                "tally-debug"
+            ]
+        ]
+    },
+    {
+        "id": "fader-handler",
+        "type": "function",
+        "z": "smartpanel-flow",
+        "name": "Handle Fader",
+        "func": "const fader = msg.payload.fader;\nconst value = msg.payload.value;\n\nreturn {\n    payload: {\n        fader: fader,\n        value: value,\n        percentage: Math.round(value * 100),\n        display: `Fader ${fader}: ${Math.round(value * 100)}%`\n    }\n};",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1050,
+        "y": 120,
+        "wires": [
+            [
+                "fader-debug"
+            ]
+        ]
+    },
+    {
+        "id": "gpio-handler",
+        "type": "function",
+        "z": "smartpanel-flow",
+        "name": "Handle GPIO",
+        "func": "const pin = msg.payload.pin;\nconst state = msg.payload.state;\n\nreturn {\n    payload: {\n        pin: pin,\n        state: state,\n        display: `GPIO Pin ${pin}: ${state ? 'HIGH' : 'LOW'}`\n    }\n};",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1050,
+        "y": 160,
+        "wires": [
+            [
+                "gpio-debug"
+            ]
+        ]
+    },
+    {
+        "id": "button-debug",
+        "type": "debug",
+        "z": "smartpanel-flow",
+        "name": "Button Events",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "complete": "payload",
+        "x": 1250,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "tally-debug",
+        "type": "debug",
+        "z": "smartpanel-flow",
+        "name": "Tally Events",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "complete": "payload",
+        "x": 1250,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "fader-debug",
+        "type": "debug",
+        "z": "smartpanel-flow",
+        "name": "Fader Events",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "complete": "payload",
+        "x": 1250,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "gpio-debug",
+        "type": "debug",
+        "z": "smartpanel-flow",
+        "name": "GPIO Events",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "complete": "payload",
+        "x": 1250,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "test-button",
+        "type": "inject",
+        "z": "smartpanel-flow",
+        "name": "Test: Button 5 Pressed",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "payload": "{\"grain\":{\"data\":[{\"path\":\"/button/5\",\"post\":1}]},\"origin_timestamp\":\"1234567890:500000000\"}",
+        "payloadType": "json",
+        "x": 180,
+        "y": 320,
+        "wires": [
+            [
+                "parse-smartpanel"
+            ]
+        ]
+    },
+    {
+        "id": "test-tally",
+        "type": "inject",
+        "z": "smartpanel-flow",
+        "name": "Test: Red Tally",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "payload": "{\"grain\":{\"data\":[{\"path\":\"/tally/red\",\"post\":true}]},\"origin_timestamp\":\"1234567890:500000000\"}",
+        "payloadType": "json",
+        "x": 150,
+        "y": 360,
+        "wires": [
+            [
+                "parse-smartpanel"
+            ]
+        ]
+    },
+    {
+        "id": "test-fader",
+        "type": "inject",
+        "z": "smartpanel-flow",
+        "name": "Test: Fader 3 at 65%",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "payload": "{\"grain\":{\"data\":[{\"path\":\"/fader/3\",\"post\":0.65}]},\"origin_timestamp\":\"1234567890:500000000\"}",
+        "payloadType": "json",
+        "x": 170,
+        "y": 400,
+        "wires": [
+            [
+                "parse-smartpanel"
+            ]
+        ]
+    },
+    {
+        "id": "test-gpio",
+        "type": "inject",
+        "z": "smartpanel-flow",
+        "name": "Test: GPIO 12 High",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "payload": "{\"grain\":{\"data\":[{\"path\":\"/gpio/12\",\"post\":1}]},\"origin_timestamp\":\"1234567890:500000000\"}",
+        "payloadType": "json",
+        "x": 160,
+        "y": 440,
+        "wires": [
+            [
+                "parse-smartpanel"
+            ]
+        ]
+    },
+    {
+        "id": "feedback-red",
+        "type": "inject",
+        "z": "smartpanel-flow",
+        "name": "Send Red Tally Feedback",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "payload": "{\"path\":\"/tally/red\",\"post\":true}",
+        "payloadType": "json",
+        "x": 180,
+        "y": 540,
+        "wires": [
+            [
+                "feedback-sender"
+            ]
+        ]
+    },
+    {
+        "id": "feedback-yellow",
+        "type": "inject",
+        "z": "smartpanel-flow",
+        "name": "Send Yellow Tally Feedback",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "payload": "{\"path\":\"/tally/yellow\",\"post\":true}",
+        "payloadType": "json",
+        "x": 190,
+        "y": 580,
+        "wires": [
+            [
+                "feedback-sender"
+            ]
+        ]
+    },
+    {
+        "id": "feedback-sender",
+        "type": "nmos-is07-sender",
+        "z": "smartpanel-flow",
+        "name": "Tally Feedback Sender",
+        "registry": "nmos-config-1",
+        "transportType": "both",
+        "mqttBroker": "mqtt://localhost:1883",
+        "wsPort": 3002,
+        "deviceLabel": "Smartpanel Feedback",
+        "senderLabel": "Tally Feedback",
+        "eventType": "object",
+        "x": 470,
+        "y": 560,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "comment-receive",
+        "type": "comment",
+        "z": "smartpanel-flow",
+        "name": "Receive and Parse Smartpanel Commands",
+        "info": "",
+        "x": 200,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "comment-test",
+        "type": "comment",
+        "z": "smartpanel-flow",
+        "name": "Test Commands - Simulate smartpanel input",
+        "info": "",
+        "x": 190,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "comment-feedback",
+        "type": "comment",
+        "z": "smartpanel-flow",
+        "name": "Tally Feedback - Send tally states back to smartpanel",
+        "info": "",
+        "x": 220,
+        "y": 500,
+        "wires": []
+    }
+]
