@@ -475,7 +475,9 @@ a=ts-refclk:localmac=${localMAC}`;
         
         const setupConnectionAPI = () => {
             const app = RED.httpNode || RED.httpAdmin;
-            const basePath = `/x-nmos/connection/${node.registry.connectionApiVersion}/single/receivers/${node.receiverId}`;
+            const version = node.registry.connectionApiVersion;
+            const apiRoot = `/x-nmos/connection/${version}`;
+            const basePath = `${apiRoot}/single/receivers/${node.receiverId}`;
             
             node.log(`Setting up IS-05 endpoints at: ${basePath}`);
             
@@ -491,6 +493,24 @@ a=ts-refclk:localmac=${localMAC}`;
                 }
                 next();
             };
+            
+            // GET /x-nmos/connection/{version}/ - Return API root with available endpoints
+            app.get(`${apiRoot}/`, middleware, (req, res) => {
+                node.log('GET /x-nmos/connection/{version}/');
+                res.json(['single/']);
+            });
+            
+            // GET /x-nmos/connection/{version}/single/ - Return available single resources
+            app.get(`${apiRoot}/single/`, middleware, (req, res) => {
+                node.log('GET /x-nmos/connection/{version}/single/');
+                res.json(['receivers/']);
+            });
+            
+            // GET /x-nmos/connection/{version}/single/receivers/ - Return list of receiver IDs
+            app.get(`${apiRoot}/single/receivers/`, middleware, (req, res) => {
+                node.log('GET /x-nmos/connection/{version}/single/receivers/');
+                res.json([`${node.receiverId}/`]);
+            });
             
             app.get(`${basePath}/staged`, middleware, (req, res) => {
                 node.log('GET /staged');
