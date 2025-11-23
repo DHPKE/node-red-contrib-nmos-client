@@ -613,7 +613,7 @@ a=ts-refclk:localmac=${localMAC}`;
                         receiverState.staged.master_enable = online;
                         receiverState.active.master_enable = online;
                         
-                        updateReceiverInRegistry();
+                        await updateReceiverInRegistry();
                         
                         return res.status(200).json({
                             status: 'success',
@@ -682,7 +682,7 @@ a=ts-refclk:localmac=${localMAC}`;
                                 apiVersion: apiVersion,
                                 registered: false,
                                 lastHeartbeat: Date.now(),
-                                priority: service.txt && service.txt.pri ? parseInt(service.txt.pri) : 100
+                                priority: service.txt && service.txt.pri ? parseInt(service.txt.pri, 10) : 100
                             });
                             
                             // Register with this registry
