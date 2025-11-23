@@ -496,19 +496,19 @@ a=ts-refclk:localmac=${localMAC}`;
             
             // GET /x-nmos/connection/{version}/ - Return API root with available endpoints
             app.get(`${apiRoot}/`, middleware, (req, res) => {
-                node.log('GET /x-nmos/connection/{version}/');
+                node.log(`GET ${apiRoot}/`);
                 res.json(['single/']);
             });
             
             // GET /x-nmos/connection/{version}/single/ - Return available single resources
             app.get(`${apiRoot}/single/`, middleware, (req, res) => {
-                node.log('GET /x-nmos/connection/{version}/single/');
+                node.log(`GET ${apiRoot}/single/`);
                 res.json(['receivers/']);
             });
             
             // GET /x-nmos/connection/{version}/single/receivers/ - Return list of receiver IDs
             app.get(`${apiRoot}/single/receivers/`, middleware, (req, res) => {
-                node.log('GET /x-nmos/connection/{version}/single/receivers/');
+                node.log(`GET ${apiRoot}/single/receivers/`);
                 res.json([`${node.receiverId}/`]);
             });
             
