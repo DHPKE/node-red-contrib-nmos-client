@@ -511,20 +511,38 @@ a=ts-refclk:localmac=${localMAC}`;
             
             // Devices endpoints
             app.get(`${basePath}/devices/`, jsonMiddleware, (req, res) => {
-                res.status(200).json([node.deviceId]);
+                res.status(200).json([buildDeviceResource()]);
             });
             
-            app.get(`${basePath}/devices/${node.deviceId}`, jsonMiddleware, (req, res) => {
-                res.status(200).json(buildDeviceResource());
+            app.get(`${basePath}/devices/:deviceId`, jsonMiddleware, (req, res) => {
+                const deviceId = req.params.deviceId;
+                if (deviceId === node.deviceId) {
+                    res.status(200).json(buildDeviceResource());
+                } else {
+                    res.status(404).json({
+                        code: 404,
+                        error: "Device not found",
+                        debug: `Device ${deviceId} does not exist`
+                    });
+                }
             });
             
             // Receivers endpoints
             app.get(`${basePath}/receivers/`, jsonMiddleware, (req, res) => {
-                res.status(200).json([node.receiverId]);
+                res.status(200).json([buildReceiverResource()]);
             });
             
-            app.get(`${basePath}/receivers/${node.receiverId}`, jsonMiddleware, (req, res) => {
-                res.status(200).json(buildReceiverResource());
+            app.get(`${basePath}/receivers/:receiverId`, jsonMiddleware, (req, res) => {
+                const receiverId = req.params.receiverId;
+                if (receiverId === node.receiverId) {
+                    res.status(200).json(buildReceiverResource());
+                } else {
+                    res.status(404).json({
+                        code: 404,
+                        error: "Receiver not found",
+                        debug: `Receiver ${receiverId} does not exist`
+                    });
+                }
             });
             
             // Empty arrays for sources, flows, senders
@@ -538,6 +556,16 @@ a=ts-refclk:localmac=${localMAC}`;
             
             app.get(`${basePath}/senders/`, jsonMiddleware, (req, res) => {
                 res.status(200).json([]);
+            });
+            
+            // 404 handler for Node API - must be after all valid routes
+            app.use(`${basePath}/*`, (req, res) => {
+                res.setHeader('Content-Type', 'application/json');
+                res.status(404).json({
+                    code: 404,
+                    error: "Not Found",
+                    debug: `Path ${req.path} not found in Node API`
+                });
             });
             
             node.log(`✓ IS-04 Node API ready`);
@@ -647,7 +675,7 @@ a=ts-refclk:localmac=${localMAC}`;
                 node.log('Starting DNS-SD discovery for NMOS registries...');
                 
                 // Browse for NMOS registration services
-                mdnsBrowser = bonjour.find({ type: 'nmos-register' }, (service) => {
+                mdnsBrowser = bonjour.find({ type: 'nmos-register', protocol: 'tcp' }, (service) => {
                     try {
                         node.log(`═══════════════════════════════════════`);
                         node.log(`Discovered NMOS Registry via DNS-SD:`);
@@ -712,10 +740,16 @@ a=ts-refclk:localmac=${localMAC}`;
             node.log(`Setting up IS-05 endpoints at: ${basePath}`);
             
             const middleware = (req, res, next) => {
-                res.setHeader('Content-Type', 'application/json');
                 res.setHeader('Access-Control-Allow-Origin', '*');
                 res.setHeader('Access-Control-Allow-Methods', 'GET, PATCH, OPTIONS');
                 res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+                
+                // Override res.json to ensure Content-Type doesn't include charset
+                const originalJson = res.json.bind(res);
+                res.json = function(data) {
+                    res.setHeader('Content-Type', 'application/json');
+                    return originalJson(data);
+                };
                 
                 if (req.method === 'OPTIONS') {
                     res.sendStatus(200);
