@@ -375,6 +375,104 @@ a=ts-refclk:localmac=${localMAC}`;
             }
         };
         
+        const setupNodeAPI = () => {
+            const app = RED.httpNode || RED.httpAdmin;
+            const version = node.registry.queryApiVersion;
+            const basePath = `/x-nmos/node/${version}`;
+            
+            node.log(`Setting up IS-04 Node API at: ${basePath}`);
+            
+            const middleware = (req, res, next) => {
+                res.setHeader('Content-Type', 'application/json');
+                res.setHeader('Access-Control-Allow-Origin', '*');
+                res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+                res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+                
+                if (req.method === 'OPTIONS') {
+                    res.sendStatus(200);
+                    return;
+                }
+                next();
+            };
+            
+            // GET /x-nmos/node/{version}/ - Return available endpoints
+            app.get(`${basePath}/`, middleware, (req, res) => {
+                node.log('GET /x-nmos/node/{version}/');
+                res.json(['self/', 'devices/', 'sources/', 'flows/', 'senders/', 'receivers/']);
+            });
+            
+            // GET /x-nmos/node/{version}/self/ - Return node resource
+            app.get(`${basePath}/self/`, middleware, (req, res) => {
+                node.log('GET /x-nmos/node/{version}/self/');
+                const nodeResource = buildNodeResource();
+                res.json(nodeResource);
+            });
+            
+            // GET /x-nmos/node/{version}/devices/ - Return devices array
+            app.get(`${basePath}/devices/`, middleware, (req, res) => {
+                node.log('GET /x-nmos/node/{version}/devices/');
+                const deviceResource = buildDeviceResource();
+                res.json([deviceResource]);
+            });
+            
+            // GET /x-nmos/node/{version}/devices/{deviceId} - Return specific device
+            app.get(`${basePath}/devices/:deviceId`, middleware, (req, res) => {
+                node.log(`GET /x-nmos/node/{version}/devices/${req.params.deviceId}`);
+                if (req.params.deviceId === node.deviceId) {
+                    const deviceResource = buildDeviceResource();
+                    res.json(deviceResource);
+                } else {
+                    res.status(404).json({
+                        code: 404,
+                        error: 'Device not found',
+                        debug: `Device ${req.params.deviceId} does not exist`
+                    });
+                }
+            });
+            
+            // GET /x-nmos/node/{version}/sources/ - Return empty array (no sources)
+            app.get(`${basePath}/sources/`, middleware, (req, res) => {
+                node.log('GET /x-nmos/node/{version}/sources/');
+                res.json([]);
+            });
+            
+            // GET /x-nmos/node/{version}/flows/ - Return empty array (no flows)
+            app.get(`${basePath}/flows/`, middleware, (req, res) => {
+                node.log('GET /x-nmos/node/{version}/flows/');
+                res.json([]);
+            });
+            
+            // GET /x-nmos/node/{version}/senders/ - Return empty array (no senders)
+            app.get(`${basePath}/senders/`, middleware, (req, res) => {
+                node.log('GET /x-nmos/node/{version}/senders/');
+                res.json([]);
+            });
+            
+            // GET /x-nmos/node/{version}/receivers/ - Return receivers array
+            app.get(`${basePath}/receivers/`, middleware, (req, res) => {
+                node.log('GET /x-nmos/node/{version}/receivers/');
+                const receiverResource = buildReceiverResource();
+                res.json([receiverResource]);
+            });
+            
+            // GET /x-nmos/node/{version}/receivers/{receiverId} - Return specific receiver
+            app.get(`${basePath}/receivers/:receiverId`, middleware, (req, res) => {
+                node.log(`GET /x-nmos/node/{version}/receivers/${req.params.receiverId}`);
+                if (req.params.receiverId === node.receiverId) {
+                    const receiverResource = buildReceiverResource();
+                    res.json(receiverResource);
+                } else {
+                    res.status(404).json({
+                        code: 404,
+                        error: 'Receiver not found',
+                        debug: `Receiver ${req.params.receiverId} does not exist`
+                    });
+                }
+            });
+            
+            node.log(`✓ IS-04 Node API ready: http://${localIP}:${node.httpPort}${basePath}/`);
+        };
+        
         const setupConnectionAPI = () => {
             const app = RED.httpNode || RED.httpAdmin;
             const basePath = `/x-nmos/connection/${node.registry.connectionApiVersion}/single/receivers/${node.receiverId}`;
@@ -491,6 +589,43 @@ a=ts-refclk:localmac=${localMAC}`;
             node.log(`✓ IS-05 API ready: ${connectionAPIBase}/single/receivers/${node.receiverId}`);
         };
         
+        const setupTestingFacade = () => {
+            const app = RED.httpNode || RED.httpAdmin;
+            const basePath = '/x-nmos/testquestion/v1.0';
+            
+            node.log(`Setting up Testing Facade at: ${basePath}`);
+            
+            const middleware = (req, res, next) => {
+                res.setHeader('Content-Type', 'application/json');
+                res.setHeader('Access-Control-Allow-Origin', '*');
+                res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+                res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+                
+                if (req.method === 'OPTIONS') {
+                    res.sendStatus(200);
+                    return;
+                }
+                next();
+            };
+            
+            // POST /x-nmos/testquestion/v1.0/ - Handle test questions
+            app.post(`${basePath}/`, middleware, (req, res) => {
+                node.log(`POST /x-nmos/testquestion/v1.0/ - ${JSON.stringify(req.body)}`);
+                
+                // Basic response for testing facade
+                // The actual implementation would depend on specific test requirements
+                res.json({
+                    status: 'ok',
+                    message: 'Test question received',
+                    timestamp: getTAITimestamp()
+                });
+            });
+            
+            node.log(`✓ Testing Facade ready: http://${localIP}:${node.httpPort}${basePath}/`);
+        };
+        
+        setupTestingFacade();
+        setupNodeAPI();
         setupConnectionAPI();
         
         registerWithRegistry().then(success => {
