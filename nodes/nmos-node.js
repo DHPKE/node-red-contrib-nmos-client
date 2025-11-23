@@ -610,7 +610,12 @@ a=ts-refclk:localmac=${localMAC}`;
             
             // POST /x-nmos/testquestion/v1.0/ - Handle test questions
             app.post(`${basePath}/`, middleware, (req, res) => {
-                node.log(`POST /x-nmos/testquestion/v1.0/ - ${JSON.stringify(req.body)}`);
+                try {
+                    const bodyStr = req.body ? JSON.stringify(req.body).substring(0, 200) : 'empty';
+                    node.log(`POST /x-nmos/testquestion/v1.0/ - ${bodyStr}`);
+                } catch (err) {
+                    node.log('POST /x-nmos/testquestion/v1.0/ - [body serialization failed]');
+                }
                 
                 // Basic response for testing facade
                 // The actual implementation would depend on specific test requirements
@@ -624,9 +629,9 @@ a=ts-refclk:localmac=${localMAC}`;
             node.log(`✓ Testing Facade ready: http://${localIP}:${node.httpPort}${basePath}/`);
         };
         
-        setupTestingFacade();
-        setupNodeAPI();
         setupConnectionAPI();
+        setupNodeAPI();
+        setupTestingFacade();
         
         registerWithRegistry().then(success => {
             if (success) {
